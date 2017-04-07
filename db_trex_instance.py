@@ -6,6 +6,7 @@ from db import DB
 class Trex(DB):
     # t-rex instance table
     __tablename__ = 'trex'
+    # t-rex id
     id = Column(Integer, primary_key=True)
     # t-rex instance hostname
     hostname = Column(String(64), unique=True)
@@ -29,7 +30,7 @@ class Trex(DB):
     version = Column(String(8))
     # t-rex instance description
     description = Column(Text)
-    # perhaps we nees donfig which bind with test's task
+    # perhaps donfig info id needed which bind with test's task
     # ??? config = Column(String)
 
     def __init__(self, hostname=None, ip4=None, ip6=None, fqdn=None, port=None, vm_id=None, host=None, trex_type=None, status='None', version=None, description=None):
