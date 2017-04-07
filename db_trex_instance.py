@@ -6,7 +6,7 @@ from db import DB
 class Trex(DB):
     # t-rex instance table
     __tablename__ = 'trex'
-    # t-rex id
+    # t-rex instance id
     id = Column(Integer, primary_key=True)
     # t-rex instance hostname
     hostname = Column(String(64), unique=True)
@@ -16,24 +16,24 @@ class Trex(DB):
     ip6 = Column(String(39), unique=True)
     # FQDN mng address
     fqdn = Column(String(256), unique=True)
-    # t-rex port
+    # t-rex instance port
     port = Column(Integer)
     # VM id
     vm_id = Column(String(64), unique=True)
     # hypervisor/cluster name
     host = Column(String(64))
-    # t-rex type (statefull/stateless)
+    # t-rex instance type (statefull/stateless)
     trex_type = Column(String(9))
     # current t-rex status (down, idle, testing, etc)
     status = Column(String(64))
-    # t-rex version
+    # t-rex instance software version
     version = Column(String(8))
     # t-rex instance description
     description = Column(Text)
     # perhaps donfig info id needed which bind with test's task
     # ??? config = Column(String)
 
-    def __init__(self, hostname=None, ip4=None, ip6=None, fqdn=None, port=None, vm_id=None, host=None, trex_type=None, status='None', version=None, description=None):
+    def __init__(self, hostname=None, ip4=None, ip6=None, fqdn=None, port=None, vm_id=None, host=None, trex_type=None, status=None, version=None, description=None):
         self.hostname = hostname
         self.ip4 = ip4
         self.ip6 = ip6

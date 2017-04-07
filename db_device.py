@@ -27,7 +27,7 @@ class Device(DB):
     # perhaps donfig info id needed which bind with test's task
     # ??? config = Column(String)
 
-    def __init__(self, name=None, ip4=None, ip6=None, fqdn=None, model=None, status='None', firmware=None, description=None):
+    def __init__(self, name=None, ip4=None, ip6=None, fqdn=None, model=None, status=None, firmware=None, description=None):
         self.name = name
         self.ip4 = ip4
         self.ip6 = ip6
