@@ -87,5 +87,10 @@ ENV/
 
 # Rope project settings
 .ropeproject
+<<<<<<< HEAD
 app/web_app.py
 db.sqlite
+=======
+db.sqlite
+web_app.py
+>>>>>>> ck
