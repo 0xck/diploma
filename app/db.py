@@ -215,6 +215,7 @@ class Device(DB):
         # return dict of args
         elif index == 'ALL_DICT':
             return dict(
+                id=self.id,
                 name=self.name,
                 ip4=self.ip4,
                 ip6=self.ip6,

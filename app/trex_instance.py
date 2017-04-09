@@ -16,7 +16,7 @@ def trex():
     return render_template(
         'trex_instance.html',
         title='T-rex: {0} detail'.format(trex_entr.hostname),
-        page_title='T-rex: {0} detail'.format(trex_entr.hostname),
+        page_title='<h1>T-rex: <i>{0}</i> detail</h1>'.format(trex_entr.hostname),
         content='''
         <p>Uniq id: {id}</p>
         <p>Hostname: {hostname}</p>
