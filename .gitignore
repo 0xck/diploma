@@ -88,6 +88,6 @@ ENV/
 # Rope project settings
 .ropeproject
 db.sqlite
-web_app.py
 penv/
+_unuse/
 
