@@ -32,19 +32,6 @@ class Trex(db.Model):
     # perhaps donfig info id needed which bind with test's task
     # ??? config = db.Column(db.String)
 
-    def __init__(self, hostname=None, ip4=None, ip6=None, fqdn=None, port=None, vm_id=None, host=None, mode=None, status=None, version=None, description=None):
-        self.hostname = hostname
-        self.ip4 = ip4
-        self.ip6 = ip6
-        self.fqdn = fqdn
-        self.port = port
-        self.vm_id = vm_id
-        self.host = host
-        self.mode = mode
-        self.status = status
-        self.version = version
-        self.description = description
-
     def __repr__(self):
         return '''
         id: {0},
@@ -146,17 +133,6 @@ class Device(db.Model):
     description = db.Column(db.Text)
     # perhaps donfig info id needed which bind with test's task
     # ??? config = db.Column(db.String)
-
-    '''def __init__(self, name=None, ip4=None, ip6=None, fqdn=None, vendor=None, model=None, status=None, firmware=None, description=None):
-        self.name = name
-        self.ip4 = ip4
-        self.ip6 = ip6
-        self.fqdn = fqdn
-        self.vendor = vendor
-        self.model = model
-        self.status = status
-        self.firmware = firmware
-        self.description = description'''
 
     def __repr__(self):
         return '''
