@@ -11,7 +11,7 @@ def test(
     # trex local config file
     conf='/etc/trex_cfg.yaml',
     # test duration
-    duration=300,
+    duration=60,
     # multiplier
     multiplier=1,
     # test pattern local file
@@ -19,7 +19,7 @@ def test(
     # latency checking packet number, if 0 latency test is disabled
     latency_num=0,
     # traffic warm up time
-    warm=60,
+    warm=10,
     # work as software appliance
     soft_test=True,
     # timeout before init interfacesand send traffic
