@@ -91,3 +91,4 @@ db.sqlite
 penv/
 _unuse/
 
+trex/conf/
