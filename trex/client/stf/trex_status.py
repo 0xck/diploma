@@ -3,7 +3,7 @@ from trex_stf_lib.trex_client import CTRexClient
 from jsonrpclib import ProtocolError
 
 
-def check(trex_mng='127.0.0.1', daemon_port=8090):
+def check(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
     # return information about trex server status and availability
     # making connection
     trex_connection = CTRexClient(trex_mng, trex_daemon_port=daemon_port)

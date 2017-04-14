@@ -4,7 +4,7 @@ from trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseError
 from jsonrpclib import ProtocolError
 
 
-def take(trex_mng='127.0.0.1', daemon_port=8090, user=None):
+def take(trex_mng='127.0.0.1', daemon_port=8090, user=None, **kwargs):
     # takes reservation
     # making connection
     trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
@@ -30,7 +30,7 @@ def take(trex_mng='127.0.0.1', daemon_port=8090, user=None):
     return reservation_status
 
 
-def check(trex_mng='127.0.0.1', daemon_port=8090):
+def check(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
     # chakes reservation
     # making connection
     trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
@@ -50,7 +50,7 @@ def check(trex_mng='127.0.0.1', daemon_port=8090):
     return reservation_status
 
 
-def cancel(trex_mng='127.0.0.1', daemon_port=8090, user=None):
+def cancel(trex_mng='127.0.0.1', daemon_port=8090, user=None, **kwargs):
     # cancels reservation
     # making connection
     trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
@@ -76,4 +76,4 @@ def cancel(trex_mng='127.0.0.1', daemon_port=8090, user=None):
 
 
 if __name__ == "__main__":
-    print(check(trex_mng='172.16.150.23'))
+    print(take(trex_mng='172.16.150.23'))
