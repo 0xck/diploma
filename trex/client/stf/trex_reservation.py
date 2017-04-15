@@ -1,6 +1,6 @@
-from trex_stf_lib.trex_client import CTRexClient
+from .trex_stf_lib.trex_client import CTRexClient
 # exceptions
-from trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseError
+from .trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseError
 from jsonrpclib import ProtocolError
 
 
@@ -75,5 +75,7 @@ def cancel(trex_mng='127.0.0.1', daemon_port=8090, user=None, **kwargs):
     return reservation_status
 
 
+'''
 if __name__ == "__main__":
     print(take(trex_mng='172.16.150.23'))
+'''

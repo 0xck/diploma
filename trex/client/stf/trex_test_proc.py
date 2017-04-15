@@ -1,6 +1,6 @@
-from trex_stf_lib.trex_client import CTRexClient
+from .trex_stf_lib.trex_client import CTRexClient
 # exceptions
-from trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseError, TRexError
+from .trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseError, TRexError
 from jsonrpclib import ProtocolError
 
 
@@ -111,6 +111,8 @@ def test(
     return result
 
 
+'''
 if __name__ == '__main__':
     a = test(trex_mng='172.16.150.23', duration=65, warm=5, multiplier=100, sampler=10)
     print(a)
+'''

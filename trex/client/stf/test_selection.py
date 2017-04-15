@@ -1,6 +1,4 @@
-import trex_test_proc
-import trex_test_init
-import trex_reservation
+from . import trex_test_proc, trex_test_init, trex_reservation
 
 
 class Criterion():
@@ -160,8 +158,10 @@ def processing(task, **kwargs):
     return result
 
 
+'''
 if __name__ == '__main__':
     task = Criterion(rate=1000, rate_incr_step=1000, max_succ_attempt=2, max_test_count=30)
     kwargs = dict(trex_mng='172.16.150.23', duration=35, warm=5, multiplier=100, sampler=10, daemon_port=8090)
     a = processing(task=task, **kwargs)
     print(a)
+'''

@@ -29,8 +29,8 @@ class Trex(db.Model):
     version = db.Column(db.String(8))
     # t-rex instance description
     description = db.Column(db.Text)
-    # perhaps donfig info id needed which bind with test's task
-    # ??? config = db.Column(db.String)
+    # associated tasks
+    tasks = db.relationship('Task', backref='trex')
 
     def __repr__(self):
         return '''
@@ -131,8 +131,8 @@ class Device(db.Model):
     firmware = db.Column(db.String(128))
     # device description
     description = db.Column(db.Text)
-    # perhaps donfig info id needed which bind with test's task
-    # ??? config = db.Column(db.String)
+    # associated tasks
+    tasks = db.relationship('Task', backref='device')
 
     def __repr__(self):
         return '''
@@ -198,6 +198,101 @@ class Device(db.Model):
                 self.status,
                 self.firmware,
                 self.description][index]
+
+
+class Task(db.Model):
+    # tasks table
+    __tablename__ = 'task'
+    # task id
+    id = db.Column(db.Integer, primary_key=True)
+    # task name
+    name = db.Column(db.String(64), unique=True)
+    # trex instance test mode statefull/stateless
+    mode = db.Column(db.String(9))
+    # task description
+    description = db.Column(db.Text)
+    # task start time+date
+    start_time = db.Column(db.DateTime)
+    # task start time+date
+    end_time = db.Column(db.DateTime)
+    # current task status (undone, testing, done)
+    status = db.Column(db.String(64))
+    # result with short description (success, error, canceled)
+    result = db.Column(db.String(64))
+    # result data
+    data = db.Column(db.Text)
+    # associated trex instance
+    trex = db.Column(db.Integer, db.ForeignKey('trex.id'))
+    # associated device
+    device = db.Column(db.Integer, db.ForeignKey('device.id'))
+    # associated test
+    tests = db.relationship('Test', backref='task')
+
+    def __repr__(self):
+        return '''
+        id: {0},
+        name: {1}
+        mode: {2},
+        description: {3},
+        start_time: {4},
+        end_time: {5}
+        status: {6},
+        result: {7},
+        trex: {8},
+        device: {9},
+        test: {10},
+        data: {11}
+        '''.format(
+            self.id,
+            self.name,
+            self.mode,
+            self.description,
+            self.start_time,
+            self.end_time,
+            self.status,
+            self.result,
+            self.trex,
+            self.device,
+            # self.test,
+            self.data)
+
+
+class Test(db.Model):
+    # test table
+    __tablename__ = 'test'
+    # test id
+    id = db.Column(db.Integer, primary_key=True)
+    # test name
+    name = db.Column(db.String(64), unique=True)
+    # trex instance test mode statefull/stateless
+    mode = db.Column(db.String(9))
+    # test type (common, selection)
+    test_type = db.Column(db.String(128))
+    # test attributes like patterns, variables, patametrs etc
+    parameters = db.Column(db.Text)
+    # test description
+    description = db.Column(db.Text)
+    # associated trex instance
+    task = db.Column(db.Integer, db.ForeignKey('task.id'))
+
+    def __repr__(self):
+        return '''
+        id: {0},
+        name: {1}
+        mode: {2},
+        test_type: {3},
+        parameters: {4},
+        description: {5}
+
+        '''.format(
+            self.id,
+            self.name,
+            self.mode,
+            self.test_type,
+            self.parameters,
+            self.description,
+            # self.task
+        )
 
 
 if __name__ == "__main__":

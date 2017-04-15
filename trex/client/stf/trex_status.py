@@ -1,4 +1,4 @@
-from trex_stf_lib.trex_client import CTRexClient
+from .trex_stf_lib.trex_client import CTRexClient
 # exceptions
 from jsonrpclib import ProtocolError
 
@@ -36,5 +36,7 @@ def check(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
     return trex_status
 
 
+'''
 if __name__ == "__main__":
     print(check())
+'''

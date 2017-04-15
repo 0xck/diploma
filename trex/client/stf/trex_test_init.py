@@ -1,5 +1,4 @@
-import trex_status
-import trex_reservation
+from . import trex_status, trex_reservation
 
 
 def initialize(**kwargs):
