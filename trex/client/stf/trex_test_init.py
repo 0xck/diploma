@@ -2,7 +2,7 @@ from . import trex_status, trex_reservation
 
 
 def initialize(**kwargs):
-    # makes checking and trying to makes test
+    # makes checking and trying to make reservation
     # checking trex daemon status
     # ! does not work with just open daemon port see https://trex-tgn.cisco.com/youtrack/issue/trex-404
     status = trex_status.check(**kwargs)
@@ -23,5 +23,6 @@ def initialize(**kwargs):
             # retur error if rereservation was not successful
             if not reservation['status']:
                 return reservation
-    # in case alright return status True and state "idle"
+    # in case alright return status True and state "ready"
+    status['state'] = 'ready'
     return status

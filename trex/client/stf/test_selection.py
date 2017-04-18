@@ -67,7 +67,7 @@ def testing(task, **kwargs):
     # making initial checking
     trex_init = trex_test_init.initialize(**kwargs)
     # checkig if trex daemon is ready to make test
-    if trex_init['state'] == 'idle':
+    if trex_init['state'] == 'ready':
         # changing multiplier to rate
         kwargs['multiplier'] = task.rate
         # 1st test

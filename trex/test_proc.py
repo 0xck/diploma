@@ -149,7 +149,6 @@ def test(task_id=0, **kwargs):
     else:
         task.data = json.dumps([result['values'], result['rate']])
     db.session.commit()
-    result['task_id'] = task_id
     return result
 
 
