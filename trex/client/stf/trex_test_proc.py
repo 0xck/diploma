@@ -91,11 +91,11 @@ def test(
     # "d" parameter inserted with wrong value one must be at least 30 seconds long
     except ValueError:
         result['status'] = False
-        result['values'] = 'duration is wrong'
+        result['state'] = 'duration is wrong'
     # the trex option raised an exception at server
     except TRexError:
         result['status'] = False
-        result['values'] = 'option is wrong'
+        result['state'] = 'trex option is wrong'
     # trex is alredy in use
     except TRexInUseError:
         result['status'] = False
@@ -111,8 +111,7 @@ def test(
     return result
 
 
-'''
+
 if __name__ == '__main__':
     a = test(trex_mng='172.16.150.23', duration=65, warm=5, multiplier=100, sampler=10)
     print(a)
-'''

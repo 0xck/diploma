@@ -21,8 +21,6 @@ class Trex(db.Model):
     vm_id = db.Column(db.String(64), unique=True)
     # hypervisor/cluster name
     host = db.Column(db.String(64))
-    # t-rex instance type (statefull/stateless)
-    mode = db.Column(db.String(9))
     # current t-rex status (down, idle, testing, etc)
     status = db.Column(db.String(64))
     # t-rex instance software version
@@ -30,7 +28,7 @@ class Trex(db.Model):
     # t-rex instance description
     description = db.Column(db.Text)
     # associated tasks
-    tasks = db.relationship('Task', backref='trex')
+    tasks = db.relationship('Task', backref='trexes')
 
     def __repr__(self):
         return '''
@@ -132,7 +130,7 @@ class Device(db.Model):
     # device description
     description = db.Column(db.Text)
     # associated tasks
-    tasks = db.relationship('Task', backref='device')
+    tasks = db.relationship('Task', backref='devices')
 
     def __repr__(self):
         return '''
@@ -205,47 +203,39 @@ class Task(db.Model):
     __tablename__ = 'task'
     # task id
     id = db.Column(db.Integer, primary_key=True)
-    # task name
-    name = db.Column(db.String(64), unique=True)
-    # trex instance test mode statefull/stateless
-    mode = db.Column(db.String(9))
     # task description
     description = db.Column(db.Text)
     # task start time+date
     start_time = db.Column(db.DateTime)
     # task start time+date
     end_time = db.Column(db.DateTime)
-    # current task status (undone, testing, done)
+    # current task status (pending, testing, done)
     status = db.Column(db.String(64))
-    # result with short description (success, error, canceled)
+    # result with short description (pending, success, error, canceled)
     result = db.Column(db.String(64))
     # result data
     data = db.Column(db.Text)
     # associated trex instance
-    trex = db.Column(db.Integer, db.ForeignKey('trex.id'))
+    trex = db.Column(db.Integer, db.ForeignKey('trex.hostname'))
     # associated device
-    device = db.Column(db.Integer, db.ForeignKey('device.id'))
+    device = db.Column(db.Integer, db.ForeignKey('device.name'))
     # associated test
-    tests = db.relationship('Test', backref='task')
+    test = db.Column(db.Integer, db.ForeignKey('test.name'))
 
     def __repr__(self):
         return '''
-        id: {0},
-        name: {1}
-        mode: {2},
-        description: {3},
-        start_time: {4},
-        end_time: {5}
-        status: {6},
-        result: {7},
-        trex: {8},
-        device: {9},
-        test: {10},
-        data: {11}
+        id: {},
+        description: {},
+        start_time: {},
+        end_time: {}
+        status: {},
+        result: {},
+        trex: {},
+        device: {},
+        test: {},
+        data: {}
         '''.format(
             self.id,
-            self.name,
-            self.mode,
             self.description,
             self.start_time,
             self.end_time,
@@ -253,7 +243,7 @@ class Task(db.Model):
             self.result,
             self.trex,
             self.device,
-            # self.test,
+            self.test,
             self.data)
 
 
@@ -273,7 +263,7 @@ class Test(db.Model):
     # test description
     description = db.Column(db.Text)
     # associated trex instance
-    task = db.Column(db.Integer, db.ForeignKey('task.id'))
+    tasks = db.relationship('Task', backref='tests')
 
     def __repr__(self):
         return '''
