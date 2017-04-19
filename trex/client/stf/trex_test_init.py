@@ -1,4 +1,4 @@
-from . import trex_status, trex_reservation
+from . import trex_status, trex_reservation, trex_kill
 
 
 def initialize(**kwargs):
@@ -6,8 +6,20 @@ def initialize(**kwargs):
     # checking trex daemon status
     # ! does not work with just open daemon port see https://trex-tgn.cisco.com/youtrack/issue/trex-404
     status = trex_status.check(**kwargs)
-    # return error if trex is not available or busy
-    if not status['status'] or status['state'] != 'idle':
+    # return error if trex is not available
+    if not status['status']:
+        return status
+    # t-rex in stateless mode due error
+    if status['state'] == 'stateless':
+        # trying to kill
+        trex_soft_kill = trex_kill.soft(**kwargs)
+        if not trex_soft_kill['status']:
+            # trying to force kill
+            trex_force_kill = trex_kill.force(**kwargs)
+            if not trex_force_kill['status']:
+                return trex_force_kill
+    # return error if trex is busy
+    elif status['state'] != 'idle':
         return status
     # trying to make reservation for current user
     reservation = trex_reservation.take(**kwargs)
@@ -23,6 +35,6 @@ def initialize(**kwargs):
             # retur error if rereservation was not successful
             if not reservation['status']:
                 return reservation
-    # in case alright return status True and state "ready"
+    # in case alright returns status True and state "ready"
     status['state'] = 'ready'
     return status

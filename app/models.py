@@ -221,6 +221,8 @@ class Task(db.Model):
     device = db.Column(db.Integer, db.ForeignKey('device.name'))
     # associated test
     test = db.Column(db.Integer, db.ForeignKey('test.name'))
+    # associated user
+    user = db.Column(db.Integer, db.ForeignKey('user.id'))
 
     def __repr__(self):
         return '''
@@ -233,6 +235,7 @@ class Task(db.Model):
         trex: {},
         device: {},
         test: {},
+        user: {},
         data: {}
         '''.format(
             self.id,
@@ -244,6 +247,7 @@ class Task(db.Model):
             self.trex,
             self.device,
             self.test,
+            self.user,
             self.data)
 
 
@@ -273,16 +277,40 @@ class Test(db.Model):
         test_type: {3},
         parameters: {4},
         description: {5}
-
         '''.format(
             self.id,
             self.name,
             self.mode,
             self.test_type,
             self.parameters,
-            self.description,
-            # self.task
-        )
+            self.description)
+
+
+class User(db.Model):
+    # user table
+    __tablename__ = 'user'
+    # user id
+    id = db.Column(db.Integer, primary_key=True)
+    # user login as email
+    email = db.Column(db.String(128), unique=True)
+    # login password
+    password = db.Column(db.String(64))
+    # user type (common)
+    user_type = db.Column(db.String(64))
+    # associated tasks
+    tasks = db.relationship('Task', backref='users')
+
+    def __repr__(self):
+        return '''
+        id: {0},
+        email: {1}
+        password: {2},
+        user_type: {3},
+        '''.format(
+            self.id,
+            self.email,
+            self.password,
+            self.user_type)
 
 
 if __name__ == "__main__":
