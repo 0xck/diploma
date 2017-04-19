@@ -1,21 +1,13 @@
-import sys
 import datetime
 import json
-sys.path.append('../')
-
-# for working with DB
 from app import db, models
 # stateful tests
-from . client.stf import test_common as stf_common
-from . client.stf import test_selection as stf_selection
-
-'''
-for future
-# statless common test
-import stl.test_common
-# statless common test
-import stl.test_selection
-'''
+from trex.client.stf import test_common as stf_common
+from trex.client.stf import test_selection as stf_selection
+# statless tests
+from trex.client.stf import test_common as stl_common
+from trex.client.stf import test_selection as stl_selection
+from trex.client.stf import trex_kill
 
 
 def test(task_id=0, **kwargs):
@@ -110,9 +102,9 @@ def test(task_id=0, **kwargs):
             result = stf_test_selection(**test_attr['params'])
     else:
         if test_attr['type'] == 'common':
-            result = stl_test_common(**kwargs)
+            result = stl_test_common(**test_attr['params']['trex'])
         elif test_attr['type'] == 'selection':
-            result = stl_test_selection(**kwargs)
+            result = stl_test_selection(**test_attr['params'])
 
     # processing results
     # in case getting error
@@ -124,9 +116,18 @@ def test(task_id=0, **kwargs):
             'trex option is wrong',
             'rate is equal or less than 0',
             'max count was exceeded'}
+        kill_err = {
+            'error force kill',
+            'error kill rpc',
+            'error soft kill',
+            'error fault during kill'
+        }
         # checking for reservation and t-rex parameter errors
         if result['state'] in err_states:
             task.trexes.status = 'idle'
+        # in case t-rex was in stateless due error and trying to resolve was unsuccessful
+        elif result['state'] in kill_err:
+            task.trexes.status = 'error'
         # for something wrong with t-rex
         else:
             task.trexes.status = result['state']
@@ -140,6 +141,10 @@ def test(task_id=0, **kwargs):
     task.end_time = datetime.datetime.now()
     # change statuses
     task.trexes.status = 'idle'
+    # cheking kill status after stateless test
+    if test_attr['mode'] == 'stateless':
+        if not result['kill_status']:
+            task.trexes.status = 'error'
     task.devices.status = 'idle'
     task.result = 'success'
     task.status = 'done'
@@ -169,14 +174,26 @@ def stf_test_selection(**kwargs):
 
 
 def stl_test_common(**kwargs):
-    pass
+    # starts stateless common test with args for trex as kwargs
+    # getting results
+    result = stl_common.testing(**kwargs)
+    # killing stateless mode
+    if trex_kill.soft(**kwargs):
+        result['kill_status'] = True
+    else:
+        result['kill_status'] = False
+    return result
 
 
 def stl_test_selection(**kwargs):
-    pass
-
-
-if __name__ == '__main__':
-    print('test')
-    a = test(task_id=4)
-    print(a)
+    # starts stateless selection test with args for trex as kwargs['trex'] and rate attr for Criterion class as kwargs['rate']
+    # crating Criterion object for define test parametrs
+    task = stl_selection.Criterion(**kwargs['rate'])
+    # getting results
+    result = stl_selection.testing(task, **kwargs['trex'])
+    # killing stateless mode
+    if trex_kill.soft(**kwargs):
+        result['kill_status'] = True
+    else:
+        result['kill_status'] = False
+    return result
