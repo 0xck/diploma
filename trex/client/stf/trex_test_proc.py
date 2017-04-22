@@ -26,6 +26,8 @@ def test(
     wait=1,
     # IPv6 support
     ipv6_enable=False,
+    # HW checksumm offloading
+    hw_chsum=False,
     # only latency test disable
     latency_enable=False,
     # trex daemon port
@@ -56,6 +58,7 @@ def test(
             software=soft_test,
             w=wait,
             ipv6=ipv6_enable,
+            checksum_offload=hw_chsum,
             lo=latency_enable)
         # getting test result
         test_result = trex_connection.sample_to_run_finish(time_between_samples=sampler)

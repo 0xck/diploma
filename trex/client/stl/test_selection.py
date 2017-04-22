@@ -1,4 +1,5 @@
-from . import trex_test_proc, trex_test_init, trex_reservation
+from . import trex_test_proc, trex_test_init
+from .. stf import trex_reservation
 
 
 class Criterion():
@@ -68,8 +69,8 @@ def testing(task, **kwargs):
     trex_init = trex_test_init.initialize(**kwargs)
     # checkig if trex daemon is ready to make test
     if trex_init['state'] == 'ready':
-        # changing multiplier to rate
-        kwargs['multiplier'] = task.rate
+        # changing t-rex rate to task rate
+        kwargs['rate'] = task.rate
         # 1st test
         test = single_test(**kwargs)
         # no problem with 1st test
@@ -155,8 +156,8 @@ def testing(task, **kwargs):
                         task.succ_attempt = 0
                 # increases test count
                 task.test_count_incr()
-                # changing multiplier to rate
-                kwargs['multiplier'] = task.rate
+                # changing t-rex rate to task rate
+                kwargs['rate'] = task.rate
                 # making new test
                 test = single_test(**kwargs)
 
@@ -191,10 +192,3 @@ def testing(task, **kwargs):
         result = trex_init
 
     return result
-
-
-if __name__ == '__main__':
-    task = Criterion(rate=1000, rate_incr_step=1000, max_succ_attempt=2, max_test_count=30)
-    kwargs = dict(trex_mng='172.16.150.23', duration=35, warm=5, multiplier=100, sampler=10, daemon_port=8090)
-    a = testing(task=task, **kwargs)
-    print(a)
