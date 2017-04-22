@@ -92,5 +92,13 @@ app/web_app.py
 db.sqlite
 =======
 db.sqlite
+<<<<<<< HEAD
 web_app.py
+>>>>>>> ck
+=======
+penv/
+_unuse/
+
+trex/conf/
+just_test.py
 >>>>>>> ck
