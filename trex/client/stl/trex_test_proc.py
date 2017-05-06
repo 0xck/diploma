@@ -24,7 +24,7 @@ def test(
     # rate type PPS or BPS
     rate_type='pps',
     # number of pakets or bits
-    rate='1000',
+    rate=1000,
     # duration
     duration=60,
     # sampler for pseudo sampler, for making results same as stateful
