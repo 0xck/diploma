@@ -2,3 +2,5 @@ requests
 Flask
 Flask-SQLAlchemy
 Flask-Script+
+rq
+redis
