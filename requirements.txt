@@ -4,3 +4,5 @@ Flask-SQLAlchemy
 Flask-Script+
 rq
 redis
+Flask-WTF
+WTForms
