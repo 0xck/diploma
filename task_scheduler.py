@@ -46,7 +46,7 @@ def task_queuer(interval=300, safe_int=600):
     def err_handler(task, err_msg):
         # parameter error handler
         # inserting task time etc
-        task_time = datetime.now()
+        task_time = datetime.now().replace(microsecond=0)
         task.start_time = task_time
         task.end_time = task_time
         task.result = 'error'
