@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="alert_place"></div>
+<h1>Tasks</h1>
+<div class="panel panel-default">
+    <div class="panel-heading">List of tasks</div>
+    <div class="table-responsive">
+        <table class="table table-hover">
+        <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Result</th>
+            <th>Description</th>
+            <th>Start time</th>
+            <th>End time</th>
+            <th>Test</th>
+            <th>T-rex</th>
+            <th>Device</th>
+            <th>Task actions</th>
+            <th>Result data</th>
+
+        </tr>
+{{content | safe}}
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+{% block script %}
+<script src="/static/js/{{script_file}}"></script>
+{% endblock %}
