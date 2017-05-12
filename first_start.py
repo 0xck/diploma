@@ -30,14 +30,14 @@ def main_cfg_gen():
     redis_url = os.getenv('REDIS_URL', 'redis://{}:{}'.format(redis_addr, redis_port))
     # flask
     app_listen = '0.0.0.0'
-    app_port = '5000'
+    app_port = 5000
     csrf_key = ''.join(SystemRandom().choice(ascii_letters + digits) for item in range(16))
 
     db_part_conf = '''SQLALCHEMY_DATABASE_URI = "{}:///{}"
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 '''.format(db_type, db_addr)
     app_part_conf = '''app_listen = "{}"
-app_port = "{}"
+app_port = {}
 CSRF_ENABLED = True
 SECRET_KEY = "{}"
 '''.format(app_listen, app_port, csrf_key)
@@ -148,9 +148,9 @@ Select addresses which will be listened by web application.
 Select web application port''')
     user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(app_port, **term))
     if user_val.strip().lower() != '':
-        app_port = user_val
+        app_port = int(user_val)
         app_part_conf = '''app_listen = "{}"
-app_port = "{}"
+app_port = {}
 CSRF_ENABLED = True
 SECRET_KEY = "{}"
 '''.format(app_listen, app_port, csrf_key)
