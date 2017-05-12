@@ -10,4 +10,6 @@ app.config.from_object('config')
 db = SQLAlchemy(app)
 
 # index; trex instance; device unit
-from app import index  # , trex_instance, device_unit
+from app import index, tasks  # , trex_instance, device_unit
+# views
+

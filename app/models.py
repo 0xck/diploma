@@ -250,6 +250,51 @@ class Task(db.Model):
             self.user,
             self.data)
 
+    def __getitem__(self, index):
+        # different returns
+        # return list of args
+        if index == 'ALL_LIST':
+            return [
+                self.id,
+                self.description,
+                self.start_time,
+                self.end_time,
+                self.status,
+                self.result,
+                self.trex,
+                self.device,
+                self.test,
+                self.user,
+                self.data]
+        # return dict of args
+        elif index == 'ALL_DICT':
+            return dict(
+                id=self.id,
+                description=self.description,
+                start_time=self.start_time,
+                end_time=self.end_time,
+                status=self.status,
+                result=self.result,
+                trex=self.trex,
+                device=self.device,
+                test=self.test,
+                user=self.user,
+                data=self.data)
+        # return index of list of args
+        else:
+            return [
+                self.id,
+                self.description,
+                self.start_time,
+                self.end_time,
+                self.status,
+                self.result,
+                self.trex,
+                self.device,
+                self.test,
+                self.user,
+                self.data][index]
+
 
 class Test(db.Model):
     # test table
