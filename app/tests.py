@@ -4,9 +4,9 @@ from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField, StringField, IntegerField, FloatField
 from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp
-from app.other_info import stf_traffic_patterns, stf_notes, general_notes
+from app.helper import stf_traffic_patterns, stf_notes, general_notes
 from json import loads, dumps
-from os import scandir, getcwd, path
+from os import listdir, getcwd, path
 
 
 @app.route('/tests/')
@@ -451,10 +451,10 @@ def test_create_stl():
     list_types.insert(0, (types[0], '{} (Default)'.format(types[0])))
     # getting patterns list
     patterns = []
-    with scandir(path=path.join(getcwd(), 'trex/test/stl/')) as lsdir:
-        for item in lsdir:
-            if item.is_file() and item.name.endswith(('.yaml')):
-                patterns.append(path.join('./trex/test/stl/', item.name))
+    lsdir = listdir(path=path.join(getcwd(), 'trex/test/stl/'))
+    for item in lsdir:
+        if item.endswith(('.yaml')):
+            patterns.append(path.join('./trex/test/stl/', item))
     list_patterns = [(test_pattern, test_pattern) for test_pattern in patterns[1:]]
     list_patterns.insert(0, (patterns[0], '{} (Default)'.format(patterns[0])))
     # getting types of selection test
@@ -622,10 +622,10 @@ def test_edit_stl(test_id):
     test_papams_trex = loads(test_entr.parameters)['trex']
     # getting patterns list
     patterns = []
-    with scandir(path=path.join(getcwd(), 'trex/test/stl/')) as lsdir:
-        for item in lsdir:
-            if item.is_file() and item.name.endswith(('.yaml')):
-                patterns.append(path.join('./trex/test/stl/', item.name))
+    lsdir = listdir(path=path.join(getcwd(), 'trex/test/stl/'))
+    for item in lsdir:
+        if item.endswith(('.yaml')):
+            patterns.append(path.join('./trex/test/stl/', item))
     list_patterns = [(test_pattern, test_pattern) for test_pattern in patterns]
     patterns.remove(test_papams_trex['traffic_pattern'])
     patterns.insert(0, test_papams_trex['traffic_pattern'])

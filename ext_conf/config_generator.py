@@ -26,8 +26,11 @@ def supervisor_cfg_gen():
     incl_redis = True
     supervisor_config = {
         'server_path': os.path.join(app_path, 'server.py'),
+        'server_dir': app_path,
         'task_sched_path': os.path.join(app_path, 'task_scheduler.py'),
+        'task_sched_dir': app_path,
         'worker_path': os.path.join(app_path, 'worker.py'),
+        'worker_dir': app_path,
         'python_path': 'python3' if which('python3', mode=os.X_OK) is None else which('python3'),
         'redis_path': 'redis-server' if which('redis-server', mode=os.X_OK) is None else which('redis-server'),
         'redis_conf': '/etc/redis/redis_supervisor.conf',
@@ -35,65 +38,62 @@ def supervisor_cfg_gen():
         'app_user': os.getlogin()
     }
 
-    app_part_conf = '''
-    [program:tasksched]
-    command={python_path} {task_sched_path}
-    priority=100
-    autostart=false
-    startretries=1
-    autorestart=unexpected
-    user={app_user}
-    stdout_logfile_maxbytes=10MB
-    stdout_logfile_backups=10
-    stderr_logfile_maxbytes=10MB
-    stderr_logfile_backups=10
+    app_part_conf = '''[program:tasksched]
+command={python_path} {task_sched_path}
+directory={task_sched_dir}
+priority=100
+autostart=false
+startretries=1
+autorestart=unexpected
+user={app_user}
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=10
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=10
 
-    [program:worker]
-    command={python_path} {worker_path}
-    priority=300
-    autostart=false
-    startretries=3
-    autorestart=unexpected
-    stopasgroup=true
-    killasgroup=true
-    user={app_user}
-    stdout_logfile_maxbytes=10MB
-    stdout_logfile_backups=10
-    stderr_logfile_maxbytes=10MB
-    stderr_logfile_backups=10
+[program:worker]
+command={python_path} {worker_path}
+directory={worker_dir}
+priority=300
+autostart=false
+startretries=3
+autorestart=unexpected
+stopasgroup=true
+killasgroup=true
+user={app_user}
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=10
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=10
 
-    [program:server]
-    command={python_path} {server_path}
-    priority=200
-    autostart=false
-    startretries=3
-    autorestart=unexpected
-    stopasgroup=true
-    user={app_user}
-    stdout_logfile_maxbytes=10MB
-    stdout_logfile_backups=10
-    stderr_logfile_maxbytes=10MB
-    stderr_logfile_backups=10
-    '''.format(**supervisor_config)
+[program:server]
+command={python_path} {server_path}
+directory={server_dir}
+priority=200
+autostart=false
+startretries=3
+autorestart=unexpected
+stopasgroup=true
+user={app_user}
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=10
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=10'''.format(**supervisor_config)
 
-    redis_part_conf = '''
-    [program:redis]
-    command={redis_path} {redis_conf}
-    priority=500
-    autostart=false
-    startretries=3
-    autorestart=unexpected
-    user={redis_user}
-    stdout_logfile_maxbytes=10MB
-    stdout_logfile_backups=10
-    stderr_logfile_maxbytes=10MB
-    stderr_logfile_backups=10
-    '''.format(**supervisor_config)
+    redis_part_conf = '''[program:redis]
+command={redis_path} {redis_conf}
+priority=500
+autostart=false
+startretries=3
+autorestart=unexpected
+user={redis_user}
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=10
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=10'''.format(**supervisor_config)
 
-    group_part_conf = '''
-    [group:wrex]
-    programs=tasksched,worker,server,redis
-    '''
+    group_part_conf = '''[group:wrex]
+programs=tasksched,worker,server,redis'''
 
     def wr_cfg():
         with open(conf_file, 'w', encoding='utf-8') as cfg_file:
@@ -154,10 +154,8 @@ Would you like to use supervisor for managing redis startup/shutdown?''')
             user_val = input('Please press {bold}"Enter"{end} or type {bold}"n"{end} '.format(**term))
     if user_val.strip().lower() == 'n':
         incl_redis = False
-        group_part_conf = '''
-[group:wrex]
-programs=tasksched,worker,server
-'''
+        group_part_conf = '''[group:wrex]
+programs=tasksched,worker,server'''
     # in case using supervisor for mng redis
     if incl_redis:
         # redis bin
