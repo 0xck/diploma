@@ -5,7 +5,7 @@ from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField
 from wtforms.validators import Required, Length, AnyOf
 from json import loads
-from app.other_info import general_notes
+from app.helper import general_notes
 # from bitmath import *
 
 
