@@ -330,6 +330,36 @@ class Test(db.Model):
             self.parameters,
             self.description)
 
+    def __getitem__(self, index):
+        # different returns
+        # return list of args
+        if index == 'ALL_LIST':
+            return [
+                self.id,
+                self.name,
+                self.mode,
+                self.test_type,
+                self.description,
+                self.parameters]
+        # return dict of args
+        elif index == 'ALL_DICT':
+            return dict(
+                id=self.id,
+                name=self.name,
+                mode=self.mode,
+                test_type=self.test_type,
+                description=self.description,
+                parameters=self.parameters)
+        # return index of list of args
+        else:
+            return [
+                self.id,
+                self.name,
+                self.mode,
+                self.test_type,
+                self.description,
+                self.parameters][index]
+
 
 class User(db.Model):
     # user table
