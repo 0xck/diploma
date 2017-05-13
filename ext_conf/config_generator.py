@@ -103,48 +103,52 @@ def supervisor_cfg_gen():
 
                 cfg_file.write(app_part_conf + group_part_conf)
         print('''
-        Your config has been saved in {bold}{}{end} directory.
-        Bye.
+    Your config has been saved in {bold}{}{end} directory.
+    Bye.
             '''.format(curr_dir, **term))
 
     # welcome
     print('''
-        Welcome to {blue}wrex supervisor{end} config generator.
-        If you would like create config with default settings just type "y" otherwise interactive setup will be started.
-        {grey}Note. Use default settings only in case you exactly know what you are doing.{end}
+Welcome to {blue}wrex supervisor{end} config generator.
+    If you would like create config with default settings just type "y" otherwise interactive setup will be started.
+    {grey}Note. Use default settings only in case you exactly know what you are doing.
+    By default all components are managed by supervisord. Information about components is got from system environment and current application directory.{end}
         '''.format(**term))
     # generating using default
     generate = input('Generate with default settings y/n ')
-    if generate.strip().lower() not in {'y', 'n'}:
-        while generate.strip().lower() not in {'y', 'n'}:
-            generate = input('Please use only {bold}"y"{end} or {bold}"n"{end} '.format(**term))
+    #if generate.strip().lower() not in {'y', 'n'}:
+    while generate.strip().lower() not in {'y', 'n'}:
+        generate = input('Please use only {bold}"y"{end} or {bold}"n"{end} '.format(**term))
     # generates and exiting
     if generate.strip().lower() == 'y':
         wr_cfg()
         exit()
     # start interactive
     print('''
-        {blue}Interactive setup was started{end}
-        Just press "Enter" in case you would like to save suggested value.
+{blue}Interactive setup was started{end}
+    Just press "Enter" in case you would like to save suggested value.
         '''.format(**term))
     # app path
     print('Enter full path for application directory')
     user_val = input('{grey}Defaul is current:{end} {bold}{}{end} : '.format(app_path, **term))
-    if user_val.strip() != '':
+    if user_val.strip().lower() != '':
         app_path = user_val
     # app user
-    print('Enter name of user for application')
+    print('''
+Enter name of user for application''')
     user_val = input('{grey}Defaul is current user:{end} {bold}{}{end} : '.format(supervisor_config['app_user'], **term))
-    if user_val.strip() != '':
+    if user_val.strip().lower() != '':
         supervisor_config['redis_user'] = user_val
     # python bin
-    print('Enter full path for python3 binary')
+    print('''
+Enter full path for python3 binary''')
     user_val = input('{grey}Defaul is current:{end} {bold}{}{end} : '.format('Has not found in system!'if supervisor_config['python_path'] == 'python3' else supervisor_config['python_path'], **term))
-    if user_val.strip() != '':
+    if user_val.strip().lower() != '':
         supervisor_config['python_path'] = user_val
     # mng redis with supervisor
-    print('Would you like to use supervisor for managing redis startup/shutdown?')
-    user_val = input('{grey}Defaul is Yes.{end} Type "n" in case you would not like '.format(**term))
+    print('''
+Would you like to use supervisor for managing redis startup/shutdown?''')
+    user_val = input('{grey}Defaul is Yes.{end} Type "n" in case you would like to manage redis without supervisord '.format(**term))
     if user_val.strip().lower() not in {'', 'n'}:
         while user_val.strip().lower() not in {'', 'n'}:
             user_val = input('Please press {bold}"Enter"{end} or type {bold}"n"{end} '.format(**term))
@@ -157,22 +161,24 @@ programs=tasksched,worker,server
     # in case using supervisor for mng redis
     if incl_redis:
         # redis bin
-        print('Enter full path for redis server binary')
+        print('''
+Enter full path for redis server binary''')
         user_val = input('{grey}Defaul is :{end} {bold}{}{end} : '.format('Has not found in system!' if supervisor_config['redis_path'] == 'redis-server' else supervisor_config['redis_path'], **term))
-        if user_val.strip() != '':
+        if user_val.strip().lower() != '':
             supervisor_config['redis_path'] = user_val
         # redis conf
         print('''
-        Enter full path for redis {bold}non demonised{end} config file.
-        {grey}In case you do not have this config just create one, copy current redis config and change options{end} {red}daemonize{end} {grey}to{end} {red}no{end}
+Enter full path for redis {bold}non demonised{end} config file.
+{grey}In case you do not have this config just create one, copy current redis config and change options{end} {red}daemonize{end} {grey}to{end} {red}no{end}
             '''.format(**term))
         user_val = input('{grey}Defaul is :{end} {bold}{}{end} : '.format(supervisor_config['redis_conf'], **term))
-        if user_val.strip() != '':
+        if user_val.strip().lower() != '':
             supervisor_config['redis_conf'] = user_val
         # redis user
-        print('Enter name of user for redis server')
+        print('''
+Enter name of user for redis server''')
         user_val = input('{grey}Defaul is :{end} {bold}{}{end} : '.format(supervisor_config['redis_user'], **term))
-        if user_val.strip() != '':
+        if user_val.strip().lower() != '':
             supervisor_config['redis_user'] = user_val
     wr_cfg()
 

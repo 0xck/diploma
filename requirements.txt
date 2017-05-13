@@ -1,6 +1,9 @@
 requests
 Flask
 Flask-SQLAlchemy
-Flask-Script+
+Flask-Script
 rq
 redis
+Flask-WTF
+WTForms
+bitmath

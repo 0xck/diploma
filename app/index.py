@@ -11,4 +11,4 @@ def index():
         title='W-rex main',
         content='''
         <h1>Welcome to Wrex</h1>
-        <p style="color: #9E9E9E">small Cisco T-rex webapp</p>''')
+        <p style="color: #9E9E9E">small webapp for network testing with Cisco T-rex</p>''')
