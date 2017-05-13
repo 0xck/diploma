@@ -5,11 +5,12 @@ from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField
 from wtforms.validators import Required, Length, AnyOf
 from json import loads
-from bitmath import *
+from app.other_info import general_notes
+# from bitmath import *
 
 
 @app.route('/tasks/')
-def tasks():
+def tasks_table():
     tasks_entr = models.Task.query.order_by(models.Task.id.desc()).all()
     table_data = ''
     act_button_template = {
@@ -49,6 +50,12 @@ def tasks():
         elif entr.status == 'canceled':
             act_button += act_button_template['readd'] + act_button_template['end']
             status_row = 'tr class="active"'
+        elif entr.status == 'testing':
+            act_button = '''<div class="btn-group">
+                        <button type="button" class="btn btn-default btn-xs dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
+                            <span class="sr-only">Toggle Dropdown</span>
+                        </button>'''
+            status_row = 'tr class="warning"'
         else:
             act_button += act_button_template['hold'] + act_button_template['queue'] + act_button_template['separator'] + act_button_template['readd'] + act_button_template['cancel'] + act_button_template['end']
         table_data += '''
@@ -67,14 +74,13 @@ def tasks():
 
             </tr>
                 '''.format(
-                        ('<a href="/task/{0}">Show</a>'.format(entr.id) if entr.status.lower() in {'done', 'error'} else 'Is not collected yet'),
+                        ('<a href="/task/{0}">Show</a>'.format(entr.id) if entr.status.lower() in {'done', 'error'} and str(entr.result).lower() in {'success', 'error'} else 'Is not collected yet'),
                         ('<a href="/trex/{1}">{0}</a>'.format(entr.trexes.hostname, entr.trexes.id)),
                         ('<a href="/device/{1}">{0}</a>'.format(entr.devices.name, entr.devices.id)),
                         ('<a href="/test/{1}">{0}</a>'.format(entr.tests.name, entr.tests.id)),
                         act_button.format(entr.id),
                         status_row,
                         **entr['ALL_DICT'])
-
     return render_template(
         'tasks.html',
         title='List of tasks',
@@ -135,6 +141,7 @@ def task_create():
     device = None
     description = None
     status = None
+    note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
@@ -156,9 +163,15 @@ def task_create():
         # Success message
         msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> New task was added</div>'
         # showing form with success message
-        return render_template('task_action.html', form=form, note='<p class="help-block">Note. All fields are required<p>', succ_msg=msg, page_title=page_title)
+        return render_template('task_action.html', form=form, note=note, msg=msg, title=page_title)
 
-    return render_template('task_action.html', form=form, note='<p class="help-block">Note. All fields are required<p>', page_title=page_title)
+    # if error occured
+    if len(form.errors) > 0:
+        msg = ''
+        for err in form.errors:
+            msg += '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> <em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0])
+        return render_template('task_action.html', form=form, note=note, title=page_title, msg=msg)
+    return render_template('task_action.html', form=form, note=note, title=page_title)
 
 
 @app.route('/task/<int:task_id>/delete/', methods=['GET', 'POST'])
@@ -174,17 +187,16 @@ def task_delete(task_id):
         submit = SubmitField('Delete task')
 
     form = DeleteForm()
+    page_title = 'Task ID {} deleting confirmation'.format(task_id)
 
     if form.checker.data:
-        checker = form.checker.data
-        print('checker', checker)
         form.checker.data = False
         db.session.delete(task_entr)
         db.session.commit()
         del_msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The task ID {} was deleted</div>'.format(task_id)
-        return render_template('delete.html', del_msg=del_msg)
+        return render_template('delete.html', del_msg=del_msg, title=page_title)
 
-    return render_template('delete.html', form=form)
+    return render_template('delete.html', form=form, title=page_title)
 
 
 @app.route('/task/<int:task_id>/edit/', methods=['GET', 'POST'])
@@ -213,10 +225,12 @@ def task_edit(task_id):
     devices.insert(0, task_entr.device)
     list_devices = [(device, device) for device in devices]
     # get statuses list
-    statuses = ['pending', 'hold', 'canceled']
+    statuses = ['pending', 'hold', 'canceled', 'done', 'testing']
     statuses.remove(task_entr.status)
     statuses.insert(0, task_entr.status)
     list_statuses = [(status, status) for status in statuses]
+    list_statuses.remove(('testing', 'testing'))
+    list_statuses.remove(('done', 'done'))
 
     class TaskForm(FlaskForm):
         # making form
@@ -244,12 +258,13 @@ def task_edit(task_id):
     # form
     form = TaskForm()
     # variables
-    page_title = 'Edit Task'
+    page_title = 'Edit Task ID {}'.format(task_id)
     test = task_entr.test
     trex = task_entr.trex
     device = task_entr.device
     description = task_entr.description
     status = task_entr.status
+    note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
@@ -274,9 +289,15 @@ def task_edit(task_id):
         # Success message
         msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The task ID {} was changed</div>'.format(task_entr.id)
         # showing form with success message
-        return render_template('task_action.html', form=form, note='<p class="help-block">Note. All fields are required<p>', succ_msg=msg, page_title=page_title)
+        return render_template('task_action.html', form=form, note=note, msg=msg, title=page_title)
 
-    return render_template('task_action.html', form=form, note='<p class="help-block">Note. All fields are required<p>', page_title=page_title)
+    # if error occured
+    if len(form.errors) > 0:
+        msg = ''
+        for err in form.errors:
+            msg += '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> <em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0])
+        return render_template('task_action.html', form=form, note=note, title=page_title, msg=msg)
+    return render_template('task_action.html', form=form, note=note, title=page_title)
 
 
 @app.route('/task/<int:task_id>/hold/')
@@ -347,7 +368,8 @@ def task_show(task_id):
         return render_template(
             'task.html',
             content=content,
-            page_title=page_title)
+            title=page_title,
+            no_data=True)
     elif task_entr.result == 'success':
         task_data = loads(task_entr.data)['trex']
         duration = loads(task_entr.tests.parameters)['trex']['duration']
@@ -432,10 +454,11 @@ def task_show(task_id):
             'task.html',
             graph=graph_data,
             content=content,
-            page_title=page_title)
+            title=page_title)
     else:
         content = '<p class="lead">Data for this task has not gathered yet.</p>'
         return render_template(
             'task.html',
             content=content,
-            page_title=page_title)
+            title=page_title,
+            no_data=True)

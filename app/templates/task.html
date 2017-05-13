@@ -1,31 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>
-        {{page_title}}
+        {{title}}
     </h1>
 <div class="container">
         {{content | safe}}
 </div>
-<div class="container">
-<div class="panel panel-default">
-    <div class="panel-heading">Packet per second data</div>
-    <canvas id="graph_pps"></canvas>
+{% if not no_data %}
+    <div class="container">
+    <div class="panel panel-default">
+        <div class="panel-heading">Packet per second data</div>
+        <canvas id="graph_pps"></canvas>
+        </div>
     </div>
-</div>
-<div class="container">
-<div class="panel panel-default">
-    <div class="panel-heading">Bit per second data</div>
-    <canvas id="graph_bps"></canvas>
+    <div class="container">
+    <div class="panel panel-default">
+        <div class="panel-heading">Bit per second data</div>
+        <canvas id="graph_bps"></canvas>
+        </div>
     </div>
-</div>
-
+{% endif %}
 {% endblock %}
 
 {% block script %}
-{%if graph %}
+{% if graph %}
 <script src="/static/js/Chart.js"></script>
-<script src="/static/js/{{script_file}}"></script>
-
 <script>
     var intervals = {{graph.intervals|safe}};
     var tx_pps = {{graph.tx_pps|safe}};
@@ -110,7 +109,7 @@
                 data: rx_bps
             },
             {
-                label: "Expected pps",
+                label: "Expected bps",
                 fill: false,
                 //fillColor: "rgba(151,187,205,0.2)",
                 strokeColor: "rgba(151,187,205,1)",
