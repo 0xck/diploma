@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="alert_place"></div>
+<h1>Devices</h1>
+<div class="panel panel-default">
+    <div class="panel-heading">{{title}}</div>
+    <div class="table-responsive">
+        <table class="table table-hover">
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>IPv4</th>
+            <th>IPv6</th>
+            <th>DNS name</th>
+            <th>Vendor</th>
+            <th>Model</th>
+            <th>Status</th>
+            <th>Firmware version</th>
+            <th>Actions</th>
+            <th>Description</th>
+        </tr>
+{{content | safe}}
+        </table>
+    </div>
+</div>
+{% endblock %}
