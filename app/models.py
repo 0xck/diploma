@@ -40,10 +40,9 @@ class Trex(db.Model):
         port: {5},
         vm_id: {6},
         host: {7},
-        mode: {8},
-        status: {9},
-        version: {10},
-        description: {11}'''.format(
+        status: {8},
+        version: {9},
+        description: {10}'''.format(
             self.id,
             self.hostname,
             self.ip4,
@@ -52,7 +51,6 @@ class Trex(db.Model):
             self.port,
             self.vm_id,
             self.host,
-            self.mode,
             self.status,
             self.version,
             self.description)
@@ -70,7 +68,6 @@ class Trex(db.Model):
                 self.port,
                 self.vm_id,
                 self.host,
-                self.mode,
                 self.status,
                 self.version,
                 self.description]
@@ -85,7 +82,6 @@ class Trex(db.Model):
                 port=self.port,
                 vm_id=self.vm_id,
                 host=self.host,
-                mode=self.mode,
                 status=self.status,
                 version=self.version,
                 description=self.description)
@@ -100,7 +96,6 @@ class Trex(db.Model):
                 self.port,
                 self.vm_id,
                 self.host,
-                self.mode,
                 self.status,
                 self.version,
                 self.description][index]
@@ -206,15 +201,15 @@ class Task(db.Model):
     # task description
     description = db.Column(db.Text)
     # task start time+date
-    start_time = db.Column(db.DateTime)
+    start_time = db.Column(db.DateTime, nullable=True)
     # task start time+date
-    end_time = db.Column(db.DateTime)
+    end_time = db.Column(db.DateTime, nullable=True)
     # current task status (pending, testing, done)
     status = db.Column(db.String(64))
     # result with short description (pending, success, error, canceled)
-    result = db.Column(db.String(64))
+    result = db.Column(db.String(64), nullable=True)
     # result data
-    data = db.Column(db.Text)
+    data = db.Column(db.Text, nullable=True)
     # associated trex instance
     trex = db.Column(db.Integer, db.ForeignKey('trex.hostname'))
     # associated device
