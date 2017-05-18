@@ -4,25 +4,27 @@
 <h1>T-rexes</h1>
 <div class="panel panel-default">
     <div class="panel-heading">{{title}}</div>
-    <div class="table-responsive">
         <table class="table table-hover">
         <tr>
             <th>ID</th>
             <th>Hostname</th>
-            <th>IPv4 Address</th>
-            <th>IPv6 Address</th>
+            <th>Status</th>
+            <th>IPv4</th>
+            <th>IPv6</th>
             <th>DNS name</th>
             <th>Port</th>
+            <th>Description</th>
             <th>VM ID</th>
             <th>Host</th>
-            <th>Mode</th>
-            <th>Status</th>
-            <th>Software version</th>
+            <th>Software</th>
             <th>Actions</th>
-            <th>Description</th>
+            <th>Tasks</th>
         </tr>
 {{content | safe}}
         </table>
     </div>
 </div>
+{% endblock %}
+{% block script %}
+<script src="/static/js/{{script_file}}"></script>
 {% endblock %}

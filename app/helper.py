@@ -36,3 +36,7 @@ stf_notes = {
     'sampler': ['Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart (for some reason number of sampler size limited to 100 entries now, be careful choose appropriate value)'],
     'warm': ['Time for "warm" traffic which services for reasons like in case need to wait for some changes on network like tunnel upping, STP/dot1X timeouts, etc (migth not work on VM due some T-rex soft nuances in current releases)'],
 }
+
+validator_err = {
+    'exist': 'Item already exists. For adding, change its value, please.'
+}
