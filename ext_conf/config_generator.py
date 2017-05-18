@@ -80,7 +80,9 @@ stdout_logfile_backups=10
 stderr_logfile_maxbytes=10MB
 stderr_logfile_backups=10'''.format(**supervisor_config)
 
-    redis_part_conf = '''[program:redis]
+    redis_part_conf = '''
+
+[program:redis]
 command={redis_path} {redis_conf}
 priority=500
 autostart=false
@@ -92,8 +94,11 @@ stdout_logfile_backups=10
 stderr_logfile_maxbytes=10MB
 stderr_logfile_backups=10'''.format(**supervisor_config)
 
-    group_part_conf = '''[group:wrex]
-programs=tasksched,worker,server,redis'''
+    group_part_conf = '''
+
+[group:wrex]
+programs=tasksched,worker,server,redis
+'''
 
     def wr_cfg():
         with open(conf_file, 'w', encoding='utf-8') as cfg_file:
