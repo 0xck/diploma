@@ -33,10 +33,11 @@ def tasks_table():
     }
 
     for entr in tasks_entr:
+        status_row = 'tr'
         if entr.result == 'success':
-            status_row = 'tr class="success"'
+            status_row += ' class="success"'
         elif entr.result == 'error':
-            status_row = 'tr class="danger"'
+            status_row += ' class="danger"'
         else:
             status_row = 'tr'
         act_button = act_button_template['begin']
@@ -46,22 +47,22 @@ def tasks_table():
             act_button += act_button_template['readd'] + act_button_template['end']
         elif entr.status == 'hold':
             act_button += act_button_template['queue'] + act_button_template['separator'] + act_button_template['cancel'] + act_button_template['end']
-            status_row = 'tr class="info"'
+            status_row += ' class="info"'
         elif entr.status == 'canceled':
             act_button += act_button_template['readd'] + act_button_template['end']
-            status_row = 'tr class="active"'
+            status_row += ' class="active"'
         elif entr.status == 'testing':
             act_button = '''<div class="btn-group">
                         <button type="button" class="btn btn-default btn-xs dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
                             <span class="sr-only">Toggle Dropdown</span>
                         </button>'''
-            status_row = 'tr class="warning"'
+            status_row += ' class="warning"'
         else:
             act_button += act_button_template['hold'] + act_button_template['queue'] + act_button_template['separator'] + act_button_template['readd'] + act_button_template['cancel'] + act_button_template['end']
         table_data += '''
             <{5}>
                 <td>{id}</td>
-                <td class="task_status {5}">{status}</td>
+                <td class="task_status">{status}</td>
                 <td>{result}</td>
                 <td>{description}</td>
                 <td>{start_time}</td>
@@ -71,7 +72,6 @@ def tasks_table():
                 <td>{2}</td>
                 <td>{4}</td>
                 <td>{0}</td>
-
             </tr>
                 '''.format(
                         ('<a href="/task/{0}">Show</a>'.format(entr.id) if entr.status.lower() in {'done', 'error'} and str(entr.result).lower() in {'success', 'error'} else 'Is not collected yet'),
@@ -164,7 +164,6 @@ def task_create():
         msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> New task was added</div>'
         # showing form with success message
         return render_template('task_action.html', form=form, note=note, msg=msg, title=page_title)
-
     # if error occured
     if len(form.errors) > 0:
         msg = ''
@@ -344,6 +343,10 @@ def task_readd(task_id):
     task_entr = models.Task.query.get(task_id)
     if task_entr:
         task_entr.status = 'pending'
+        task_entr.data = None
+        task_entr.result = None
+        task_entr.start_time = None
+        task_entr.end_time = None
         # save DB entry in DB
         db.session.commit()
         msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The task ID {} was added again</div>'.format(task_entr.id)

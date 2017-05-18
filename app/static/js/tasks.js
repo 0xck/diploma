@@ -7,6 +7,8 @@ $(document).ready(function() {
             $('#alert_place').html(data);
         });
         $(this).closest('tr').children('td.task_status').text('hold');
+        $(this).closest('tr').removeClass();
+        $(this).closest('tr').addClass('info');
     });
 });
 // to queue
@@ -17,6 +19,7 @@ $(document).ready(function() {
             $('#alert_place').html(data);
         });
         $(this).closest('tr').children('td.task_status').text('pending');
+        $(this).closest('tr').removeClass();
     });
 });
 // re add
@@ -27,6 +30,7 @@ $(document).ready(function() {
             $('#alert_place').html(data);
         });
         $(this).closest('tr').children('td.task_status').text('pending');
+        $(this).closest('tr').removeClass();
     });
 });
 // cancel
@@ -37,5 +41,7 @@ $(document).ready(function() {
             $('#alert_place').html(data);
         });
         $(this).closest('tr').children('td.task_status').text('canceled');
+        $(this).closest('tr').removeClass();
+        $(this).closest('tr').addClass('active');
     });
 });

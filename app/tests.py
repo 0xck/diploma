@@ -3,8 +3,8 @@ from flask import render_template, abort, redirect
 from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField, StringField, IntegerField, FloatField
-from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp
-from app.helper import stf_traffic_patterns, stf_notes, general_notes
+from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp, NoneOf
+from app.helper import stf_traffic_patterns, stf_notes, general_notes, validator_err
 from json import loads, dumps
 from os import listdir, getcwd, path
 
@@ -23,8 +23,7 @@ def tests_table():
                 <li role="separator" class="divider"></li>
                 <li><a href="/test/{0}/delete" class="delete" id="{0}">Delete</a></li>
                 </ul>
-            </div>''',
-        'separator': '<li role="separator" class="divider"></li>'
+            </div>'''
     }
 
     for entr in tests_entr:
@@ -66,12 +65,17 @@ def test_create_stf():
     selection_types = ['safe', 'accuracy', 'drop']
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types[1:]]
     list_selection_types.insert(0, (selection_types[0], '{} (Default)'.format(selection_types[0])))
-    # getting patterns list
+    # getting lists of current tests values for checking
+    curr_tests = models.Test.query.all()
+    curr_name = []
+    if len(curr_tests) > 0:
+        for curr_test in curr_tests:
+            curr_name.append(curr_test.name)
 
     class TestForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore')])
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
         # general test params
         test_type = SelectField(
             label='Test type',
@@ -292,11 +296,17 @@ def test_edit_stf(test_id):
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types]
     selection_types.remove(test_papams_rate['test_type'])
     selection_types.insert(0, test_papams_rate['test_type'])
+    # getting lists of current tests values for checking
+    curr_tests = models.Test.query.filter(models.Test.id != test_id).all()
+    curr_name = []
+    if len(curr_tests) > 0:
+        for curr_test in curr_tests:
+            curr_name.append(curr_test.name)
 
     class TestForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore')],
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
             default=test_entr.name)
         # general test params
         test_type = SelectField(
@@ -461,11 +471,17 @@ def test_create_stl():
     selection_types = ['safe', 'accuracy', 'drop']
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types[1:]]
     list_selection_types.insert(0, (selection_types[0], '{} (Default)'.format(selection_types[0])))
+    # getting lists of current tests values for checking
+    curr_tests = models.Test.query.all()
+    curr_name = []
+    if len(curr_tests) > 0:
+        for curr_test in curr_tests:
+            curr_name.append(curr_test.name)
 
     class TestForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore')])
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
         # general test params
         test_type = SelectField(
             label='Test type',
@@ -645,11 +661,18 @@ def test_edit_stl(test_id):
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types]
     selection_types.remove(test_papams_rate['test_type'])
     selection_types.insert(0, test_papams_rate['test_type'])
+    # getting lists of current tests values for checking
+    curr_tests = models.Test.query.filter(models.Test.id != test_id).all()
+    print(curr_tests)
+    curr_name = []
+    if len(curr_tests) > 0:
+        for curr_test in curr_tests:
+            curr_name.append(curr_test.name)
 
     class TestForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore')],
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
             default=test_entr.name)
         # general test params
         test_type = SelectField(
