@@ -2,7 +2,7 @@ import redis
 from config import redis_url
 from rq import Worker, Queue, Connection
 
-listen = ['tasks', 'statuses']
+listen = ['tasks']  # 'statuses' if future
 redis_connect = redis.from_url(redis_url)
 
 
