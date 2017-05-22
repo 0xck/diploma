@@ -1,21 +1,24 @@
-# t-rex model page
 from flask import render_template, abort
 from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField
 from wtforms.validators import Required, Length, AnyOf
 from json import loads
-from app.helper import general_notes
-# from bitmath import *
+from app.helper import general_notes, humanize
 
 
 @app.route('/tasks/')
-def tasks_table():
-    tasks_entr = models.Task.query.order_by(models.Task.id.desc()).all()
+def tasks_table(query=False, filtered=False):
+    if not query:
+        tasks_entr = models.Task.query.order_by(models.Task.id.desc()).all()
+    elif isinstance(query, list):
+        tasks_entr = query
+    else:
+        tasks_entr = models.Task.query.order_by(models.Task.id.desc()).all()
     table_data = ''
     act_button_template = {
         'begin': '''<div class="btn-group">
-                        <button type="button" class="btn btn-primary btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                        <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
                             <span class="sr-only">Toggle Dropdown</span>
                         </button>
                         <ul class="dropdown-menu">''',
@@ -53,20 +56,47 @@ def tasks_table():
             status_row += ' class="active"'
         elif entr.status == 'testing':
             act_button = '''<div class="btn-group">
-                        <button type="button" class="btn btn-default btn-xs dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
+                        <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
                             <span class="sr-only">Toggle Dropdown</span>
                         </button>'''
             status_row += ' class="warning"'
         else:
             act_button += act_button_template['hold'] + act_button_template['queue'] + act_button_template['separator'] + act_button_template['readd'] + act_button_template['cancel'] + act_button_template['end']
+
+        if entr.result == 'success':
+            res_label = 'success'
+        elif entr.result == 'error':
+            res_label = 'danger'
+        elif entr.result == 'testing':
+            res_label = 'warning'
+        else:
+            res_label = 'default'
+
+        if entr.devices.status == 'idle':
+            dev_label = '#008000'
+        elif entr.devices.status == 'down':
+            dev_label = '#7F7F7F'
+        elif entr.devices.status == 'testing':
+            dev_label = '#FFFF00'
+        else:
+            dev_label = '#800000'
+
+        if entr.trexes.status == 'idle':
+            trex_label = '#008000'
+        elif entr.trexes.status == 'down':
+            trex_label = '#7F7F7F'
+        elif entr.trexes.status == 'testing':
+            trex_label = '#FFFF00'
+        else:
+            trex_label = '#800000'
+
         table_data += '''
             <{5}>
                 <td>{id}</td>
-                <td class="task_status">{status}</td>
-                <td>{result}</td>
-                <td>{description}</td>
-                <td>{start_time}</td>
-                <td>{end_time}</td>
+                <td class="task_status">{status}<br /><span class="label label-{7}">{result}</span></span></td>
+                <td><small>{description}</small></td>
+                <td><small>{start_time}<br />{end_time}</small></td>
+                <td>{6}</td>
                 <td>{3}</td>
                 <td>{1}</td>
                 <td>{2}</td>
@@ -75,17 +105,20 @@ def tasks_table():
             </tr>
                 '''.format(
                         ('<a href="/task/{0}">Show</a>'.format(entr.id) if entr.status.lower() in {'done', 'error'} and str(entr.result).lower() in {'success', 'error'} else 'Is not collected yet'),
-                        ('<a href="/trex/{1}">{0}</a>'.format(entr.trexes.hostname, entr.trexes.id)),
-                        ('<a href="/device/{1}">{0}</a>'.format(entr.devices.name, entr.devices.id)),
-                        ('<a href="/test/{1}">{0}</a>'.format(entr.tests.name, entr.tests.id)),
+                        ('<a href="/trex/{1}">{0}</a><br /><small style="color:{2}";>{3}</small>'.format(entr.trexes.hostname, entr.trexes.id, trex_label, entr.trexes.status)),
+                        ('<a href="/device/{1}">{0}</a><br /><small style="color:{2}";>{3}</small>'.format(entr.devices.name, entr.devices.id, dev_label, entr.devices.status)),
+                        ('<a href="/test/{1}">{0}</a><br /><small>{2}</small>'.format(entr.tests.name, entr.tests.id, entr.tests.mode)),
                         act_button.format(entr.id),
                         status_row,
+                        (None if entr.end_time is None or entr.start_time is None else (entr.end_time - entr.start_time)),
+                        res_label,
                         **entr['ALL_DICT'])
     return render_template(
         'tasks.html',
         title='List of tasks',
         content=table_data,
-        script_file='tasks.js')
+        script_file='tasks.js',
+        filtered=filtered)
 
 
 @app.route('/task/new/', methods=['GET', 'POST'])
@@ -161,7 +194,11 @@ def task_create():
         db.session.add(new_task)
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> New task was added</div>'
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> New task was added
+        </div>'''
         # showing form with success message
         return render_template('task_action.html', form=form, note=note, msg=msg, title=page_title)
     # if error occured
@@ -306,9 +343,18 @@ def task_hold(task_id):
         task_entr.status = 'hold'
         # save DB entry in DB
         db.session.commit()
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The task ID {} was holded</div>'.format(task_entr.id)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> The task ID {} was holded
+        </div>
+        '''.format(task_entr.id)
     else:
-        msg = '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> The task ID {} was not holded. No task ID</div>'.format(task_entr.id)
+        msg = '''
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Fail!</strong> The task ID {} was not holded. No task ID
+        </div>'''.format(task_entr.id)
     return(msg)
 
 
@@ -319,9 +365,17 @@ def task_queue(task_id):
         task_entr.status = 'pending'
         # save DB entry in DB
         db.session.commit()
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The task ID {} was queued</div>'.format(task_entr.id)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> The task ID {} was queued
+        </div>'''.format(task_entr.id)
     else:
-        msg = '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> The task ID {} was not queued. No task ID</div>'.format(task_entr.id)
+        msg = '''
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Fail!</strong> The task ID {} was not queued. No task ID
+        </div>'''.format(task_entr.id)
     return(msg)
 
 
@@ -332,9 +386,17 @@ def task_cancel(task_id):
         task_entr.status = 'canceled'
         # save DB entry in DB
         db.session.commit()
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The task ID {} was canceled</div>'.format(task_entr.id)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> The task ID {} was canceled
+        </div>'''.format(task_entr.id)
     else:
-        msg = '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> The task ID {} was not canceled. No task ID</div>'.format(task_entr.id)
+        msg = ''''
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Fail!</strong> The task ID {} was not canceled. No task ID
+        </div>'''.format(task_entr.id)
     return(msg)
 
 
@@ -349,9 +411,17 @@ def task_readd(task_id):
         task_entr.end_time = None
         # save DB entry in DB
         db.session.commit()
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The task ID {} was added again</div>'.format(task_entr.id)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> The task ID {} was added again
+        </div>'''.format(task_entr.id)
     else:
-        msg = '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> The task ID {} was not added again. No task ID</div>'.format(task_entr.id)
+        msg = '''
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Fail!</strong> The task ID {} was not added again. No task ID
+        </div>'''.format(task_entr.id)
     return(msg)
 
 
@@ -382,13 +452,14 @@ def task_show(task_id):
         graph_data['tx_pps'] = [0] + [task_data['sampler'][i]['tx_pps'] for i in range(sampler)]
         graph_data['rx_pps'] = [0] + [task_data['sampler'][i]['rx_pps'] for i in range(sampler)]
         graph_data['expected_pps'] = [task_data['global']['expected_pps'] for i in range(sampler + 1)]
+        graph_data['queue_drop'] = [0] + [task_data['sampler'][i]['queue_drop'] for i in range(sampler)]
+        graph_data['queue_full'] = [0] + [task_data['sampler'][i]['queue_full'] for i in range(sampler)]
         graph_data['tx_bps'] = [0] + [task_data['sampler'][i]['tx_bps'] for i in range(sampler)]
         graph_data['rx_bps'] = [0] + [task_data['sampler'][i]['rx_bps'] for i in range(sampler)]
         graph_data['expected_bps'] = [task_data['global']['expected_bps'] for i in range(sampler + 1)]
-
+        graph_data['rx_drop_bps'] = [0] + [task_data['sampler'][i]['rx_drop_bps'] for i in range(sampler)]
         table_data_head = '''<div class="panel panel-default">
-            <div class="panel-heading">{}</div>
-        '''
+            <div class="panel-heading">{}</div>'''
         table_data_begin = '''<div class="table-responsive">
             <table class="table table-hover">'''
         table_data_global = '''
@@ -397,22 +468,42 @@ def task_show(task_id):
                 <th>Expected bps rate</th>
             </tr>
             <tr>
-                <td>{expected_pps}</td>
-                <td>{expected_bps}</td>
+                <td>{0}</td>
+                <td>{1}</td>
             </tr>
-        '''.format(**task_data['global'])
+        '''.format(
+            humanize(task_data['global']['expected_pps']),
+            humanize(task_data['global']['expected_bps'], units='nist'))
+        # cheking for drops
+        drop = False
+        for drop_count in task_data['sampler']:
+            if int(drop_count['rx_drop_bps']) or int(drop_count['queue_full']) > 0:
+                drop = True
+                break
+        # getting port counters
         ports_data = {}
         for item in task_data['global']:
             if item in {'expected_pps', 'expected_bps'}:
                 continue
             ports_data.update(task_data['global'][item])
+        # calculating losses
+        ports_data['losses-0'] = ports_data['ipackets-1'] - ports_data['opackets-0']
+        ports_data['losses-1'] = ports_data['ipackets-0'] - ports_data['opackets-1']
+        # humanize counters output
+        for item in ports_data:
+            if 'byte' in item:
+                ports_data[item] = humanize(ports_data[item], units='nist')
+            elif 'packet' in item or 'loss' in item:
+                ports_data[item] = humanize(ports_data[item])
         table_data_ports = '''
             <tr>
-                <th>port num</th>
+                <th>Port #</th>
                 <th>Packets TX</th>
                 <th>Packets RX</th>
                 <th>Bytes TX</th>
                 <th>Bytes RX</th>
+                <th>Computed losses</th>
+                <th>Drops</th>
             </tr>
             <tr>
                 <td>0</td>
@@ -420,27 +511,45 @@ def task_show(task_id):
                 <td>{ipackets-0}</td>
                 <td>{obytes-0}</td>
                 <td>{ibytes-0}</td>
+                <td>{losses-0}</td>
+                <td>{0}</td>
             </tr>
             <tr>
                 <td>1</td>
                 <td>{opackets-1}</td>
                 <td>{ipackets-1}</td>
-                <td>{obytes-1}</td>
                 <td>{ibytes-1}</td>
+                <td>{obytes-1}</td>
+                <td>{losses-1}</td>
+                <td>{0}</td>
             </tr>
-            '''.format(**ports_data)
+            '''.format(
+                True if drop else None,
+                **ports_data)
+        # humanize typical output
+        for item in task_data['typical']:
+            if 'bps' in item:
+                task_data['typical'][item] = humanize(task_data['typical'][item], units='nist')
+            elif 'pps' in item:
+                task_data['typical'][item] = humanize(task_data['typical'][item])
         table_data_typical = '''
             <tr>
                 <th>Packet rate pps TX</th>
                 <th>Packet rate pps RX</th>
                 <th>Bits rate bps TX</th>
                 <th>Bits rate bps RX</th>
+                <th>RX Drops bps</th>
+                <th>Queue Drops</th>
+                <th>Queue full</th>
             </tr>
              <tr>
                 <td>{tx_pps}</td>
                 <td>{rx_pps}</td>
                 <td>{tx_bps}</td>
                 <td>{rx_bps}</td>
+                <td>{rx_drop_bps}</td>
+                <td>{queue_drop}</td>
+                <td>{queue_full}</td>
             </tr>
         '''.format(**task_data['typical'])
         table_end = '</table></div></div>'
@@ -465,3 +574,52 @@ def task_show(task_id):
             content=content,
             title=page_title,
             no_data=True)
+
+
+@app.route('/tasks/<query_item>/<int:item_id>/')
+def task_items(query_item, item_id):
+    item_name = 'name'
+    if query_item == 'trex':
+        item = models.Trex.query.get(item_id)
+        item_name = 'hostname'
+    elif query_item == 'device':
+        item = models.Device.query.get(item_id)
+    elif query_item == 'test':
+        item = models.Test.query.get(item_id)
+    else:
+        abort(404)
+    if not item:
+        abort(404)
+    item_name = item.hostname if item_name == 'hostname' else item.name
+    tasks = item.tasks
+    if len(tasks) == 0:
+        page_title = 'List of tasks'
+        content = '<p class="lead">There are not approptiate tasks.</p>'
+        return render_template(
+            'task.html',
+            content=content,
+            title=page_title,
+            no_data=True)
+    tasks.reverse()
+    filtered = '{} <em>{}</em>'.format(query_item, item_name)
+
+    return tasks_table(query=tasks, filtered=filtered)
+
+
+@app.route('/tasks/<condition>/')
+def task_condition(condition):
+    if condition in {'pending', 'hold', 'canceled', 'error', 'testing'}:
+        tasks = models.Task.query.filter(models.Task.status == condition).order_by(models.Task.id.desc()).all()
+    else:
+        abort(404)
+    filtered = '<em>{}</em> status'.format(condition)
+    if not tasks:
+        page_title = 'List of tasks'
+        content = '<p class="lead">There are not approptiate tasks.</p>'
+        return render_template(
+            'task.html',
+            content=content,
+            title=page_title,
+            no_data=True)
+
+    return tasks_table(query=tasks, filtered=filtered)
