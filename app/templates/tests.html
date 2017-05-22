@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <div id="alert_place"></div>
-<h1>Tests</h1>
+<div class="page-header">
+    <h1>Tests</h1>
+</div>
 <div class="panel panel-default">
     <div class="panel-heading">{{title}}</div>
         <table class="table table-hover">
@@ -13,6 +15,7 @@
             <th>Description</th>
             <th>Test actions</th>
             <th>Details</th>
+            <th>Associated tasks</th>
         </tr>
 {{content | safe}}
         </table>
