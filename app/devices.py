@@ -1,4 +1,3 @@
-# t-rex model page
 from flask import render_template, abort
 from app import app, db, models
 from flask_wtf import FlaskForm
@@ -25,7 +24,7 @@ def devices_table():
                 </ul>
             </div>''',
         'separator': '<li role="separator" class="divider"></li>',
-        'down': '<li><a href="/device/{0}/down" class="down" id="{0}">Down T-rex</a></li>',
+        'down': '<li><a href="/device/{0}/down" class="down" id="{0}">Down device</a></li>',
         'idle': '<li><a href="/device/{0}/idle" class="idle" id="{0}">To idle</a></li>',
         'check': '<li><a href="/device/{0}/check" class="check" id="{0}">Check status</a></li>'
     }
@@ -62,7 +61,7 @@ def devices_table():
                 '''.format(
                         status_row,
                         act_button.format(entr.id),
-                        '<a href="/device/{0}/tasks">Show</a>'.format(entr.id),
+                        '<a href="/tasks/device/{0}/">Show</a>'.format(entr.id),
                         **entr['ALL_DICT'])
 
     return render_template('devices.html', title=page_title, content=table_data, script_file=script_file)
@@ -173,7 +172,11 @@ def device_create():
         db.session.add(new_device)
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> New device was added</div>'
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> New device was added
+        </div>'''
         # showing form with success message
         return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
     # if error occured
@@ -295,7 +298,11 @@ def device_edit(device_id):
         # adding DB entry in DB
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> device {} was changed</div>'.format(device_entr.name)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> device {} was changed
+        </div>'''.format(device_entr.name)
         # showing form with success message
         return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
     # if error occured
@@ -340,9 +347,17 @@ def device_hold(device_id):
         device_entr.status = 'down'
         # save DB entry in DB
         db.session.commit()
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The device  {} was changed to down</div>'.format(device_entr.name)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> The device  {} was changed to down
+        </div>'''.format(device_entr.name)
     else:
-        msg = '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> The device {} was not changed to down. No t-rex</div>'.format(device_entr.name)
+        msg = '''
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Fail!</strong> The device {} was not changed to down. No device
+        </div>'''.format(device_entr.name)
     return(msg)
 
 
@@ -353,7 +368,15 @@ def device_idle(device_id):
         device_entr.status = 'idle'
         # save DB entry in DB
         db.session.commit()
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The device  {} was changed to idled</div>'.format(device_entr.name)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> The device  {} was changed to idled
+        </div>'''.format(device_entr.name)
     else:
-        msg = '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> The device {} was not changed to idle. No t-rex</div>'.format(device_entr.name)
+        msg = '''
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Fail!</strong> The device {} was not changed to idle. No device
+        </div>'''.format(device_entr.name)
     return(msg)

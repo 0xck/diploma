@@ -1,4 +1,3 @@
-# t-rex model page
 from flask import render_template, abort, redirect
 from app import app, db, models
 from flask_wtf import FlaskForm
@@ -37,10 +36,12 @@ def tests_table():
                 <td>{description}</td>
                 <td>{0}</td>
                 <td>{1}</td>
+                <td>{2}</td>
             </tr>
                 '''.format(
                         act_button.format(entr.id, ('stf' if entr.mode == 'stateful' else 'stl')),
                         '<a href="/test/{0}">Show</a>'.format(entr.id),
+                        '<a href="/tasks/test/{0}">Show tasks</a>'.format(entr.id),
                         **entr['ALL_DICT'])
 
     return render_template(
@@ -222,7 +223,11 @@ def test_create_stf():
         db.session.add(new_test)
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> New test was added</div>'
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> New test was added
+        </div>'''
         # showing form with success message
         return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
     # if error occured
@@ -439,7 +444,11 @@ def test_edit_stf(test_id):
         # commit DB entry changes
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong>The test was changed</div>'
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong>The test was changed
+        </div>'''
         # showing form with success message
         return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
     # if error occured
@@ -607,7 +616,11 @@ def test_create_stl():
         db.session.add(new_test)
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> New test was added</div>'
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            strong>Success!</strong> New test was added
+        </div>'''
         # showing form with success message
         return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
     # if error occured
@@ -787,7 +800,11 @@ def test_edit_stl(test_id):
         # commit DB entry changes
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong>The test was changed</div>'
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong>The test was changed
+        </div>'''
         # showing form with success message
         return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
     # if error occured

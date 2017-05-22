@@ -1,4 +1,3 @@
-# t-rex model page
 from flask import render_template, abort
 from app import app, db, models
 from flask_wtf import FlaskForm
@@ -63,7 +62,7 @@ def tresex_table():
                 '''.format(
                     status_row,
                     act_button.format(entr.id),
-                    '<a href="/trex/{0}/tasks">Show</a>'.format(entr.id),
+                    '<a href="/tasks/trex/{0}/">Show</a>'.format(entr.id),
                     **entr['ALL_DICT'])
 
     return render_template('trexes.html', title=page_title, content=table_data, script_file=script_file)
@@ -311,7 +310,11 @@ def trex_edit(trex_id):
         # adding DB entry in DB
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> t-rex {} was changed</div>'.format(trex_entr.hostname)
+        msg = ''''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> t-rex {} was changed
+        </div>'''.format(trex_entr.hostname)
         # showing form with success message
         return render_template('trex_action.html', form=form, note=note, title=page_title, msg=msg)
     # if error occured
@@ -356,9 +359,17 @@ def trex_hold(trex_id):
         trex_entr.status = 'down'
         # save DB entry in DB
         db.session.commit()
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The t-rex  {} was changed to down</div>'.format(trex_entr.hostname)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> The t-rex  {} was changed to down
+        </div>'''.format(trex_entr.hostname)
     else:
-        msg = '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> The t-rex {} was not changed to down. No t-rex</div>'.format(trex_entr.hostname)
+        msg = '''
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Fail!</strong> The t-rex {} was not changed to down. No t-rex
+        </div>'''.format(trex_entr.hostname)
     return(msg)
 
 
@@ -369,7 +380,15 @@ def trex_idle(trex_id):
         trex_entr.status = 'idle'
         # save DB entry in DB
         db.session.commit()
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The t-rex  {} was changed to idled</div>'.format(trex_entr.hostname)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Success!</strong> The t-rex  {} was changed to idled
+        </div>'''.format(trex_entr.hostname)
     else:
-        msg = '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> The t-rex {} was not changed to idle. No t-rex</div>'.format(trex_entr.hostname)
+        msg = '''
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <strong>Fail!</strong> The t-rex {} was not changed to idle. No t-rex
+        </div>'''.format(trex_entr.hostname)
     return(msg)
