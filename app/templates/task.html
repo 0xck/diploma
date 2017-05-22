@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="page-header">
     <h1>
         {{title}}
     </h1>
+</div>
 <div class="container">
         {{content | safe}}
 </div>
@@ -30,9 +32,14 @@
     var tx_pps = {{graph.tx_pps|safe}};
     var rx_pps = {{graph.rx_pps|safe}};
     var expected_pps = {{graph.expected_pps|safe}};
+    var queue_drop = {{graph.queue_drop|safe}};
+    var queue_full = {{graph.queue_full|safe}};
+
     var tx_bps = {{graph.tx_bps|safe}};
     var rx_bps = {{graph.rx_bps|safe}};
     var expected_bps = {{graph.expected_bps|safe}};
+    var rx_drop_bps = {{graph.rx_drop_bps|safe}};
+
 
     var graph_pps = {
         labels: intervals,
@@ -75,7 +82,7 @@
                 backgroundColor: "rgba(255, 132, 0, 1)",
                 borderColor: "rgba(255, 132, 0, 1)",
                 data: expected_pps
-            }
+            },
         ]
     };
 
@@ -137,7 +144,9 @@
                         var tx = 'TX: ' + tx_pps[tooltipItem.index] + ' pps';
                         var rx = 'RX: ' + rx_pps[tooltipItem.index] + ' pps';
                         var expected = 'Expected rate: ' + expected_pps[tooltipItem.index] + ' pps';
-                        return [tx, rx, expected];
+                        var q_drop = 'Queue Drops: ' + queue_drop[tooltipItem.index];
+                        var q_full = 'Queue Full: ' + queue_full[tooltipItem.index];
+                        return [tx, rx, expected, q_drop, q_full];
                     },
                     title: function(tooltipItem, data) {
                         interval = tooltipItem[0].xLabel + ' sec';
@@ -160,7 +169,8 @@
                             var tx = 'TX: ' + tx_bps[tooltipItem.index] + ' bps';
                             var rx = 'RX: ' + rx_bps[tooltipItem.index] + ' bps';
                             var expected = 'Expected rate: ' + expected_bps[tooltipItem.index] + ' bps';
-                            return [tx, rx, expected];
+                            var rx_drop = 'RX Drops: ' + rx_drop_bps[tooltipItem.index] + ' bps';
+                            return [tx, rx, expected, rx_drop];
                         },
                         title: function(tooltipItem, data) {
                             interval = tooltipItem[0].xLabel + ' sec';
