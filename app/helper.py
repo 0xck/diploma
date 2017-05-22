@@ -1,3 +1,18 @@
+def humanize(data, units='si', end=''):
+    types = ('', '', 'K', 'M', 'G', 'P', 'E')
+    if units == 'si':
+        base = 1000
+    else:
+        base = 1024
+    if data > base:
+        for i in range(2, 6):
+            if data < base ** i:
+                return '{:.2f}{}{}'.format(data / (base ** (i - 1)), types[i], end)
+                break
+    else:
+        return str(data) + ' ' + end
+
+
 general_notes = {
     'table_req': 'All fields above are required',
 }
