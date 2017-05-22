@@ -3,7 +3,6 @@
 $(document).ready(function() {
     $('.hold[id]').bind('click', function( event ) {
         event.preventDefault();
-        console.log($(this))
         $.get('/task/' + this.id + '/hold', function (data) {
             $('#alert_place').html(data);
         });
@@ -20,7 +19,6 @@ $(document).ready(function() {
 $(document).ready(function() {
     $('.queue[id]').bind('click', function( event ) {
         event.preventDefault();
-        console.log($(this))
         $.get('/task/' + this.id + '/queue', function (data) {
             $('#alert_place').html(data);
         });
