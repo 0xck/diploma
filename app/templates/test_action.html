@@ -42,6 +42,14 @@
                 {% endfor %}
             {% endif %}
         {% else %}
+            <div class="form-group">
+            {{form.rate_type.label}} {{form.rate_type(class="form-control")}}
+                {% if notes.rate_type %}
+                    {% for item in notes.rate_type %}
+                        <p class="help-block">{{item}}<p>
+                    {% endfor %}
+                {% endif %}
+        </div>
                 {{form.rate.label}} {{form.rate(class="form-control", placeholder="Default is 1000", required="required")}}
                 {% if notes.rate %}
                     {% for item in notes.rate %}
@@ -56,9 +64,9 @@
         <div class="form-group">
             {{form.accuracy.label}}
             {% if test_type == 'common' %}
-                {{form.accuracy(class="form-control", placeholder="Default is 0.001. Maximum is 1", required="required", disabled="disabled")}}
+                {{form.accuracy(class="form-control", placeholder="Default is 0.1, maximum is 100", required="required", disabled="disabled")}}
             {% else %}
-                {{form.accuracy(class="form-control", placeholder="Default is 0.001. Maximum is 1", required="required")}}
+                {{form.accuracy(class="form-control", placeholder="Default is 0.1, maximum is 100", required="required")}}
             {% endif %}
             {% if notes.accuracy %}
                 {% for item in notes.accuracy %}
