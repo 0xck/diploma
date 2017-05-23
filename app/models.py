@@ -306,6 +306,8 @@ class Test(db.Model):
     parameters = db.Column(db.Text)
     # test description
     description = db.Column(db.Text)
+    # hidden
+    hidden = db.Column(db.Boolean)
     # associated trex instance
     tasks = db.relationship('Task', backref='tests')
 
@@ -323,7 +325,8 @@ class Test(db.Model):
             self.mode,
             self.test_type,
             self.parameters,
-            self.description)
+            self.description,
+            self.hidden)
 
     def __getitem__(self, index):
         # different returns
@@ -335,6 +338,7 @@ class Test(db.Model):
                 self.mode,
                 self.test_type,
                 self.description,
+                self.hidden,
                 self.parameters]
         # return dict of args
         elif index == 'ALL_DICT':
@@ -344,6 +348,7 @@ class Test(db.Model):
                 mode=self.mode,
                 test_type=self.test_type,
                 description=self.description,
+                hidden=self.hidden,
                 parameters=self.parameters)
         # return index of list of args
         else:
@@ -353,6 +358,7 @@ class Test(db.Model):
                 self.mode,
                 self.test_type,
                 self.description,
+                self.hidden,
                 self.parameters][index]
 
 
