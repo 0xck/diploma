@@ -21,7 +21,7 @@ def test(task_id=0, **kwargs):
     def task_err(result):
         # universal error func
         # defines end test time
-        task.end_time = datetime.now()
+        task.end_time = datetime.now().replace(microsecond=0)
         # defines test result
         task.result = 'error'
         # defines test data as error content
@@ -41,7 +41,7 @@ def test(task_id=0, **kwargs):
         if task.tests.mode.lower() in {'stateful', 'stateless'}:
             test_attr['mode'] = task.tests.mode.lower()
         else:
-            task.start_time = datetime.now()
+            task.start_time = datetime.now().replace(microsecond=0)
             result['state'] = 'task mode error'
             task_err(result)
             return result
@@ -49,7 +49,7 @@ def test(task_id=0, **kwargs):
         if task.tests.test_type.lower() in {'common', 'selection'}:
             test_attr['type'] = task.tests.test_type.lower()
         else:
-            task.start_time = datetime.now()
+            task.start_time = datetime.now().replace(microsecond=0)
             result['state'] = 'test type error'
             task_err(result)
             return result
@@ -60,7 +60,7 @@ def test(task_id=0, **kwargs):
         return result
     # cheking current trex and device status
     # set start time
-    task.start_time = datetime.now()
+    task.start_time = datetime.now().replace(microsecond=0)
     # checking trex status
     try:
         # trex is not busy or down etc
@@ -140,7 +140,7 @@ def test(task_id=0, **kwargs):
         return result
     # in case test is done
     # set test end time
-    task.end_time = datetime.now()
+    task.end_time = datetime.now().replace(microsecond=0)
     # change statuses
     task.trexes.status = 'idle'
     # cheking kill status after stateless test
@@ -152,9 +152,9 @@ def test(task_id=0, **kwargs):
     task.status = 'done'
     # type of result data depends on test type
     if test_attr['type'] == 'common':
-        task.data = json.dumps(result['values'])
+        task.data = json.dumps({'trex': result['values']})
     else:
-        task.data = json.dumps([result['values'], result['rate']])
+        task.data = json.dumps({'trex': result['values'], 'rate': result['rate']})
     db.session.commit()
     # will add later
     # result.pop('values')

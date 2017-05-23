@@ -3,15 +3,14 @@ from app import db, models
 # work with t-rex
 from trex import test_proc
 # for queueing
-from rq import Queue
+from rq import Queue, get_failed_queue
 from rq.job import Job, cancel_job
 from worker import redis_connect
 # other
 from datetime import datetime
 import time
-import json
 # exception
-from json import JSONDecodeError
+from json import JSONDecodeError, loads, dumps
 # for correct stop
 import signal
 from sys import exit
@@ -46,27 +45,24 @@ def task_queuer(interval=300, safe_int=600):
     def err_handler(task, err_msg):
         # parameter error handler
         # inserting task time etc
-        task_time = datetime.now()
+        task_time = datetime.now().replace(microsecond=0)
         task.start_time = task_time
         task.end_time = task_time
         task.result = 'error'
         # defines test data as error content
-        task.data = err_msg
+        task.data = dumps({'error': err_msg})
         # defines task status
         task.status = 'done'
 
     while True:
         time.sleep(interval)
-        print('task_queuer')
         tasks = task_finder()
-        print(tasks)
         if tasks['status']:
             for task in tasks['values']:
-                print('job added')
                 # adding task to queue
                 try:
-                    # getting timeout
-                    timeout = int(json.loads(task.tests.parameters)['trex']['duration']) + int(safe_int)
+                    # getting timeout; in case selection timeout is summ of max attempt * duration
+                    timeout = (int(loads(task.tests.parameters)['trex']['duration']) * int(1 if task.tests.test_type != 'selection' else loads(task.tests.parameters)['rate']['max_test_count'])) + int(safe_int)
                     # adding task to queue
                     tasks_queue.enqueue_call(func=test_proc.test, kwargs={'task_id': task.id}, job_id=str(task.id), result_ttl=0, timeout=timeout)
                     # updating task status
@@ -84,7 +80,7 @@ def task_queuer(interval=300, safe_int=600):
 
 
 tasks_queue = Queue('tasks', connection=redis_connect, default_timeout=90)
-statuses_queue = Queue('statuses', connection=redis_connect, default_timeout=30)
+# statuses_queue = Queue('statuses', connection=redis_connect, default_timeout=30)
 
 
 if __name__ == '__main__':
@@ -93,16 +89,22 @@ if __name__ == '__main__':
         task_queuer(interval=30)
     except (KeyboardInterrupt, GracefulExit):
         print('Got stop signal')
+        # finds all testing tasks and sets their status to pending
         working_task = models.Task.query.filter((models.Task.status == 'testing') | (models.Task.status == 'queued')).all()
-        for task in working_task:
-            job = Job.fetch(str(task.id), connection=redis_connect)
-            if job.is_started or job.is_queued:
-                cancel_job(str(job.get_id()), connection=redis_connect)
-            task.status = 'pending'
-            if task.trexes.status.lower() != 'idle':
-                task.trexes.status = 'idle'
-            if task.devices.status.lower() != 'idle':
-                task.devices.status = 'idle'
+        if len(working_task) > 0:
+            for task in working_task:
+                job = Job.fetch(str(task.id), connection=redis_connect)
+                if job.is_started or job.is_queued:
+                    cancel_job(str(job.get_id()), connection=redis_connect)
+                task.status = 'pending'
+                if task.trexes.status.lower() != 'idle':
+                    task.trexes.status = 'idle'
+                if task.devices.status.lower() != 'idle':
+                    task.devices.status = 'idle'
+        # clear failed queues
+        failed_task = get_failed_queue()
+        if failed_task.count > 0:
+            failed_task.empty()
 
         db.session.commit()
         print('DB sync done. Exiting...')

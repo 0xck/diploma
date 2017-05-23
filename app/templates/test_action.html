@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+<div class="page-header">
+    <h1>
+        {{title}}
+    </h1>
+</div>
+    {% if msg %}
+        {{msg|safe}}
+    {% endif %}
+    <form name="new_test" method="post" >
+        {{form.hidden_tag()}}
+        <div class="form-group">
+        {{form.name.label}} {{form.name(class="form-control", placeholder="Test_name", required="required")}}
+        </div>
+        <div class="form-group">
+        {{form.test_type.label}} {{form.test_type(class="form-control")}}
+        {% if notes.test %}
+            {% for item in notes.test %}
+            <p class="help-block">{{item}}<p>
+            {% endfor %}
+        {% endif %}
+        </div>
+        <div class="form-group">
+        {{form.duration.label}} {{form.duration(class="form-control", placeholder="Default is 60 seconds", required="required")}}
+        </div>
+        <div class="form-group">
+        {{form.traffic_pattern.label}} {{form.traffic_pattern(class="form-control", placeholder="Default is cap2/dns.yaml...")}}
+        {% if notes.pattern %}
+            {% for item in notes.pattern %}
+            <p class="help-block">{{item}}<p>
+        {% endfor %}
+        {% endif %}
+        </div>
+        <div class="form-group">
+        {% if mode == 'stateful' %}
+                {{form.multiplier.label}} {{form.multiplier(class="form-control", placeholder="Default is 1", required="required")}}
+            {% if notes.multiplier %}
+                {% for item in notes.multiplier %}
+                <p class="help-block">{{item}}<p>
+                {% endfor %}
+            {% endif %}
+        {% else %}
+            <div class="form-group">
+            {{form.rate_type.label}} {{form.rate_type(class="form-control")}}
+                {% if notes.rate_type %}
+                    {% for item in notes.rate_type %}
+                        <p class="help-block">{{item}}<p>
+                    {% endfor %}
+                {% endif %}
+        </div>
+                {{form.rate.label}} {{form.rate(class="form-control", placeholder="Default is 1000", required="required")}}
+                {% if notes.rate %}
+                    {% for item in notes.rate %}
+                        <p class="help-block">{{item}}<p>
+                    {% endfor %}
+                {% endif %}
+        {% endif %}
+        </div>
+        
+        <!-- selection fields begin -->
+
+        <div class="form-group">
+            {{form.accuracy.label}}
+            {% if test_type == 'common' %}
+                {{form.accuracy(class="form-control", placeholder="Default is 0.1, maximum is 100", required="required", disabled="disabled")}}
+            {% else %}
+                {{form.accuracy(class="form-control", placeholder="Default is 0.1, maximum is 100", required="required")}}
+            {% endif %}
+            {% if notes.accuracy %}
+                {% for item in notes.accuracy %}
+                    <p class="help-block">{{item}}<p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{form.rate_incr_step.label}} 
+            {% if test_type == 'common' %}
+                {{form.rate_incr_step(class="form-control", placeholder="Maximum is 100000", required="required", disabled="disabled")}}
+            {% else %}
+                {{form.rate_incr_step(class="form-control", placeholder="Maximum is 100000", required="required")}}
+            {% endif %}
+            {% if notes.rate_incr_step %}
+                {% for item in notes.rate_incr_step %}
+                    <p class="help-block">{{item}}<p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{form.max_succ_attempt.label}} 
+            {% if test_type == 'common' %}
+                {{form.max_succ_attempt(class="form-control", placeholder="Default is 3. Maximum is 1000", required="required", disabled="disabled")}}
+            {% else %}
+                {{form.max_succ_attempt(class="form-control", placeholder="Default is 3. Maximum is 1000")}}
+            {% endif %}
+            {% if notes.max_succ_attempt %}
+                {% for item in notes.max_succ_attempt %}
+                    <p class="help-block">{{item}}<p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{form.max_test_count.label}}
+            {% if test_type == 'common' %}
+                {{form.max_test_count(class="form-control", placeholder="Default is 30. Maximum is 1000", required="required", disabled="disabled")}}
+            {% else %}
+                {{form.max_test_count(class="form-control", placeholder="Default is 30. Maximum is 1000", required="required")}}
+            {% endif %}
+            {% if notes.max_test_count %}
+                {% for item in notes.max_test_count %}
+                    <p class="help-block">{{item}}<p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{form.selection_test_type.label}}
+            {% if test_type == 'common' %}
+                {{form.selection_test_type(class="form-control", disabled="disabled")}}
+            {% else %}
+                {{form.selection_test_type(class="form-control")}}
+            {% endif %}
+            {% if notes.selection_test_type %}
+                {% for item in notes.selection_test_type %}
+                    <p class="help-block">{{item}}<p>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- selection fields end -->
+
+        <div class="form-group">
+        {{form.sampler.label}} {{form.sampler(class="form-control", placeholder="Default is 1 second", required="required")}}
+        {% if notes.sampler %}
+            {% for item in notes.sampler %}
+            <p class="help-block">{{item}}<p>
+        {% endfor %}
+        {% endif %}
+        </div>
+        {% if mode == 'stateful' %}
+            <div class="form-group">
+            {{form.warm.label}} {{form.warm(class="form-control", placeholder="Default is 10 seconds", required="required")}}
+            {% if notes.warm %}
+                {% for item in notes.warm %}
+                <p class="help-block">{{item}}<p>
+            {% endfor %}
+            {% endif %}
+            </div>
+            <div class="form-group">
+            {{form.wait.label}} {{form.wait(class="form-control", placeholder="Default is 1 second", required="required")}}
+            {{note | safe}}
+            </div>
+            <div class="form-group">
+            <div class="checkbox">
+                {{form.soft_test}}
+                {{form.soft_test.label}}
+            </div>
+            </div>
+        {% endif %}
+        <div class="form-group">
+        <div class="checkbox">
+            {{form.hw_chsum}}
+            {{form.hw_chsum.label}}
+        </div>
+        </div>
+        <div class="form-group">
+        {{form.description.label}} {{form.description(class="form-control", placeholder="Short description...")}}
+        </div>
+        <div class="form-group">
+        {{form.submit(class="btn btn-primary")}}
+        </div>
+    </form>
+</div>
+{% endblock %}
+{% block script %}
+<script src="/static/js/{{script_file}}"></script>
+{% endblock %}
