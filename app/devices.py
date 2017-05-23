@@ -3,7 +3,7 @@ from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, BooleanField
 from wtforms.validators import Required, Length, AnyOf, Regexp, IPAddress, NoneOf
-from app.helper import general_notes, validator_err
+from app.helper import general_notes, validator_err, messages, devices_statuses
 
 
 @app.route('/devices/')
@@ -26,7 +26,7 @@ def devices_table():
         'separator': '<li role="separator" class="divider"></li>',
         'down': '<li><a href="/device/{0}/down" class="down" id="{0}">Down device</a></li>',
         'idle': '<li><a href="/device/{0}/idle" class="idle" id="{0}">To idle</a></li>',
-        'check': '<li><a href="/device/{0}/check" class="check" id="{0}">Check status</a></li>'
+        'check': '<li><a href="/device/{0}/check" class="check" id="{0}">Autoset status</a></li>'
     }
     for entr in devices_entr:
         status_row = 'tr'
@@ -58,11 +58,11 @@ def devices_table():
                 <td>{1}</td>
                 <td>{2}</td>
             </tr>
-                '''.format(
-                        status_row,
-                        act_button.format(entr.id),
-                        '<a href="/tasks/device/{0}/">Show</a>'.format(entr.id),
-                        **entr['ALL_DICT'])
+        '''.format(
+                status_row,
+                act_button.format(entr.id),
+                '<a href="/tasks/device/{0}/">Show</a>'.format(entr.id),
+                **entr['ALL_DICT'])
 
     return render_template('devices.html', title=page_title, content=table_data, script_file=script_file)
 
@@ -70,7 +70,7 @@ def devices_table():
 @app.route('/device/new/', methods=['GET', 'POST'])
 def device_create():
     # getting trex status list
-    statuses = ['idle', 'down', 'error', 'testing']
+    statuses = devices_statuses['all']
     list_statuses = [(device_status, device_status) for device_status in statuses[1:-2]]
     list_statuses.insert(0, (statuses[0], '{} (Default)'.format(statuses[0])))
     curr_trexes = models.Device.query.all()
@@ -172,18 +172,14 @@ def device_create():
         db.session.add(new_device)
         db.session.commit()
         # Success message
-        msg = '''
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Success!</strong> New device was added
-        </div>'''
+        msg = messages['success'].format('New device was added')
         # showing form with success message
         return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
-            msg += '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> <em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0])
+            msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
         return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
     # return clean form
     return render_template('device_action.html', form=form, note=note, title=page_title)
@@ -198,7 +194,7 @@ def device_edit(device_id):
         abort(404)
 
     # getting trex status list
-    statuses = ['idle', 'down', 'error', 'testing']
+    statuses = devices_statuses['all']
     statuses.remove(device_entr.status)
     statuses.insert(0, device_entr.status)
     list_statuses = [(device_status, device_status) for device_status in statuses]
@@ -298,18 +294,14 @@ def device_edit(device_id):
         # adding DB entry in DB
         db.session.commit()
         # Success message
-        msg = '''
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Success!</strong> device {} was changed
-        </div>'''.format(device_entr.name)
+        msg = messages['success'].format('Device {} was changed'.format(device_entr.name))
         # showing form with success message
         return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
-            msg += '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> <em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0])
+            msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
         return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
     # return clean form
     return render_template('device_action.html', form=form, note=note, title=page_title)
@@ -334,7 +326,7 @@ def device_delete(device_id):
         form.checker.data = False
         db.session.delete(device_entr)
         db.session.commit()
-        del_msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The device {} was deleted</div>'.format(device_entr.name)
+        del_msg = messages['succ_no_close'].format('The device {} was deleted'.format(device_entr.name))
         return render_template('delete.html', del_msg=del_msg, title=page_title)
 
     return render_template('delete.html', form=form, title=page_title)
@@ -347,17 +339,9 @@ def device_hold(device_id):
         device_entr.status = 'down'
         # save DB entry in DB
         db.session.commit()
-        msg = '''
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Success!</strong> The device  {} was changed to down
-        </div>'''.format(device_entr.name)
+        msg = messages['success'].format('The device {} was changed to down'.format(device_entr.name))
     else:
-        msg = '''
-        <div class="alert alert-danger alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Fail!</strong> The device {} was not changed to down. No device
-        </div>'''.format(device_entr.name)
+        msg = messages['no_succ'].format('The device {} was not changed to down. No device'.format(device_entr.name))
     return(msg)
 
 
@@ -368,15 +352,7 @@ def device_idle(device_id):
         device_entr.status = 'idle'
         # save DB entry in DB
         db.session.commit()
-        msg = '''
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Success!</strong> The device  {} was changed to idled
-        </div>'''.format(device_entr.name)
+        msg = messages['success'].format('The device {} was changed to idle'.format(device_entr.name))
     else:
-        msg = '''
-        <div class="alert alert-danger alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Fail!</strong> The device {} was not changed to idle. No device
-        </div>'''.format(device_entr.name)
+        msg = messages['no_succ'].format('The device {} was not changed to idle. No device'.format(device_entr.name))
     return(msg)

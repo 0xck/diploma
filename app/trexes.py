@@ -3,7 +3,7 @@ from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, IntegerField, BooleanField
 from wtforms.validators import Required, Length, AnyOf, Regexp, NumberRange, IPAddress, NoneOf, Optional
-from app.helper import general_notes, validator_err
+from app.helper import general_notes, validator_err, trexes_statuses, messages
 
 
 @app.route('/trexes/')
@@ -71,7 +71,7 @@ def tresex_table():
 @app.route('/trex/new/', methods=['GET', 'POST'])
 def trex_create():
     # getting trex status list
-    statuses = ['idle', 'down', 'error', 'testing']
+    statuses = trexes_statuses['all']
     list_statuses = [(trex_status, trex_status) for trex_status in statuses[1:-2]]
     list_statuses.insert(0, (statuses[0], '{} (Default)'.format(statuses[0])))
     curr_trexes = models.Trex.query.all()
@@ -181,14 +181,14 @@ def trex_create():
         db.session.add(new_trex)
         db.session.commit()
         # Success message
-        msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> New t-rex was added</div>'
+        msg = messages['success'].format('New t-rex was added')
         # showing form with success message
         return render_template('trex_action.html', form=form, note=note, title=page_title, msg=msg)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
-            msg += '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> <em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0])
+            msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
         return render_template('trex_action.html', form=form, note=note, title=page_title, msg=msg)
     # return clean form
     return render_template('trex_action.html', form=form, note=note, title=page_title)
@@ -203,7 +203,7 @@ def trex_edit(trex_id):
         abort(404)
 
     # getting trex status list
-    statuses = ['idle', 'down', 'error', 'testing']
+    statuses = trexes_statuses['all']
     statuses.remove(trex_entr.status)
     statuses.insert(0, trex_entr.status)
     list_statuses = [(trex_status, trex_status) for trex_status in statuses]
@@ -310,18 +310,14 @@ def trex_edit(trex_id):
         # adding DB entry in DB
         db.session.commit()
         # Success message
-        msg = ''''
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Success!</strong> t-rex {} was changed
-        </div>'''.format(trex_entr.hostname)
+        msg = messages['succ_no_close'].format('t-rex {} was changed'.format(trex_entr.hostname))
         # showing form with success message
         return render_template('trex_action.html', form=form, note=note, title=page_title, msg=msg)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
-            msg += '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> <em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0])
+            msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
         return render_template('trex_action.html', form=form, note=note, title=page_title, msg=msg)
     # return clean form
     return render_template('trex_action.html', form=form, note=note, title=page_title)
@@ -346,7 +342,7 @@ def trex_delete(trex_id):
         form.checker.data = False
         db.session.delete(trex_entr)
         db.session.commit()
-        del_msg = '<div class="alert alert-success" role="alert"><strong>Success!</strong> The t-rex {} was deleted</div>'.format(trex_entr.hostname)
+        del_msg = messages['succ_no_close'].format('The t-rex {} was deleted</div>'.format(trex_entr.hostname))
         return render_template('delete.html', del_msg=del_msg, title=page_title)
 
     return render_template('delete.html', form=form, title=page_title)
@@ -359,17 +355,9 @@ def trex_hold(trex_id):
         trex_entr.status = 'down'
         # save DB entry in DB
         db.session.commit()
-        msg = '''
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Success!</strong> The t-rex  {} was changed to down
-        </div>'''.format(trex_entr.hostname)
+        msg = messages['success'].format('The t-rex {} was changed to down'.format(trex_entr.hostname))
     else:
-        msg = '''
-        <div class="alert alert-danger alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Fail!</strong> The t-rex {} was not changed to down. No t-rex
-        </div>'''.format(trex_entr.hostname)
+        msg = messages['no_succ'].format('The t-rex {} was not changed to down. No t-rex'.format(trex_entr.hostname))
     return(msg)
 
 
@@ -380,15 +368,7 @@ def trex_idle(trex_id):
         trex_entr.status = 'idle'
         # save DB entry in DB
         db.session.commit()
-        msg = '''
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Success!</strong> The t-rex  {} was changed to idled
-        </div>'''.format(trex_entr.hostname)
+        msg = messages['success'].format('The t-rex {} was changed to idle'.format(trex_entr.hostname))
     else:
-        msg = '''
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <strong>Fail!</strong> The t-rex {} was not changed to idle. No t-rex
-        </div>'''.format(trex_entr.hostname)
+        msg = messages['no_succ'].format('The t-rex {} was not changed to idle. No t-rex'.format(trex_entr.hostname))
     return(msg)
