@@ -1,4 +1,5 @@
 'use strict';
+// actions button and dropdown actions
 // on hold
 $(document).ready(function() {
     $('.hold[id]').bind('click', function( event ) {
@@ -9,10 +10,6 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('hold');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('info');
-        //$(this).removeClass();
-        //$(this).addClass('queue');
-        //$(this).text('To queue');
-        //$(this).prop("href", '/task/' + this.id + '/queue');
     });
 });
 // to queue
@@ -24,10 +21,6 @@ $(document).ready(function() {
         });
         $(this).closest('tr').children('td.task_status').text('pending');
         $(this).closest('tr').removeClass();
-        //$(this).removeClass();
-        //$(this).addClass('hold');
-        //$(this).text('On hold');
-        //$(this).prop("href", '/task/' + this.id + '/hold');
     });
 });
 // re add
@@ -39,10 +32,6 @@ $(document).ready(function() {
         });
         $(this).closest('tr').children('td.task_status').text('pending');
         $(this).closest('tr').removeClass();
-        //$(this).removeClass();
-        //$(this).addClass('hold');
-        //$(this).text('On hold');
-        //$(this).prop("href", '/task/' + this.id + '/hold');
     });
 });
 // cancel
@@ -55,9 +44,75 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('canceled');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('active');
-        //$(this).removeClass();
-        //$(this).addClass('readd');
-        //$(this).text('Re add');
-        //$(this).prop("href", '/task/' + this.id + '/readd');
+    });
+});
+// task filter
+// all
+$(document).ready(function() {
+    $('#filter_all').bind('click', function( event ) {
+        event.preventDefault();
+    $('li.active').removeClass();
+    $(this).addClass('active');
+    $('tr.condition').show();
+    });
+});
+// pending
+$(document).ready(function() {
+    $('#filter_pending').bind('click', function( event ) {
+        event.preventDefault();
+    $('li.active').removeClass();
+    $(this).addClass('active');
+    $('tr.condition').hide();
+    $('tr.pending').show();
+    });
+});
+// successful
+$(document).ready(function() {
+    $('#filter_successful').bind('click', function( event ) {
+        event.preventDefault();
+    $('li.active').removeClass();
+    $(this).addClass('active');
+    $('tr.condition').hide();
+    $('tr.successful').show();
+    });
+});
+// done
+$(document).ready(function() {
+    $('#filter_hold').bind('click', function( event ) {
+        event.preventDefault();
+    $('li.active').removeClass();
+    $(this).addClass('active');
+    $('tr.condition').hide();
+    $('tr.hold').show();
+    });
+});
+// testing
+$(document).ready(function() {
+    $('#filter_testing').bind('click', function( event ) {
+        event.preventDefault();
+    $('li.active').removeClass();
+    $(this).addClass('active');
+    $('tr.condition').hide();
+    $('tr.testing').show();
+    });
+});
+// error
+$(document).ready(function() {
+    $('#filter_error').bind('click', function( event ) {
+        event.preventDefault();
+    $('li.active').removeClass();
+    $(this).addClass('active');
+    $('tr.condition').hide();
+    $('tr.error').show();
+    });
+});
+// canceled
+$(document).ready(function() {
+    $('#filter_canceled').bind('click', function( event ) {
+        event.preventDefault();
+    $('li.active').removeClass();
+    $(this).addClass('active');
+    $('tr.condition').hide();
+    $('tr.canceled').show();
     });
 });
