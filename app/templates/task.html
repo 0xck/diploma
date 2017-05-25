@@ -8,6 +8,7 @@
 <div class="container">
         {{content | safe}}
 </div>
+{# charts #}
 {% if not no_data %}
     <div class="container">
     <div class="panel panel-default">
@@ -23,46 +24,80 @@
     </div>
 {% endif %}
 {% if test_data %}
+{# test info #}
+<div class="container">
 <h3>Test detail
 {% if test_hidden %}
 <small>{{test_hidden|safe}}</small>
 {% endif %}
 </h3>
-<div class="container">
     <div class="panel panel-default">
         <div class="panel-heading">General details</div>
         <div class="table-responsive">
             <table class="table table-hover">
-                {{test_data|safe}}
+            {{test_data|safe}}
+            </table>
+        </div>
     </div>
+</div>
+{# trex and device info #}
+<div class="container">
+<h3>T-rex & Device</h3>
+
+    <div class="panel panel-default">
+        <div class="panel-heading">T-rex details</div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <tr>
+                    <th>Hostname</th>
+                    <th>Description</th>
+                </tr>
+                {{trex_data|safe}}
+            </table>
+        </div>
+    </div>
+
+    <div class="panel panel-default">
+        <div class="panel-heading">Device details</div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                </tr>
+                {{device_data|safe}}
+            </table>
+        </div>
+    </div>
+
 </div>
 {% endif %}
 {% endblock %}
 
 {% block script %}
 {% if graph %}
+{# script generates charts #}
 <script src="/static/js/Chart.js"></script>
 <script>
+// getting pps data
     var intervals = {{graph.intervals|safe}};
     var tx_pps = {{graph.tx_pps|safe}};
     var rx_pps = {{graph.rx_pps|safe}};
     var expected_pps = {{graph.expected_pps|safe}};
     var queue_drop = {{graph.queue_drop|safe}};
     var queue_full = {{graph.queue_full|safe}};
-
+// getting bps data
     var tx_bps = {{graph.tx_bps|safe}};
     var rx_bps = {{graph.rx_bps|safe}};
     var expected_bps = {{graph.expected_bps|safe}};
     var rx_drop_bps = {{graph.rx_drop_bps|safe}};
-
-
+// gathering charts data
     var graph_pps = {
         labels: intervals,
         datasets: [
             {
                 label: "TX pps",
                 fill: false,
-                //fillColor: "rgba(31, 171, 0, 1)",
                 strokeColor: "rgba(31, 171, 0, 1)",
                 pointColor: "rgba(31, 171, 0, 1)",
                 pointStrokeColor: "rgba(31, 171, 0, 1)",
@@ -75,7 +110,6 @@
             {
                 label: "RX pps",
                 fill: false,
-                //fillColor: "rgba(151,187,205,0.2)",
                 strokeColor: "rgba(151,187,205,1)",
                 pointColor: "rgba(151,187,205,1)",
                 pointStrokeColor: "#fff",
@@ -88,7 +122,6 @@
             {
                 label: "Expected pps",
                 fill: false,
-                //fillColor: "rgba(151,187,205,0.2)",
                 strokeColor: "rgba(151,187,205,1)",
                 pointColor: "rgba(151,187,205,1)",
                 pointStrokeColor: "#fff",
@@ -107,7 +140,6 @@
             {
                 label: "TX bps",
                 fill: false,
-                //fillColor: "rgba(31, 171, 0, 1)",
                 strokeColor: "rgba(31, 171, 0, 1)",
                 pointColor: "rgba(31, 171, 0, 1)",
                 pointStrokeColor: "rgba(31, 171, 0, 1)",
@@ -120,7 +152,6 @@
             {
                 label: "RX bps",
                 fill: false,
-                //fillColor: "rgba(151,187,205,0.2)",
                 strokeColor: "rgba(151,187,205,1)",
                 pointColor: "rgba(151,187,205,1)",
                 pointStrokeColor: "#fff",
@@ -133,7 +164,6 @@
             {
                 label: "Expected bps",
                 fill: false,
-                //fillColor: "rgba(151,187,205,0.2)",
                 strokeColor: "rgba(151,187,205,1)",
                 pointColor: "rgba(151,187,205,1)",
                 pointStrokeColor: "#fff",
@@ -145,8 +175,8 @@
             }
         ]
     };
-
-    // Get the context of the canvas element we want to select
+// Get the context of the canvas element we want to select
+// pps chart
     var chart_pps = document.getElementById("graph_pps").getContext("2d");
     var graph_pps = new Chart(chart_pps, {
         type: 'line',
@@ -171,7 +201,7 @@
             }
         }
     });
-
+// bps chart
     var chart_bps = document.getElementById("graph_bps").getContext("2d");
         var graph_bps = new Chart(chart_bps, {
             type: 'line',
