@@ -6,4 +6,3 @@ rq
 redis
 Flask-WTF
 WTForms
-bitmath
