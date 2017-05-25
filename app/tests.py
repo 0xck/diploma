@@ -3,7 +3,7 @@ from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField, StringField, IntegerField, FloatField
 from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp, NoneOf
-from app.helper import stf_traffic_patterns, stf_notes, general_notes, validator_err, messages, test_types, stl_test_val
+from app.helper import stf_traffic_patterns, stf_notes, stl_notes, general_notes, validator_err, messages, test_types, stl_test_val, sel_test_types
 from json import loads, dumps
 from os import listdir, getcwd, path
 
@@ -27,6 +27,19 @@ def tests_table():
 
     for entr in tests_entr:
         act_button = act_button_template['begin'] + act_button_template['end']
+        table_items = {}
+        # getting test db info
+        table_items.update(entr['ALL_DICT'])
+        # action button
+        if entr.mode == 'stateful':
+            table_items['act_button'] = act_button.format(entr.id, 'stf')
+        else:
+            table_items['act_button'] = act_button.format(entr.id, 'stl')
+        # details
+        table_items['show'] = '<a href="/test/{0}">Show</a>'.format(entr.id)
+        # associated tasks
+        table_items['tasks'] = '<a href="/tasks/test/{0}">Show tasks</a>'.format(entr.id)
+
         table_data += '''
             <tr>
                 <td>{id}</td>
@@ -34,15 +47,11 @@ def tests_table():
                 <td>{mode}</td>
                 <td>{test_type}</td>
                 <td>{description}</td>
-                <td>{0}</td>
-                <td>{1}</td>
-                <td>{2}</td>
+                <td>{act_button}</td>
+                <td>{show}</td>
+                <td>{tasks}</td>
             </tr>
-        '''.format(
-                act_button.format(entr.id, ('stf' if entr.mode == 'stateful' else 'stl')),
-                '<a href="/test/{0}">Show</a>'.format(entr.id),
-                '<a href="/tasks/test/{0}">Show tasks</a>'.format(entr.id),
-                **entr['ALL_DICT'])
+        '''.format(**table_items)
 
     return render_template(
         'tests.html',
@@ -63,7 +72,7 @@ def test_create_stf():
     list_patterns = [(test_pattern, test_pattern) for test_pattern in patterns[1:]]
     list_patterns.insert(0, (patterns[0], '{} (Default)'.format(patterns[0])))
     # getting types of selection test
-    selection_types = ['safe', 'accuracy', 'drop']
+    selection_types = sel_test_types['all']
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types[1:]]
     list_selection_types.insert(0, (selection_types[0], '{} (Default)'.format(selection_types[0])))
     # getting lists of current tests values for checking
@@ -218,7 +227,13 @@ def test_create_stf():
             max_test_count=max_test_count,
             test_type=selection_test_type)
 
-        new_test = models.Test(name=name, mode=mode, test_type=test_type, description=description, hidden=False, parameters=dumps(dict(trex=trex_params) if test_type == 'common' else dict(trex=trex_params, rate=rate_params)))
+        new_test = models.Test(
+            name=name,
+            mode=mode,
+            test_type=test_type,
+            description=description,
+            hidden=False,
+            parameters=dumps(dict(trex=trex_params) if test_type == 'common' else dict(trex=trex_params, rate=rate_params)))
         # adding DB entry in DB
         db.session.add(new_test)
         db.session.commit()
@@ -303,7 +318,7 @@ def test_edit_stf(test_id):
             max_test_count=30,
             test_type='safe')
     # getting types of selection test
-    selection_types = ['safe', 'accuracy', 'drop']  # in future 'cyclic', 'bundle'
+    selection_types = sel_test_types['all']
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types]
     selection_types.remove(test_papams_rate['test_type'])
     selection_types.insert(0, test_papams_rate['test_type'])
@@ -425,7 +440,6 @@ def test_edit_stf(test_id):
         soft_test = form.soft_test.data
         hw_chsum = form.hw_chsum.data
         description = form.description.data
-
         # creates DB entry values
         trex_params = dict(
             duration=duration,
@@ -452,15 +466,41 @@ def test_edit_stf(test_id):
         # Success message
         msg = messages['success'].format('The test was changed')
         # showing form with success message
-        return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
+        return render_template(
+            'test_action.html',
+            form=form,
+            notes=notes,
+            note=note,
+            title=page_title,
+            script_file=script_file,
+            msg=msg,
+            test_type=test_type,
+            mode=mode)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
-        return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
+        return render_template(
+            'test_action.html',
+            form=form,
+            notes=notes,
+            note=note,
+            title=page_title,
+            script_file=script_file,
+            msg=msg,
+            test_type=test_type,
+            mode=mode)
     # return clean form
-    return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, test_type=test_type, mode=mode)
+    return render_template(
+        'test_action.html',
+        form=form,
+        notes=notes,
+        note=note,
+        title=page_title,
+        script_file=script_file,
+        test_type=test_type,
+        mode=mode)
 
 
 @app.route('/test/new/stl/', methods=['GET', 'POST'])
@@ -483,7 +523,7 @@ def test_create_stl():
     list_patterns = [(test_pattern, test_pattern) for test_pattern in patterns[1:]]
     list_patterns.insert(0, (patterns[0], '{} (Default)'.format(patterns[0])))
     # getting types of selection test
-    selection_types = ['safe', 'accuracy', 'drop']
+    selection_types = sel_test_types['all']
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types[1:]]
     list_selection_types.insert(0, (selection_types[0], '{} (Default)'.format(selection_types[0])))
     # getting lists of current tests values for checking
@@ -573,8 +613,7 @@ def test_create_stl():
     description = ''
     # notes
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
-    notes = stf_notes
-
+    notes = stl_notes
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
@@ -609,7 +648,6 @@ def test_create_stl():
         form.hw_chsum.data = False
         description = form.description.data
         form.description.data = ''
-
         # creates DB entry
         trex_params = dict(
             duration=duration,
@@ -626,22 +664,54 @@ def test_create_stl():
             max_test_count=max_test_count,
             test_type=selection_test_type)
 
-        new_test = models.Test(name=name, mode=mode, test_type=test_type, description=description, hidden=False, parameters=dumps(dict(trex=trex_params) if test_type == 'common' else dict(trex=trex_params, rate=rate_params)))
+        new_test = models.Test(
+            name=name,
+            mode=mode,
+            test_type=test_type,
+            description=description,
+            hidden=False,
+            parameters=dumps(dict(trex=trex_params) if test_type == 'common' else dict(trex=trex_params, rate=rate_params)))
         # adding DB entry in DB
         db.session.add(new_test)
         db.session.commit()
         # Success message
         msg = messages['success'].format('New test was added')
         # showing form with success message
-        return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
+        return render_template(
+            'test_action.html',
+            form=form,
+            notes=notes,
+            note=note,
+            title=page_title,
+            script_file=script_file,
+            msg=msg,
+            test_type=test_type,
+            mode=mode)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
-        return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
+        return render_template(
+            'test_action.html',
+            form=form,
+            notes=notes,
+            note=note,
+            title=page_title,
+            script_file=script_file,
+            msg=msg,
+            test_type=test_type,
+            mode=mode)
     # return clean form
-    return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, test_type=test_type, mode=mode)
+    return render_template(
+        'test_action.html',
+        form=form,
+        notes=notes,
+        note=note,
+        title=page_title,
+        script_file=script_file,
+        test_type=test_type,
+        mode=mode)
 
 
 @app.route('/test/<int:test_id>/edit/stl/', methods=['GET', 'POST'])
@@ -686,7 +756,7 @@ def test_edit_stl(test_id):
             max_test_count=30,
             test_type='safe')
     # getting types of selection test
-    selection_types = ['safe', 'accuracy', 'drop']
+    selection_types = sel_test_types['all']
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types]
     selection_types.remove(test_papams_rate['test_type'])
     selection_types.insert(0, test_papams_rate['test_type'])
@@ -779,8 +849,7 @@ def test_edit_stl(test_id):
     description = ''
     # notes
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
-    notes = stf_notes
-
+    notes = stl_notes
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
@@ -801,7 +870,6 @@ def test_edit_stl(test_id):
         sampler = int(form.sampler.data)
         hw_chsum = form.hw_chsum.data
         description = form.description.data
-
         # creates DB entry values
         trex_params = dict(
             duration=duration,
@@ -826,15 +894,41 @@ def test_edit_stl(test_id):
         # Success message
         msg = messages['success'].format('The test was changed')
         # showing form with success message
-        return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
+        return render_template(
+            'test_action.html',
+            form=form,
+            notes=notes,
+            note=note,
+            title=page_title,
+            script_file=script_file,
+            msg=msg,
+            test_type=test_type,
+            mode=mode)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
-        return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
+        return render_template(
+            'test_action.html',
+            form=form,
+            notes=notes,
+            note=note,
+            title=page_title,
+            script_file=script_file,
+            msg=msg,
+            test_type=test_type,
+            mode=mode)
     # return clean form
-    return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, test_type=test_type, mode=mode)
+    return render_template(
+        'test_action.html',
+        form=form,
+        notes=notes,
+        note=note,
+        title=page_title,
+        script_file=script_file,
+        test_type=test_type,
+        mode=mode)
 
 
 @app.route('/test/<int:test_id>/')
@@ -872,6 +966,19 @@ def test_show(test_id, page=True):
             <td>{description}</td>
         </tr>
         </table></div></div>'''.format(**test_entr['ALL_DICT'])
+
+    table_items = {}
+    # getting params db info
+    table_items.update(test_params_trex)
+    # rate/multiplier switcher
+    if test_entr.mode == 'stateful':
+        table_items['rate_label'] = 'Multiplier'
+    else:
+        table_items['rate_label'] = 'Rate'
+    # rate/multiplier data
+    if test_entr.mode == 'stateful':
+        table_items['rate'] = table_items['multiplier']
+
     table_data += '''<div class="panel panel-default">
         <div class="panel-heading">Test details</div>
         <div class="table-responsive">
@@ -885,17 +992,13 @@ def test_show(test_id, page=True):
                 <td>{traffic_pattern}</td>
             </tr>
             <tr>
-                <td>{0}</td>
-                <td>{1}</td>
+                <td>{rate_label}</td>
+                <td>{rate}</td>
             </tr>
             <tr>
                 <td>Sampler</td>
                 <td>{sampler}</td>
-            </tr>
-    '''.format(
-            ('Multiplier' if test_entr.mode == 'stateful' else 'Rate'),
-            (test_params_trex['multiplier'] if test_entr.mode == 'stateful' else test_params_trex['rate']),
-            **test_params_trex)
+            </tr>'''.format(**table_items)
 
     if test_entr.mode == 'stateful':
         table_data += '''<tr>
