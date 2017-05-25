@@ -2,13 +2,25 @@
 {% block content %}
 <div id="alert_place"></div>
 <div class="page-header">
-<h1>Tasks
-{% if filtered %}
-<small> filtered by {{filtered|safe}}</small>
-{% endif %}
-</h1>
+    <h1 class="tasks">Tasks
+    {% if filtered_msg %}
+    <small> filtered by {{filtered_msg|safe}}</small>
+    {% endif %}
+    </h1>
 </div>
-{{filtered_by}}
+{% if filter_nav %}
+{# filter for tasks #}
+<div>
+    <ul class="nav nav-tabs">
+        <li role="presentation" class="active" id="filter_all"><a href="#" data-toggle="tooltip" title="Show all tasks">All</a></li>
+        {% for item in ['pending', 'successful', 'hold', 'testing', 'error', 'canceled']%}
+        {# generates filters #}
+            <li role="presentation" id="filter_{{ item }}"><a href="#" data-toggle="tooltip" title="Show tasks filtered by {{ item }} status">{{ item }}</a></li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{# table with tasks #}
 <div class="panel panel-default">
     <div class="panel-heading">{{title}}</div>
         <table class="table table-hover">

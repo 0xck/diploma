@@ -9,7 +9,8 @@ from app.tests import test_show
 
 
 @app.route('/tasks/')
-def tasks_table(query=False, filtered=False):
+def tasks_table(query=False, filtered_msg=False, filter_nav=True):
+    # checking if any especial query for filtering task
     if not query:
         tasks_entr = models.Task.query.order_by(models.Task.id.desc()).all()
     elif isinstance(query, list):
@@ -37,30 +38,30 @@ def tasks_table(query=False, filtered=False):
     }
 
     for entr in tasks_entr:
-        status_row = 'tr'
+        status_row = 'tr class="condition'
         if entr.result == 'success':
-            status_row += ' class="success"'
+            status_row += ' success successful"'
         elif entr.result == 'error':
-            status_row += ' class="danger"'
-        else:
-            status_row = 'tr'
+            status_row += ' danger error"'
         act_button = act_button_template['begin']
         if entr.status == 'pending':
             act_button += act_button_template['hold'] + act_button_template['separator'] + act_button_template['cancel'] + act_button_template['end']
+            status_row += ' pending"'
         elif entr.status == 'done':
             act_button += act_button_template['readd'] + act_button_template['end']
         elif entr.status == 'hold':
             act_button += act_button_template['queue'] + act_button_template['separator'] + act_button_template['cancel'] + act_button_template['end']
-            status_row += ' class="info"'
+            status_row += ' info hold"'
         elif entr.status == 'canceled':
             act_button += act_button_template['readd'] + act_button_template['end']
-            status_row += ' class="active"'
+            status_row += ' active canceled"'
         elif entr.status == 'testing':
+            # unactive button
             act_button = '''<div class="btn-group">
                         <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
                             <span class="sr-only">Toggle Dropdown</span>
                         </button>'''
-            status_row += ' class="warning"'
+            status_row += ' warning testing"'
         else:
             act_button += act_button_template['hold'] + act_button_template['queue'] + act_button_template['separator'] + act_button_template['readd'] + act_button_template['cancel'] + act_button_template['end']
 
@@ -72,54 +73,77 @@ def tasks_table(query=False, filtered=False):
             res_label = 'warning'
         else:
             res_label = 'default'
+        if entr.devices:
+            if entr.devices.status == 'idle':
+                dev_label = '#008000'
+            elif entr.devices.status == 'down':
+                dev_label = '#7F7F7F'
+            elif entr.devices.status == 'testing':
+                dev_label = '#FFFF00'
+            else:
+                dev_label = '#800000'
+        if entr.trexes:
+            if entr.trexes.status == 'idle':
+                trex_label = '#008000'
+            elif entr.trexes.status == 'down':
+                trex_label = '#7F7F7F'
+            elif entr.trexes.status == 'testing':
+                trex_label = '#FFFF00'
+            else:
+                trex_label = '#800000'
 
-        if entr.devices.status == 'idle':
-            dev_label = '#008000'
-        elif entr.devices.status == 'down':
-            dev_label = '#7F7F7F'
-        elif entr.devices.status == 'testing':
-            dev_label = '#FFFF00'
+        table_items = {}
+        # adding task db info
+        table_items.update(entr['ALL_DICT'])
+        table_items['status_row'] = status_row
+        table_items['res_label'] = res_label
+        # task duration
+        if entr.end_time is None or entr.start_time is None:
+            table_items['duration'] = None
         else:
-            dev_label = '#800000'
-
-        if entr.trexes.status == 'idle':
-            trex_label = '#008000'
-        elif entr.trexes.status == 'down':
-            trex_label = '#7F7F7F'
-        elif entr.trexes.status == 'testing':
-            trex_label = '#FFFF00'
+            table_items['duration'] = (entr.end_time - entr.start_time)
+        # trex
+        if entr.trexes:
+            table_items['trex'] = '<a href="/trex/{1}">{0}</a><br /><small style="color:{2}";>{3}</small>'.format(entr.trexes.hostname, entr.trexes.id, trex_label, entr.trexes.status)
         else:
-            trex_label = '#800000'
+            table_items['trex'] = '<em>T-rex was deleted</em>'
+        # device
+        if entr.device:
+            table_items['device'] = '<a href="/device/{1}">{0}</a><br /><small style="color:{2}";>{3}</small>'.format(entr.devices.name, entr.devices.id, dev_label, entr.devices.status)
+        else:
+            table_items['device'] = '<em>Device was deleted</em>'
+        # test
+        table_items['test'] = '<a href="/test/{1}">{0}</a><br /><small>{2}</small>'.format(entr.tests.name, entr.tests.id, entr.tests.mode)
+        # actions button
+        table_items['act_button'] = act_button.format(entr.id)
+        # result link
+        if entr.status.lower() in {'done', 'error'} and str(entr.result).lower() in {'success', 'error'}:
+            table_items['show'] = '<a href="/task/{0}">Show</a>'.format(entr.id)
+        else:
+            table_items['show'] = 'Is not collected yet'
 
         table_data += '''
-            <{5}>
+            <{status_row}>
                 <td>{id}</td>
-                <td class="task_status">{status}<br /><span class="label label-{7}">{result}</span></span></td>
+                <td class="task_status">{status}<br /><span class="label label-{res_label}">{result}</span></span></td>
                 <td><small>{description}</small></td>
                 <td><small>{start_time}<br />{end_time}</small></td>
-                <td>{6}</td>
-                <td>{3}</td>
-                <td>{1}</td>
-                <td>{2}</td>
-                <td>{4}</td>
-                <td>{0}</td>
+                <td>{duration}</td>
+                <td>{test}</td>
+                <td>{trex}</td>
+                <td>{device}</td>
+                <td>{act_button}</td>
+                <td>{show}</td>
             </tr>
-        '''.format(
-                ('<a href="/task/{0}">Show</a>'.format(entr.id) if entr.status.lower() in {'done', 'error'} and str(entr.result).lower() in {'success', 'error'} else 'Is not collected yet'),
-                ('<a href="/trex/{1}">{0}</a><br /><small style="color:{2}";>{3}</small>'.format(entr.trexes.hostname, entr.trexes.id, trex_label, entr.trexes.status)),
-                ('<a href="/device/{1}">{0}</a><br /><small style="color:{2}";>{3}</small>'.format(entr.devices.name, entr.devices.id, dev_label, entr.devices.status)),
-                ('<a href="/test/{1}">{0}</a><br /><small>{2}</small>'.format(entr.tests.name, entr.tests.id, entr.tests.mode)),
-                act_button.format(entr.id),
-                status_row,
-                (None if entr.end_time is None or entr.start_time is None else (entr.end_time - entr.start_time)),
-                res_label,
-                **entr['ALL_DICT'])
+        '''.format(**table_items)
+
     return render_template(
         'tasks.html',
         title='List of tasks',
         content=table_data,
         script_file='tasks.js',
-        filtered=filtered)
+        filtered_msg=filtered_msg,
+        filter_nav=filter_nav)
 
 
 @app.route('/task/new/', methods=['GET', 'POST'])
@@ -524,14 +548,26 @@ def task_show(task_id):
         content = '''
             {0}
             {1}
-            {2}'''.format(
-                table_data_head.format('Global counters') + table_data_begin + table_data_global + table_end,
-                table_data_head.format('Port counters') + table_data_begin + table_data_ports + table_end,
-                table_data_head.format('Typical port counters') + table_data_begin + table_data_typical + table_end)
+            {2}
+        '''.format(
+            table_data_head.format('Global counters') + table_data_begin + table_data_global + table_end,
+            table_data_head.format('Port counters') + table_data_begin + table_data_ports + table_end,
+            table_data_head.format('Typical port counters') + table_data_begin + table_data_typical + table_end)
         test_data = test_show(task_entr.tests.id, page=False)
         test_hidden_msg = False
         if task_entr.tests.hidden:
             test_hidden_msg = 'This test was deleted and is not availaible'
+
+        trex_data = '''
+        <tr>
+            <td>{0}</td>
+            <td>{1}</td>
+        </tr>'''.format(*(task_entr.trex, task_entr.trexes.description) if task_entr.trex else ('T-rex was deleted', ''))
+        device_data = '''
+        <tr>
+            <td>{0}</td>
+            <td>{1}</td>
+        </tr>'''.format(*(task_entr.device, task_entr.devices.description) if task_entr.device else ('Device was deleted', ''))
 
         return render_template(
             'task.html',
@@ -539,7 +575,9 @@ def task_show(task_id):
             content=content,
             title=page_title,
             test_data=test_data,
-            test_hidden=test_hidden_msg)
+            test_hidden=test_hidden_msg,
+            trex_data=trex_data,
+            device_data=device_data)
     else:
         content = '<p class="lead">Data for this task has not gathered yet.</p>'
         return render_template(
@@ -574,9 +612,9 @@ def task_items(query_item, item_id):
             title=page_title,
             no_data=True)
     tasks.reverse()
-    filtered = '{} <em>{}</em>'.format(query_item, item_name)
+    filtered_msg = '{} <em>{}</em>'.format(query_item, item_name)
 
-    return tasks_table(query=tasks, filtered=filtered)
+    return tasks_table(query=tasks, filtered_msg=filtered_msg)
 
 
 @app.route('/tasks/<condition>/')
@@ -585,7 +623,7 @@ def task_condition(condition):
         tasks = models.Task.query.filter(models.Task.status == condition).order_by(models.Task.id.desc()).all()
     else:
         abort(404)
-    filtered = '<em>{}</em> status'.format(condition)
+    filtered_msg = '<em>{}</em> status'.format(condition)
     if not tasks:
         page_title = 'List of tasks'
         content = '<p class="lead">There are not approptiate tasks.</p>'
@@ -595,4 +633,4 @@ def task_condition(condition):
             title=page_title,
             no_data=True)
 
-    return tasks_table(query=tasks, filtered=filtered)
+    return tasks_table(query=tasks, filtered_msg=filtered_msg, filter_nav=False)
