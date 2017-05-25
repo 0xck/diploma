@@ -7,10 +7,13 @@ from app.helper import general_notes, validator_err, messages, devices_statuses
 
 
 @app.route('/devices/')
-def devices_table():
+def devices_table(device_info=False, filter_nav=True):
     page_title = 'Devices list'
     script_file = 'devices.js'
-    devices_entr = models.Device.query.order_by(models.Device.id.desc()).all()
+    if device_info:
+        devices_entr = [device_info]
+    else:
+        devices_entr = models.Device.query.order_by(models.Device.id.desc()).all()
     table_data = ''
     act_button_template = {
         'begin': '''<div class="btn-group">
@@ -29,22 +32,34 @@ def devices_table():
         'check': '<li><a href="/device/{0}/check" class="check" id="{0}">Autoset status</a></li>'
     }
     for entr in devices_entr:
-        status_row = 'tr'
+        status_row = 'tr class="condition'
         if entr.status in {'idle', 'error'}:
             act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
             if entr.status == 'error':
-                status_row += ' class="danger"'
+                status_row += ' danger error"'
+            else:
+                status_row += ' idle"'
         elif entr.status == 'down':
             act_button = act_button_template['begin'] + act_button_template['idle'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
-            status_row += ' class="active"'
+            status_row += ' active down"'
         elif entr.status == 'testing':
+            # unactiving button
             act_button = '''<div class="btn-group">
                         <button type="button" class="btn btn-default btn-xs dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
                             <span class="sr-only">Toggle Dropdown</span>
                         </button>'''
-            status_row += ' class="warning"'
+            status_row += ' warning testing"'
+        # different errors
+        else:
+            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
+            status_row += ' danger error"'
+        table_items = {}
+        table_items.update(entr['ALL_DICT'])
+        table_items['status_row'] = status_row
+        table_items['act_button'] = act_button.format(entr.id)
+        table_items['show'] = '<a href="/tasks/device/{0}/">Show</a>'.format(entr.id)
         table_data += '''
-            <{0}>
+            <{status_row}>
                 <td>{id}</td>
                 <td>{name}</td>
                 <td class="device_status">{status}</td>
@@ -55,16 +70,16 @@ def devices_table():
                 <td>{vendor}</td>
                 <td>{model}</td>
                 <td>{firmware}</td>
-                <td>{1}</td>
-                <td>{2}</td>
-            </tr>
-        '''.format(
-                status_row,
-                act_button.format(entr.id),
-                '<a href="/tasks/device/{0}/">Show</a>'.format(entr.id),
-                **entr['ALL_DICT'])
+                <td>{act_button}</td>
+                <td>{show}</td>
+            </tr>'''.format(**table_items)
 
-    return render_template('devices.html', title=page_title, content=table_data, script_file=script_file)
+    return render_template(
+        'devices.html',
+        title=page_title,
+        content=table_data,
+        script_file=script_file,
+        filter_nav=filter_nav)
 
 
 @app.route('/device/new/', methods=['GET', 'POST'])
@@ -133,7 +148,6 @@ def device_create():
     description = None
     # notes
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
-
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
@@ -156,7 +170,6 @@ def device_create():
         form.status.data = status[0]
         description = form.description.data
         form.description.data = None
-
         # creates DB entr
         new_device = models.Device(
             name=name,
@@ -174,25 +187,36 @@ def device_create():
         # Success message
         msg = messages['success'].format('New device was added')
         # showing form with success message
-        return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
+        return render_template(
+            'device_action.html',
+            form=form, note=note,
+            title=page_title,
+            msg=msg)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
-        return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
+        return render_template(
+            'device_action.html',
+            form=form,
+            note=note,
+            title=page_title,
+            msg=msg)
     # return clean form
-    return render_template('device_action.html', form=form, note=note, title=page_title)
+    return render_template(
+        'device_action.html',
+        form=form,
+        note=note,
+        title=page_title)
 
 
 @app.route('/device/<int:device_id>/edit/', methods=['GET', 'POST'])
 def device_edit(device_id):
     device_entr = models.Device.query.get(device_id)
-
     # no task id return 404
     if not device_entr:
         abort(404)
-
     # getting trex status list
     statuses = devices_statuses['all']
     statuses.remove(device_entr.status)
@@ -266,7 +290,6 @@ def device_edit(device_id):
     description = None
     # notes
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
-
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
@@ -280,7 +303,6 @@ def device_edit(device_id):
         firmware = form.firmware.data
         status = form.status.data
         description = form.description.data
-
         # creates DB entr
         device_entr.name = name
         device_entr.ip4 = ip4
@@ -296,15 +318,29 @@ def device_edit(device_id):
         # Success message
         msg = messages['success'].format('Device {} was changed'.format(device_entr.name))
         # showing form with success message
-        return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
+        return render_template(
+            'device_action.html',
+            form=form,
+            note=note,
+            title=page_title,
+            msg=msg)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
-        return render_template('device_action.html', form=form, note=note, title=page_title, msg=msg)
+        return render_template(
+            'device_action.html',
+            form=form,
+            note=note,
+            title=page_title,
+            msg=msg)
     # return clean form
-    return render_template('device_action.html', form=form, note=note, title=page_title)
+    return render_template(
+        'device_action.html',
+        form=form,
+        note=note,
+        title=page_title)
 
 
 @app.route('/device/<int:device_id>/delete/', methods=['GET', 'POST'])
@@ -327,9 +363,15 @@ def device_delete(device_id):
         db.session.delete(device_entr)
         db.session.commit()
         del_msg = messages['succ_no_close'].format('The device {} was deleted'.format(device_entr.name))
-        return render_template('delete.html', del_msg=del_msg, title=page_title)
+        return render_template(
+            'delete.html',
+            del_msg=del_msg,
+            title=page_title)
 
-    return render_template('delete.html', form=form, title=page_title)
+    return render_template(
+        'delete.html',
+        form=form,
+        title=page_title)
 
 
 @app.route('/device/<int:device_id>/down/')
@@ -356,3 +398,9 @@ def device_idle(device_id):
     else:
         msg = messages['no_succ'].format('The device {} was not changed to idle. No device'.format(device_entr.name))
     return(msg)
+
+
+@app.route('/device/<int:device_id>')
+def device_show(device_id):
+    device = models.Device.query.get(device_id)
+    return devices_table(device_info=device, filter_nav=False)
