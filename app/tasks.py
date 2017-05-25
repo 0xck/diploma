@@ -79,7 +79,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             elif entr.devices.status == 'down':
                 dev_label = '#7F7F7F'
             elif entr.devices.status == 'testing':
-                dev_label = '#FFFF00'
+                dev_label = '#FF8000'
             else:
                 dev_label = '#800000'
         if entr.trexes:
@@ -88,7 +88,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             elif entr.trexes.status == 'down':
                 trex_label = '#7F7F7F'
             elif entr.trexes.status == 'testing':
-                trex_label = '#FFFF00'
+                trex_label = '#FF8000'
             else:
                 trex_label = '#800000'
 
@@ -226,7 +226,7 @@ def task_create():
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
-            msg += messages['succ_no_close'].format('<em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0]))
+            msg += messages['warn_no_close'].format('<em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0]))
         return render_template('task_action.html', form=form, note=note, title=page_title, msg=msg)
     return render_template('task_action.html', form=form, note=note, title=page_title)
 

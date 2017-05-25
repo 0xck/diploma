@@ -51,7 +51,7 @@ def trexes_table(trex_info=False, filter_nav=True):
         # different errors
         else:
             act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
-            status_row += ' danger idle"'
+            status_row += ' danger error"'
         table_items = {}
         table_items.update(entr['ALL_DICT'])
         table_items['status_row'] = status_row
