@@ -46,7 +46,7 @@ def tests_table():
                 <td>{name}</td>
                 <td>{mode}</td>
                 <td>{test_type}</td>
-                <td>{description}</td>
+                <td><small>{description}</small></td>
                 <td>{act_button}</td>
                 <td>{show}</td>
                 <td>{tasks}</td>
@@ -110,7 +110,7 @@ def test_create_stf():
             default=1)
         # selection test params
         accuracy = FloatField(
-            label='Accuracy of test result',
+            label='Accuracy of test result in percents',
             validators=[Required(), NumberRange(min=0.0000000001, max=100)],
             default=0.1)
         rate_incr_step = FloatField(
@@ -139,7 +139,7 @@ def test_create_stf():
             label='NIC initial delay in seconds',
             validators=[Required(), NumberRange(min=1, max=10)],
             default=1)
-        soft_test = BooleanField(label='Check if T-rex is VM', default=True)
+        soft_test = BooleanField(label='Check if T-rex is software appliance', default=True)
         hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=False)
         description = TextAreaField(
             validators=[Length(max=1024)])
@@ -358,7 +358,7 @@ def test_edit_stf(test_id):
             default=test_papams_trex['sampler'])
         # selection test params
         accuracy = FloatField(
-            label='Accuracy of test result',
+            label='Accuracy of test result in percents',
             validators=[Required(), NumberRange(min=0.0000000001, max=100)],
             default=test_papams_rate['accuracy'])
         rate_incr_step = FloatField(
@@ -387,7 +387,7 @@ def test_edit_stf(test_id):
             label='NIC initial delay in seconds',
             validators=[Required(), NumberRange(min=1, max=10)],
             default=test_papams_trex['wait'])
-        soft_test = BooleanField(label='Check if T-rex is VM', default=test_papams_trex['soft_test'])
+        soft_test = BooleanField(label='Check if T-rex is software appliance', default=test_papams_trex['soft_test'])
         hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
         description = TextAreaField(
             validators=[Length(max=1024)], default=test_entr.description)
@@ -566,7 +566,7 @@ def test_create_stl():
             default=1)
         # selection test params
         accuracy = FloatField(
-            label='Accuracy of test result',
+            label='Accuracy of test result in percents',
             validators=[Required(), NumberRange(min=0.0000000001, max=100)],
             default=0.1)
         rate_incr_step = IntegerField(
@@ -802,7 +802,7 @@ def test_edit_stl(test_id):
             default=test_papams_trex['sampler'])
         # selection test params
         accuracy = FloatField(
-            label='Accuracy of test result',
+            label='Accuracy of test result in percents',
             validators=[Required(), NumberRange(min=0.0000000001, max=100)],
             default=test_papams_rate['accuracy'])
         rate_incr_step = IntegerField(

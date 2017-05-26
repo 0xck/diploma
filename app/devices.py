@@ -66,7 +66,7 @@ def devices_table(device_info=False, filter_nav=True):
                 <td>{ip4}</td>
                 <td>{ip6}</td>
                 <td>{fqdn}</td>
-                <td>{description}</td>
+                <td><small>{description}</small></td>
                 <td>{vendor}</td>
                 <td>{model}</td>
                 <td>{firmware}</td>
@@ -105,15 +105,15 @@ def device_create():
         name = StringField(
             validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
         ip4 = StringField(
-            'IPv4 address',
+            'Management IPv4 address',
             validators=[Required(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address'), NoneOf(curr_ip4, message=validator_err['exist'])],
             default='127.0.0.1')
         ip6 = StringField(
-            'IPv6 address',
+            'Management IPv6 address',
             validators=[Required(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address'), NoneOf(curr_ip6, message=validator_err['exist'])],
             default='::1')
         fqdn = StringField(
-            'DNS name',
+            'Management DNS name',
             validators=[Required(), Length(min=1, max=256), NoneOf(curr_fqdn, message=validator_err['exist'])],
             default='localhost')
         vendor = StringField(
@@ -243,15 +243,15 @@ def device_edit(device_id):
             validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
             default=device_entr.name)
         ip4 = StringField(
-            'IPv4 address',
+            'Management IPv4 address',
             validators=[Required(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address'), NoneOf(curr_ip4, message=validator_err['exist'])],
             default=device_entr.ip4)
         ip6 = StringField(
-            'IPv6 address',
+            'Management IPv6 address',
             validators=[Required(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address'), NoneOf(curr_ip6, message=validator_err['exist'])],
             default=device_entr.ip6)
         fqdn = StringField(
-            'DNS name',
+            'Management DNS name',
             validators=[Required(), Length(min=1, max=256), NoneOf(curr_fqdn, message=validator_err['exist'])],
             default=device_entr.fqdn)
         vendor = StringField(
