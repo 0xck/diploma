@@ -4,13 +4,13 @@ def humanize(data, units='si', end=''):
         base = 1000
     else:
         base = 1024
-    if data > base:
+    if abs(data) > base:
         for i in range(2, 6):
-            if data < base ** i:
-                return '{:.2f}{}{}'.format(data / (base ** (i - 1)), types[i], end)
+            if abs(data) < base ** i:
+                return '{:.2f}{}{}'.format(abs(data) / (base ** (i - 1)), types[i], end)
                 break
     else:
-        return str(data) + ' ' + end
+        return str(abs(data)) + ' ' + end
 
 
 general_notes = {
@@ -25,7 +25,6 @@ stf_traffic_patterns = [
     'cap2/http_simple.yaml',
     'cap2/http_short.yaml',
     'cap2/http_very_long.yaml',
-    'cap2/http.yaml',
     'cap2/imix_1518.yaml',
     'cap2/imix_64_100k.yaml',
     'cap2/imix_64_fast.yaml',
@@ -47,11 +46,11 @@ stf_traffic_patterns = [
 stf_notes = {
     'test': [
         '"Common" is simple test which executes one time',
-        '"Selection" is test which executes different number of time in order to reach result defined in parameters'
+        '"Selection" is test which is executed different number of time in order to reach result defined in parameters'
     ],
     'pattern': ['Test pattern which is executed on T-rex (for some reason pattern must located on T-rex now)'],
     'multiplier': ['Multiplier affects test pattern values (number of packets per second and packet flow gaps)'],
-    'sampler': ['Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart (for some reason number of sampler size limited to 100 entries now, be careful choose appropriate value)'],
+    'sampler': ['Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart (for some reason number of sampler size limited to 100 entries now, be careful choosing appropriate value)'],
     'warm': ['Time for "warm" traffic which services for reasons like in case need to wait for some changes on network like tunnel upping, STP/dot1X timeouts, etc (migth not work on VM due some T-rex soft nuances in current releases)'],
     'accuracy': ['Accuracy defines percent of per flow packet loss which can be accepted for passing test'],
     'rate_incr_step': ['Rate step value will be used for increasing/decreasing rate value in case test pass/not pass'],
@@ -114,6 +113,7 @@ messages = {
             <strong>Fail!</strong> {}
         </div>''',
     'succ_no_close': '<div class="alert alert-success" role="alert"><strong>Success!</strong> {}</div>',
-    'no_succ_no_close': '<div class="alert alert-danger" role="alert"><strong>Success!</strong> {}</div>',
-    'warn_no_close': '<div class="alert alert-warinig" role="alert"><strong>Success!</strong> {}</div>',
+    'succ_no_close_time': '<div class="alert alert-success" role="alert"><strong>Success!</strong> {0} Page is going to reload in <span id="timeout">{seconds}</span> seconds</div>',
+    'no_succ_no_close': '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> {}</div>',
+    'warn_no_close': '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> {}</div>',
 }

@@ -27,6 +27,8 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         'end': '''<li role="separator" class="divider"></li>
                 <li><a href="/task/{0}/edit" class="edit" id="{0}">Edit</a></li>
                 <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
                 <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
                 </ul>
             </div>''',
@@ -79,7 +81,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             elif entr.devices.status == 'down':
                 dev_label = '#7F7F7F'
             elif entr.devices.status == 'testing':
-                dev_label = '#FFFF00'
+                dev_label = '#FF8000'
             else:
                 dev_label = '#800000'
         if entr.trexes:
@@ -88,7 +90,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             elif entr.trexes.status == 'down':
                 trex_label = '#7F7F7F'
             elif entr.trexes.status == 'testing':
-                trex_label = '#FFFF00'
+                trex_label = '#FF8000'
             else:
                 trex_label = '#800000'
 
@@ -175,6 +177,7 @@ def task_create():
             choices=list_tests,
             default=tests[0])
         trex = SelectField(
+            't-rex',
             validators=[Required(), Length(min=1, max=64), AnyOf(trexes)],
             choices=list_trexes,
             default=trexes[0])
@@ -189,7 +192,6 @@ def task_create():
             choices=list_statuses,
             default=statuses[0])
         submit = SubmitField('Add new')
-
     # form
     form = TaskForm()
     # variables
@@ -214,21 +216,40 @@ def task_create():
         status = form.status.data
         form.status.data = ''
         # creates DB entry
-        new_task = models.Task(test=test, trex=trex, device=device, description=description, status=status)
+        new_task = models.Task(
+            test=test,
+            trex=trex,
+            device=device,
+            description=description,
+            status=status)
         # adding DB entry in DB
         db.session.add(new_task)
         db.session.commit()
         # Success message
         msg = messages['success'].format('New task was added')
         # showing form with success message
-        return render_template('task_action.html', form=form, note=note, msg=msg, title=page_title)
+        return render_template(
+            'task_action.html',
+            form=form,
+            note=note,
+            msg=msg,
+            title=page_title)
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
-            msg += messages['succ_no_close'].format('<em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0]))
-        return render_template('task_action.html', form=form, note=note, title=page_title, msg=msg)
-    return render_template('task_action.html', form=form, note=note, title=page_title)
+            msg += messages['warn_no_close'].format('<em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0]))
+        return render_template(
+            'task_action.html',
+            form=form,
+            note=note,
+            title=page_title,
+            msg=msg)
+    return render_template(
+        'task_action.html',
+        form=form,
+        note=note,
+        title=page_title)
 
 
 @app.route('/task/<int:task_id>/delete/', methods=['GET', 'POST'])
@@ -254,9 +275,15 @@ def task_delete(task_id):
             db.session.delete(task_entr.tests)
         db.session.commit()
         del_msg = messages['succ_no_close'].format('The task ID {} was deleted'.format(task_id))
-        return render_template('delete.html', del_msg=del_msg, title=page_title)
+        return render_template(
+            'delete.html',
+            del_msg=del_msg,
+            title=page_title)
 
-    return render_template('delete.html', form=form, title=page_title)
+    return render_template(
+        'delete.html',
+        form=form,
+        title=page_title)
 
 
 @app.route('/task/<int:task_id>/edit/', methods=['GET', 'POST'])
@@ -265,7 +292,6 @@ def task_edit(task_id):
     # no task id return 404
     if not task_entr:
         abort(404)
-
     # get tests list
     get_tests = models.Test.query.order_by(models.Test.id.desc()).all()
     tests = [test.name for test in get_tests]
@@ -314,7 +340,6 @@ def task_edit(task_id):
             choices=list_statuses,
             default=statuses[0])
         submit = SubmitField('Save task')
-
     # form
     form = TaskForm()
     # variables
@@ -349,15 +374,29 @@ def task_edit(task_id):
         # Success message
         msg = messages['succ_no_close'].format('The task ID {} was changed</div>'.format(task_entr.id))
         # showing form with success message
-        return render_template('task_action.html', form=form, note=note, msg=msg, title=page_title)
+        return render_template(
+            'task_action.html',
+            form=form,
+            note=note,
+            msg=msg,
+            title=page_title)
 
     # if error occured
     if len(form.errors) > 0:
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}</div>'.format(err.capitalize(), form.errors[err][0]))
-        return render_template('task_action.html', form=form, note=note, title=page_title, msg=msg)
-    return render_template('task_action.html', form=form, note=note, title=page_title)
+        return render_template(
+            'task_action.html',
+            form=form,
+            note=note,
+            title=page_title,
+            msg=msg)
+    return render_template(
+        'task_action.html',
+        form=form,
+        note=note,
+        title=page_title)
 
 
 @app.route('/task/<int:task_id>/hold/')
@@ -634,3 +673,24 @@ def task_condition(condition):
             no_data=True)
 
     return tasks_table(query=tasks, filtered_msg=filtered_msg, filter_nav=False)
+
+
+@app.route('/task/<int:task_id>/clone/')
+def clone_task(task_id):
+    task_entr = models.Task.query.get(task_id)
+    if task_entr:
+        # creates DB entry
+        new_task = models.Task(
+            test=task_entr.test,
+            trex=task_entr.trex,
+            device=task_entr.device,
+            description='Cloned task ID {}: "{}"'.format(task_entr.id, task_entr.description),
+            status='hold')
+        # adding DB entry in DB
+        db.session.add(new_task)
+        db.session.commit()
+        msg = messages['succ_no_close_time'].format('The task ID {} was cloned.'.format(task_entr.id), seconds='5')
+    else:
+        msg = messages['no_succ'].format('The task ID {} was not cloned. No task ID {}'.format(task_entr.id))
+
+    return(msg)

@@ -51,7 +51,7 @@ def trexes_table(trex_info=False, filter_nav=True):
         # different errors
         else:
             act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
-            status_row += ' danger idle"'
+            status_row += ' danger error"'
         table_items = {}
         table_items.update(entr['ALL_DICT'])
         table_items['status_row'] = status_row
@@ -66,7 +66,7 @@ def trexes_table(trex_info=False, filter_nav=True):
                 <td>{ip6}</td>
                 <td>{fqdn}</td>
                 <td>{port}</td>
-                <td>{description}</td>
+                <td><small>{description}</small></td>
                 <td>{vm_id}</td>
                 <td>{host}</td>
                 <td>{version}</td>
@@ -107,18 +107,19 @@ def trex_create():
         hostname = StringField(
             validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Hostname must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
         ip4 = StringField(
-            'IPv4 address',
+            'Management IPv4 address',
             validators=[Required(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address'), NoneOf(curr_ip4, message=validator_err['exist'])],
             default='127.0.0.1')
         ip6 = StringField(
-            'IPv6 address',
+            'Management IPv6 address',
             validators=[Required(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address'), NoneOf(curr_ip6, message=validator_err['exist'])],
             default='::1')
         fqdn = StringField(
-            'DNS name',
+            'Management DNS name',
             validators=[Required(), Length(min=1, max=256), NoneOf(curr_fqdn, message=validator_err['exist'])],
             default='localhost')
         port = IntegerField(
+            'T-rex daemon port',
             validators=[Required(), NumberRange(min=1, max=65535, message='Invalid port')],
             default=8090)
         vm_id = StringField(
@@ -254,18 +255,19 @@ def trex_edit(trex_id):
             validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Hostname must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
             default=trex_entr.hostname)
         ip4 = StringField(
-            'IPv4 address',
+            'Management IPv4 address',
             validators=[Required(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address'), NoneOf(curr_ip4, message=validator_err['exist'])],
             default=trex_entr.ip4)
         ip6 = StringField(
-            'IPv6 address',
+            'Management IPv6 address',
             validators=[Required(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address'), NoneOf(curr_ip6, message=validator_err['exist'])],
             default=trex_entr.ip6)
         fqdn = StringField(
-            'DNS name',
+            'Management DNS name',
             validators=[Required(), Length(min=1, max=256), NoneOf(curr_fqdn, message=validator_err['exist'])],
             default=trex_entr.fqdn)
         port = IntegerField(
+            'T-rex daemon port',
             validators=[Required(), NumberRange(min=1, max=65535, message='Invalid port')],
             default=trex_entr.port)
         vm_id = StringField(
