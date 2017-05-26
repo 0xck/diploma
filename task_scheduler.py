@@ -94,18 +94,20 @@ if __name__ == '__main__':
         if len(working_task) > 0:
             for task in working_task:
                 job = Job.fetch(str(task.id), connection=redis_connect)
+                # deleting current executing tasks
                 if job.is_started or job.is_queued:
                     cancel_job(str(job.get_id()), connection=redis_connect)
+                # making DB changes
                 task.status = 'pending'
                 if task.trexes.status.lower() != 'idle':
                     task.trexes.status = 'idle'
                 if task.devices.status.lower() != 'idle':
                     task.devices.status = 'idle'
         # clear failed queues
-        failed_task = get_failed_queue()
+        failed_task = get_failed_queue(connection=redis_connect)
         if failed_task.count > 0:
             failed_task.empty()
-
+        # writing changes to DB
         db.session.commit()
-        print('DB sync done. Exiting...')
+        print('DB syncing is done. Exiting...')
         exit()
