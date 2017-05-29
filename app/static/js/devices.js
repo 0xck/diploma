@@ -22,6 +22,25 @@ $(document).ready(function() {
         $(this).closest('tr').removeClass();
     });
 });
+// autoset status
+$(document).ready(function() {
+    $('.check[id]').bind('click', function( event ) {
+        event.preventDefault();
+        var row = $(this)
+        $('#alert_place').html('<div class="alert alert-warning" role="alert"><strong>Warning!</strong> Need to wait for autoset status complete. Please do not reload or close page until getting status change message.</div>');
+        $.get('/device/' + this.id + '/autoset', function (data) {
+            $('#alert_place').html(data['msg']);
+            if (data['status'] == 'idle') {
+                row.closest('tr').children('td.device_status').text('idle');
+                row.closest('tr').removeClass();
+            } else if (data['status'] == 'down') {
+                row.closest('tr').children('td.device_status').text('down');
+                row.closest('tr').removeClass();
+                row.closest('tr').addClass('active');
+            } else {};
+        });
+    });
+});
 // device filter
 // all
 $(document).ready(function() {
