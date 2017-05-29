@@ -1,21 +1,34 @@
+# flask
 from flask import render_template, abort, jsonify
+# DB
 from app import app, db, models
+# forms
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, BooleanField
 from wtforms.validators import Required, Length, AnyOf, Regexp, IPAddress, NoneOf, Optional
+# notes, statuses, etc
 from app.helper import general_notes, validator_err, messages, devices_statuses
+# autoset status
 from checker import device_check
 
 
 @app.route('/devices/')
 def devices_table(device_info=False, filter_nav=True):
+    '''shows table of devices
+    if device_info that means needs to return only specific devices, for task status page;
+    filter_nav for showing tasks nav bar'''
+
     page_title = 'Devices list'
-    script_file = 'devices.js'
+    # getting devices info
+    # from list
     if device_info:
         devices_entr = [device_info]
+    # from DB
     else:
         devices_entr = models.Device.query.order_by(models.Device.id.desc()).all()
+    # var for future filling
     table_data = ''
+    # action button template
     act_button_template = {
         'begin': '''<div class="btn-group">
                         <button type="button" class="btn btn-primary btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
@@ -32,7 +45,9 @@ def devices_table(device_info=False, filter_nav=True):
         'idle': '<li><a href="/device/{0}/idle" class="idle" id="{0}">To idle</a></li>',
         'check': '<li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>'
     }
+    # processing devices
     for entr in devices_entr:
+        # checking status and sets html params for rows and buttons
         status_row = 'tr class="condition'
         if entr.status in {'idle', 'error'}:
             act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
@@ -54,11 +69,16 @@ def devices_table(device_info=False, filter_nav=True):
         else:
             act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
             status_row += ' danger error"'
+        # gathering information for filling table
         table_items = {}
+        # adding device db base info
         table_items.update(entr['ALL_DICT'])
         table_items['status_row'] = status_row
+        # action button
         table_items['act_button'] = act_button.format(entr.id)
+        # link for showing connected tasks
         table_items['show'] = '<a href="/tasks/device/{0}/">Show</a>'.format(entr.id)
+        # making table row
         table_data += '''
             <{status_row}>
                 <td>{id}</td>
@@ -74,6 +94,7 @@ def devices_table(device_info=False, filter_nav=True):
                 <td>{act_button}</td>
                 <td>{show}</td>
             </tr>'''.format(**table_items)
+    script_file = 'devices.js'
 
     return render_template(
         'devices.html',
@@ -85,11 +106,15 @@ def devices_table(device_info=False, filter_nav=True):
 
 @app.route('/device/new/', methods=['GET', 'POST'])
 def device_create():
-    # getting trex status list
+    # making new device
+    # getting info for filling forms in especial order
+    # getting device status list
     statuses = devices_statuses['all']
     list_statuses = [(device_status, device_status) for device_status in statuses[1:-2]]
     list_statuses.insert(0, (statuses[0], '{} (Default)'.format(statuses[0])))
+    # getting devices for filling name list
     curr_devices = models.Device.query.all()
+    # making name list, needs for uniq device name
     if len(curr_devices) > 0:
         curr_names = [curr.name for curr in curr_devices]
     else:
@@ -128,7 +153,7 @@ def device_create():
             validators=[Length(max=1024)])
         # submit
         submit = SubmitField('Add new')
-    # form
+    # form obj
     form = DeviceForm()
     # variables
     page_title = 'New Device'
@@ -141,31 +166,32 @@ def device_create():
     status = None
     firmware = None
     description = None
-    # notes
+    # required note
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # management
+        # management data
         ip4 = form.ip4.data
         ip6 = form.ip6.data
         fqdn = form.fqdn.data
-        # management was not defined
+        # management data was not defined
         if not ip4 and not ip6 and not fqdn:
-            # Warning message
+            # warning message
             msg = messages['warn_no_close'].format('Any of management type (IPv4, IPv6, DNS name) has to be defined ')
             return render_template(
                 'device_action.html',
                 form=form, note=note,
                 title=page_title,
                 msg=msg)
+        # other data
         name = form.name.data
         vendor = form.vendor.data
         model = form.model.data
         firmware = form.firmware.data
         status = form.status.data
         description = form.description.data
-        # creates DB entr
+        # creates new DB entr
         new_device = models.Device(
             name=name,
             ip4=ip4 if ip4 != '' else None,
@@ -181,6 +207,7 @@ def device_create():
         db.session.commit()
         # Success message
         msg = messages['success'].format('New device was added')
+        # cleaning form
         form.ip4.data = '127.0.0.1'
         form.ip6.data = '::1'
         form.fqdn.data = 'localhost'
@@ -196,8 +223,9 @@ def device_create():
             form=form, note=note,
             title=page_title,
             msg=msg)
-    # if error occured
+    # if any error occured during validation process
     if len(form.errors) > 0:
+        # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
@@ -207,7 +235,7 @@ def device_create():
             note=note,
             title=page_title,
             msg=msg)
-    # return clean form
+
     return render_template(
         'device_action.html',
         form=form,
@@ -217,10 +245,12 @@ def device_create():
 
 @app.route('/device/<int:device_id>/edit/', methods=['GET', 'POST'])
 def device_edit(device_id):
+    # edits existing device
     device_entr = models.Device.query.get(device_id)
-    # no task id return 404
+    # no device id returns 404
     if not device_entr:
         abort(404)
+    # getting info for filling forms in especial order, fields will equal current device values
     # getting trex status list
     statuses = devices_statuses['all']
     statuses.remove(device_entr.status)
@@ -228,8 +258,9 @@ def device_edit(device_id):
     list_statuses = [(device_status, device_status) for device_status in statuses]
     list_statuses.remove(('testing', 'testing'))
     list_statuses.remove(('error', 'error'))
-    # getting lists of current trexes values for checking
+    # getting current devices
     curr_devices = models.Device.query.filter(models.Device.id != device_id).all()
+    # making name list, needs for uniq device name
     if len(curr_devices) > 0:
         curr_names = [curr.name for curr in curr_devices]
     else:
@@ -273,7 +304,7 @@ def device_edit(device_id):
             default=device_entr.description)
         # submit
         submit = SubmitField('Save device')
-    # form
+    # form obj
     form = DeviceForm()
     # variables
     page_title = 'Edit device {}'.format(device_entr.name)
@@ -286,16 +317,16 @@ def device_edit(device_id):
     status = None
     firmware = None
     description = None
-    # notes
+    # require note
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # management
+        # management data
         ip4 = form.ip4.data
         ip6 = form.ip6.data
         fqdn = form.fqdn.data
-        # management was not defined
+        # management data was not defined
         if not ip4 and not ip6 and not fqdn:
             # Warning message
             msg = messages['warn_no_close'].format('Any of management type (IPv4, IPv6, DNS name) has to be defined ')
@@ -304,13 +335,14 @@ def device_edit(device_id):
                 form=form, note=note,
                 title=page_title,
                 msg=msg)
+        # other data
         name = form.name.data
         vendor = form.vendor.data
         model = form.model.data
         firmware = form.firmware.data
         status = form.status.data
         description = form.description.data
-        # creates DB entr
+        # changing DB entr
         device_entr.name = name
         device_entr.ip4 = ip4 if ip4 != '' else None
         device_entr.ip6 = ip6 if ip6 != '' else None
@@ -331,8 +363,9 @@ def device_edit(device_id):
             note=note,
             title=page_title,
             msg=msg)
-    # if error occured
+    # if any error occured during validation process
     if len(form.errors) > 0:
+        # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
@@ -342,7 +375,7 @@ def device_edit(device_id):
             note=note,
             title=page_title,
             msg=msg)
-    # return clean form
+
     return render_template(
         'device_action.html',
         form=form,
@@ -352,8 +385,9 @@ def device_edit(device_id):
 
 @app.route('/device/<int:device_id>/delete/', methods=['GET', 'POST'])
 def device_delete(device_id):
+    # deleting device from DB
     device_entr = models.Device.query.get(device_id)
-    # no task id return 404
+    # no task id returns 404
     if not device_entr:
         abort(404)
 
@@ -361,14 +395,15 @@ def device_delete(device_id):
         # making form
         checker = BooleanField(label='Check for deleting device {}'.format(device_entr.name))
         submit = SubmitField('Delete device')
-
+    # form obj
     form = DeleteForm()
     page_title = 'Device {} deleting confirmation'.format(device_entr.name)
-
+    # checking if checked
     if form.checker.data:
-        form.checker.data = False
         db.session.delete(device_entr)
         db.session.commit()
+        # cleans form fields
+        form.checker.data = False
         del_msg = messages['succ_no_close'].format('The device {} was deleted'.format(device_entr.name))
         return render_template(
             'delete.html',
@@ -383,7 +418,9 @@ def device_delete(device_id):
 
 @app.route('/device/<int:device_id>/down/')
 def device_hold(device_id):
+    # changing device status to down
     device_entr = models.Device.query.get(device_id)
+    # changing status
     if device_entr:
         device_entr.status = 'down'
         # save DB entry in DB
@@ -391,12 +428,14 @@ def device_hold(device_id):
         msg = messages['success'].format('The device {} was changed to down'.format(device_entr.name))
     else:
         msg = messages['no_succ'].format('The device {} was not changed to down. No device'.format(device_entr.name))
-    return(msg)
+    return msg
 
 
 @app.route('/device/<int:device_id>/idle/')
 def device_idle(device_id):
+    # changing device status to idle
     device_entr = models.Device.query.get(device_id)
+    # changing status
     if device_entr:
         device_entr.status = 'idle'
         # save DB entry in DB
@@ -404,18 +443,21 @@ def device_idle(device_id):
         msg = messages['success'].format('The device {} was changed to idle'.format(device_entr.name))
     else:
         msg = messages['no_succ'].format('The device {} was not changed to idle. No device'.format(device_entr.name))
-    return(msg)
+    return msg
 
 
 @app.route('/device/<int:device_id>')
 def device_show(device_id):
+    # show device detail
     device = models.Device.query.get(device_id)
     return devices_table(device_info=device, filter_nav=False)
 
 
 @app.route('/device/<int:device_id>/autoset/')
 def device_autoset(device_id):
+    # autosets status for device, only idle or down
     device = models.Device.query.get(device_id)
+    # getting status
     if device:
         result = device_check(device)
         if result['state'] == 'idle':
@@ -424,14 +466,16 @@ def device_autoset(device_id):
         elif result['state'] == 'unavailable':
             device.status = 'down'
             msg_status = 'down'
+        # handles unknown value
         else:
             msg_status = 'unknown'
             msg = messages['no_succ'].format('The device {} status was not changed. Got unknown state'.format(device.name))
+        # writes DB changes
         if msg_status != 'unknown':
             db.session.commit()
             msg = messages['success'].format('The device {} was changed to <label>{}</label>'.format(device.name, msg_status))
     else:
         msg = messages['no_succ'].format('The device {} status was not changed. No device'.format(device.name))
         msg_status = 'no_device'
-
+    # return json for js handling
     return jsonify({'msg': msg, 'status': msg_status})

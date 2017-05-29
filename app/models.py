@@ -362,6 +362,7 @@ class Test(db.Model):
                 self.parameters][index]
 
 
+# User table for future features
 class User(db.Model):
     # user table
     __tablename__ = 'user'

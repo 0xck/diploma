@@ -1,4 +1,8 @@
+# different repeating values on pages, notes, etc
+
+
 def humanize(data, units='si', end=''):
+    # changed kilo/mega/giga/etc to K/M/G/etc; uses modulus, no "-"
     types = ('', '', 'K', 'M', 'G', 'P', 'E')
     if units == 'si':
         base = 1000
@@ -19,6 +23,7 @@ general_notes = {
 
 test_types = ['common', 'selection']  # in future 'cyclic', 'bundle'
 
+# traffic patterns from cap2 directory on t-rex
 stf_traffic_patterns = [
     'cap2/dns.yaml',
     'cap2/dns_one_server.yaml',
@@ -107,6 +112,7 @@ devices_statuses = {
     'gui': trexes_statuses['gui'],
 }
 
+# labels
 messages = {
     'success': '''
         <div class="alert alert-success alert-dismissible" role="alert">
