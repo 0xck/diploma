@@ -32,6 +32,7 @@ def main_cfg_gen():
     app_listen = '0.0.0.0'
     app_port = 5000
     csrf_key = ''.join(SystemRandom().choice(ascii_letters + digits) for item in range(16))
+    app_log_file = os.path.join(curr_dir, './app/logs/app.log')
 
     db_part_conf = '''SQLALCHEMY_DATABASE_URI = "{}:///{}"
 SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -42,12 +43,54 @@ CSRF_ENABLED = True
 SECRET_KEY = "{}"
 '''.format(app_listen, app_port, csrf_key)
     redis_part_conf = '''redis_url = "{}"
-
 '''.format(redis_url)
 
+    def sqlite_create():
+        # cheking path
+        if db_addr == 'db.sqlite':
+            # adding full path
+            full_db_addr = os.path.join(curr_dir, 'app', db_addr)
+        else:
+            full_db_addr = db_addr
+        # checking if db exists
+        if os.access(full_db_addr, mode=os.F_OK):
+            print('''
+SQLite DB file {bold}{}{end} already exists, should script {red}replace{end} it?
+'''.format(full_db_addr, **term))
+            rewrite = input('Replace y/n ')
+            while rewrite.strip().lower() not in {'y', 'n'}:
+                rewrite = input('Please use only {bold}"y"{end} or {bold}"n"{end} '.format(**term))
+            if rewrite.strip().lower() == 'y':
+                # removes old db
+                if os.access(full_db_addr, mode=os.W_OK):
+                    os.remove(full_db_addr)
+                    # create db metadata
+                    from app import db
+                    db.create_all()
+                    print('DB {bold}{}{end} was replased '.format(full_db_addr, **term))
+                else:
+                    print('DB {bold}{}{end} can not be replased. {bold}No permissions{end}'.format(full_db_addr, **term))
+        else:
+            # create db metadata
+            from app import db
+            db.create_all()
+            print('New DB was created as {bold}{}{end}'.format(full_db_addr, **term))
+
     def wr_cfg():
+        # writes config
         with open(conf_file, 'w', encoding='utf-8') as cfg_file:
             cfg_file.write(db_part_conf + app_part_conf + redis_part_conf)
+        # creating app.log file
+        if not os.access(app_log_file, mode=os.F_OK):
+            try:
+                os.mkdir(os.path.split(app_log_file)[0])
+            except OSError:
+                pass
+            with open(app_log_file, 'w', encoding='utf-8') as log_file:
+                log_file.write('app.log was created')
+        # trying to create sqlite db
+        if db_type == 'sqlite':
+            sqlite_create()
 
     # welcome
     print('''
@@ -80,9 +123,10 @@ Main config was generated as {bold}{}{end}
     print('''Choose application DB type:
     1. SQLite {grey}(default){end}
     {grey}2. MySQL is NOT yet supported{end}
-    {grey}3. PostgreSQL is NOT yet supported{end}'''.format(**term))
+    {grey}3. PostgreSQL is NOT yet supported{end}
+'''.format(**term))
     user_val = input('{grey}Defaul is{end} {bold}SQLite{end} '.format(**term))
-    while user_val.strip().lower() not in '123':
+    while user_val.strip().lower() not in {'1', '2', '3'}:
         if user_val.strip().lower() == '':
             break
         user_val = input('Please use only {bold}"1"{end} or {bold}"Enter"{end} '.format(**term))
@@ -178,10 +222,10 @@ Select redis port''')
     # write config
     wr_cfg()
     print('''
-    Main config was generated as {bold}{}{end}
-    Now you should generate config for {bold}supervisord{end}.
-    {bold}Supervisor config{end} generator is starting.
-    '''.format(conf_file, **term))
+Main config was generated as {bold}{}{end}
+'''.format(conf_file, **term))
+    print('''Now you should generate config for {bold}supervisord{end}.
+    {bold}Supervisor config{end} generator is starting.'''.format(conf_file, **term))
     config_generator.supervisor_cfg_gen()
 
 
