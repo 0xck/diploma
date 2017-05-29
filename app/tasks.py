@@ -6,6 +6,7 @@ from wtforms.validators import Required, Length, AnyOf
 from json import loads
 from app.helper import general_notes, humanize, tasks_statuses, messages
 from app.tests import test_show
+from task_scheduler import task_killer
 
 
 @app.route('/tasks/')
@@ -36,7 +37,9 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         'hold': '<li><a href="/task/{0}/hold" class="hold" id="{0}">On hold</a></li>',
         'queue': '<li><a href="/task/{0}/queue" class="queue" id="{0}">To queue</a></li>',
         'readd': '<li><a href="/task/{0}/readd" class="readd" id="{0}">Re add</a></li>',
-        'cancel': '<li><a href="/task/{0}/cancel" class="cancel" id="{0}">Cancel</a></li>'
+        'cancel': '<li><a href="/task/{0}/cancel" class="cancel" id="{0}">Cancel</a></li>',
+        'clone': '<li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>',
+        'kill': '<li><a href="/task/{0}/kill" class="kill" id="{0}"><span class="text-danger">Force kill task</span></a></li>',
     }
 
     for entr in tasks_entr:
@@ -59,10 +62,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             status_row += ' active canceled"'
         elif entr.status == 'testing':
             # unactive button
-            act_button = '''<div class="btn-group">
-                        <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
-                            <span class="sr-only">Toggle Dropdown</span>
-                        </button>'''
+            act_button += act_button_template['clone'] + act_button_template['separator'] + act_button_template['kill']
             status_row += ' warning testing"'
         else:
             act_button += act_button_template['hold'] + act_button_template['queue'] + act_button_template['separator'] + act_button_template['readd'] + act_button_template['cancel'] + act_button_template['end']
@@ -77,22 +77,27 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             res_label = 'default'
         if entr.devices:
             if entr.devices.status == 'idle':
-                dev_label = '#008000'
+                dev_label = 'success'
             elif entr.devices.status == 'down':
-                dev_label = '#7F7F7F'
+                dev_label = 'muted'
             elif entr.devices.status == 'testing':
-                dev_label = '#FF8000'
+                dev_label = 'warning'
             else:
-                dev_label = '#800000'
+                dev_label = 'danger'
         if entr.trexes:
             if entr.trexes.status == 'idle':
-                trex_label = '#008000'
+                trex_label = 'success'
             elif entr.trexes.status == 'down':
-                trex_label = '#7F7F7F'
+                trex_label = 'muted'
             elif entr.trexes.status == 'testing':
-                trex_label = '#FF8000'
+                trex_label = 'warning'
             else:
-                trex_label = '#800000'
+                trex_label = 'danger'
+        if entr.tests:
+            if entr.tests.mode == 'stateful':
+                test_label = 'primary'
+            elif entr.tests.mode == 'stateless':
+                test_label = 'info'
 
         table_items = {}
         # adding task db info
@@ -106,16 +111,16 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             table_items['duration'] = (entr.end_time - entr.start_time)
         # trex
         if entr.trexes:
-            table_items['trex'] = '<a href="/trex/{1}">{0}</a><br /><small style="color:{2}";>{3}</small>'.format(entr.trexes.hostname, entr.trexes.id, trex_label, entr.trexes.status)
+            table_items['trex'] = '<a href="/trex/{1}">{0}</a><br /><small class="text-{2}">{3}</small>'.format(entr.trexes.hostname, entr.trexes.id, trex_label, entr.trexes.status)
         else:
             table_items['trex'] = '<em>T-rex was deleted</em>'
         # device
         if entr.device:
-            table_items['device'] = '<a href="/device/{1}">{0}</a><br /><small style="color:{2}";>{3}</small>'.format(entr.devices.name, entr.devices.id, dev_label, entr.devices.status)
+            table_items['device'] = '<a href="/device/{1}">{0}</a><br /><small class="text-{2}">{3}</small>'.format(entr.devices.name, entr.devices.id, dev_label, entr.devices.status)
         else:
             table_items['device'] = '<em>Device was deleted</em>'
         # test
-        table_items['test'] = '<a href="/test/{1}">{0}</a><br /><small>{2}</small>'.format(entr.tests.name, entr.tests.id, entr.tests.mode)
+        table_items['test'] = '<a href="/test/{1}">{0}</a><br /><span class="label label-{3}">{2}</span>'.format(entr.tests.name, entr.tests.id, entr.tests.mode, test_label)
         # actions button
         table_items['act_button'] = act_button.format(entr.id)
         # result link
@@ -127,7 +132,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         table_data += '''
             <{status_row}>
                 <td>{id}</td>
-                <td class="task_status">{status}<br /><span class="label label-{res_label}">{result}</span></span></td>
+                <td class="task_status">{status}<br /><span class="label label-{res_label}">{result}</span></td>
                 <td><small>{description}</small></td>
                 <td><small>{start_time}<br />{end_time}</small></td>
                 <td>{duration}</td>
@@ -177,7 +182,7 @@ def task_create():
             choices=list_tests,
             default=tests[0])
         trex = SelectField(
-            't-rex',
+            'T-rex',
             validators=[Required(), Length(min=1, max=64), AnyOf(trexes)],
             choices=list_trexes,
             default=trexes[0])
@@ -206,15 +211,10 @@ def task_create():
     if form.validate_on_submit():
         # defining variables value from submitted form
         test = form.test.data
-        form.test.data = ''
         trex = form.trex.data
-        form.trex.data = ''
         device = form.device.data
-        form.device.data = ''
         description = form.description.data
-        form.description.data = ''
         status = form.status.data
-        form.status.data = ''
         # creates DB entry
         new_task = models.Task(
             test=test,
@@ -227,6 +227,11 @@ def task_create():
         db.session.commit()
         # Success message
         msg = messages['success'].format('New task was added')
+        form.test.data = None
+        form.trex.data = None
+        form.device.data = None
+        form.description.data = None
+        form.status.data = None
         # showing form with success message
         return render_template(
             'task_action.html',
@@ -461,7 +466,6 @@ def task_show(task_id):
     # no task id return 404
     if not task_entr:
         abort(404)
-
     page_title = 'Task ID {} data'.format(task_id)
     if task_entr.result == 'error':
         content = '''<p class="lead">An error occured during test:</p>
@@ -519,6 +523,15 @@ def task_show(task_id):
         # calculating losses
         ports_data['losses-0'] = ports_data['ipackets-1'] - ports_data['opackets-0']
         ports_data['losses-1'] = ports_data['ipackets-0'] - ports_data['opackets-1']
+        # calculating percents losses from flow
+        if ports_data['opackets-0'] != 0:
+            ports_data['perc-0'] = '{:.4f}'.format((abs(ports_data['losses-0']) * 100) / ports_data['opackets-0'])
+        else:
+            ports_data['perc-0'] = ''
+        if ports_data['opackets-1'] != 0:
+            ports_data['perc-1'] = '{:.4f}'.format((abs(ports_data['losses-1']) * 100) / ports_data['opackets-1'])
+        else:
+            ports_data['perc-1'] = ''
         # humanize counters output
         for item in ports_data:
             if 'byte' in item:
@@ -533,6 +546,7 @@ def task_show(task_id):
                 <th>Bytes TX</th>
                 <th>Bytes RX</th>
                 <th>Computed losses</th>
+                <th>% from flow</th>
                 <th>T-rex drops</th>
             </tr>
             <tr>
@@ -542,6 +556,7 @@ def task_show(task_id):
                 <td>{obytes-0}</td>
                 <td>{ibytes-0}</td>
                 <td>{losses-0}</td>
+                <td>{perc-0}</td>
                 <td>{0}</td>
             </tr>
             <tr>
@@ -551,6 +566,7 @@ def task_show(task_id):
                 <td>{ibytes-1}</td>
                 <td>{obytes-1}</td>
                 <td>{losses-1}</td>
+                <td>{perc-1}</td>
                 <td>{0}</td>
             </tr>
         '''.format(
@@ -684,7 +700,7 @@ def clone_task(task_id):
             test=task_entr.test,
             trex=task_entr.trex,
             device=task_entr.device,
-            description='Cloned task ID {}: "{}"'.format(task_entr.id, task_entr.description),
+            description='Cloned task ID {}: "{}"'.format(task_entr.id, task_entr.description[:987]),
             status='hold')
         # adding DB entry in DB
         db.session.add(new_task)
@@ -693,4 +709,24 @@ def clone_task(task_id):
     else:
         msg = messages['no_succ'].format('The task ID {} was not cloned. No task ID {}'.format(task_entr.id))
 
+    return(msg)
+
+
+@app.route('/task/<int:task_id>/kill/')
+def kill_trex_tasks(task_id):
+    task_entr = models.Task.query.get(task_id)
+    if task_entr:
+        if task_entr.status == 'testing':
+            result = task_killer(task_entr)
+            if result['status']:
+                msg = messages['success'].format('Task ID {} was killed.'.format(task_id))
+            else:
+                msg = messages['danger'].format('''<p>Tasks ID {0} was not killed due T-rex error:</p>
+                    <blockquote>
+                        <p>{1}</p>
+                    </blockquote>'''.format(task_id, result['state']))
+        else:
+            msg = messages['warning'].format('Tasks ID {} was not killed. The task is not in testing state now'.format(task_id))
+    else:
+        abort(404)
     return(msg)
