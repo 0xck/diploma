@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="container">
 <div class="page-header">
     <h1>
         {{title}}
     </h1>
 </div>
-<div class="container">
         {{content | safe}}
 </div>
 {# charts #}
@@ -105,6 +105,8 @@
                 pointHighlightStroke: "rgba(31, 171, 0, 1)",
                 backgroundColor: "rgba(7, 250, 80, 1)",
                 borderColor: "rgba(7, 250, 80, 1)",
+                pointRadius: 2,
+                borderWidth: 2,
                 data: tx_pps
             },
             {
@@ -117,6 +119,8 @@
                 pointHighlightStroke: "rgba(151,187,205,1)",
                 backgroundColor: "rgba(0, 136, 255, 1)",
                 borderColor: "rgba(0, 136, 255, 1)",
+                pointRadius: 2,
+                borderWidth: 2,
                 data: rx_pps
             },
             {
@@ -127,8 +131,11 @@
                 pointStrokeColor: "#fff",
                 pointHighlightFill: "#fff",
                 pointHighlightStroke: "rgba(151,187,205,1)",
-                backgroundColor: "rgba(255, 132, 0, 1)",
+                backgroundColor: "rgba(255, 255, 255, 1)",
                 borderColor: "rgba(255, 132, 0, 1)",
+                borderDash: [5, 10],
+                pointRadius: 2,
+                borderWidth: 2,
                 data: expected_pps
             },
         ]
@@ -147,6 +154,8 @@
                 pointHighlightStroke: "rgba(31, 171, 0, 1)",
                 backgroundColor: "rgba(7, 250, 80, 1)",
                 borderColor: "rgba(7, 250, 80, 1)",
+                pointRadius: 2,
+                borderWidth: 2,
                 data: tx_bps
             },
             {
@@ -159,6 +168,8 @@
                 pointHighlightStroke: "rgba(151,187,205,1)",
                 backgroundColor: "rgba(0, 136, 255, 1)",
                 borderColor: "rgba(0, 136, 255, 1)",
+                pointRadius: 2,
+                borderWidth: 2,
                 data: rx_bps
             },
             {
@@ -169,8 +180,11 @@
                 pointStrokeColor: "#fff",
                 pointHighlightFill: "#fff",
                 pointHighlightStroke: "rgba(151,187,205,1)",
-                backgroundColor: "rgba(255, 132, 0, 1)",
+                backgroundColor: "rgba(255, 255, 255, 1)",
                 borderColor: "rgba(255, 132, 0, 1)",
+                borderDash: [5, 10],
+                pointRadius: 2,
+                borderWidth: 2,
                 data: expected_bps
             }
         ]
