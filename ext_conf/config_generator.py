@@ -108,7 +108,7 @@ programs=tasksched,worker,server,redis
 
                 cfg_file.write(app_part_conf + group_part_conf)
         print('''
-    Your config has been saved in {bold}{}{end} directory.
+Your config has been saved in {bold}{}{end} directory.
     Bye.
             '''.format(curr_dir, **term))
 
@@ -121,7 +121,6 @@ Welcome to {blue}wrex supervisor{end} config generator.
         '''.format(**term))
     # generating using default
     generate = input('Generate with default settings y/n ')
-    #if generate.strip().lower() not in {'y', 'n'}:
     while generate.strip().lower() not in {'y', 'n'}:
         generate = input('Please use only {bold}"y"{end} or {bold}"n"{end} '.format(**term))
     # generates and exiting

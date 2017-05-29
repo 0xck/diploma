@@ -1,9 +1,10 @@
-from flask import render_template, abort
+from flask import render_template, abort, jsonify
 from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, IntegerField, BooleanField
 from wtforms.validators import Required, Length, AnyOf, Regexp, NumberRange, IPAddress, NoneOf, Optional
 from app.helper import general_notes, validator_err, trexes_statuses, messages
+from checker import trex_check
 
 
 @app.route('/trexes/')
@@ -29,28 +30,25 @@ def trexes_table(trex_info=False, filter_nav=True):
         'separator': '<li role="separator" class="divider"></li>',
         'down': '<li><a href="/trex/{0}/down" class="down" id="{0}">Down t-rex</a></li>',
         'idle': '<li><a href="/trex/{0}/idle" class="idle" id="{0}">To idle</a></li>',
-        'check': '<li><a href="/trex/{0}/check" class="check" id="{0}">Autoset status</a></li>'
+        'check': '<li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>'
     }
     for entr in trexes_entr:
         status_row = 'tr class="condition'
         if entr.status in {'idle', 'error'}:
-            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
+            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
             if entr.status == 'error':
                 status_row += ' danger error"'
             else:
                 status_row += ' idle"'
         elif entr.status == 'down':
-            act_button = act_button_template['begin'] + act_button_template['idle'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
+            act_button = act_button_template['begin'] + act_button_template['idle'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
             status_row += ' active down"'
         elif entr.status == 'testing':
-            act_button = '''<div class="btn-group">
-                        <button type="button" class="btn btn-default btn-xs dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
-                            <span class="sr-only">Toggle Dropdown</span>
-                        </button>'''
+            act_button = act_button_template['begin'] + act_button_template['check'] + '</ul>'
             status_row += ' warning testing"'
         # different errors
         else:
-            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
+            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
             status_row += ' danger error"'
         table_items = {}
         table_items.update(entr['ALL_DICT'])
@@ -89,34 +87,28 @@ def trex_create():
     list_statuses = [(trex_status, trex_status) for trex_status in statuses[1:-2]]
     list_statuses.insert(0, (statuses[0], '{} (Default)'.format(statuses[0])))
     curr_trexes = models.Trex.query.all()
-    curr_name = []
-    curr_ip4 = []
-    curr_ip6 = []
-    curr_fqdn = []
-    curr_vm_id = []
     if len(curr_trexes) > 0:
-        for trex_entr in curr_trexes:
-            curr_name.append(trex_entr.hostname)
-            curr_ip4.append(trex_entr.ip4)
-            curr_ip6.append(trex_entr.ip6)
-            curr_fqdn.append(trex_entr.fqdn)
-            curr_vm_id.append(trex_entr.vm_id)
+        curr_names = [curr.hostname for curr in curr_trexes]
+        curr_vm_id = [curr.vm_id for curr in curr_trexes]
+    else:
+        curr_names = []
+        curr_vm_id = []
 
     class TrexForm(FlaskForm):
         # making form
         hostname = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Hostname must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Hostname must contain only letters numbers or underscore'), NoneOf(curr_names, message=validator_err['exist'])])
         ip4 = StringField(
             'Management IPv4 address',
-            validators=[Required(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address'), NoneOf(curr_ip4, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address')],
             default='127.0.0.1')
         ip6 = StringField(
             'Management IPv6 address',
-            validators=[Required(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address'), NoneOf(curr_ip6, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address')],
             default='::1')
         fqdn = StringField(
             'Management DNS name',
-            validators=[Required(), Length(min=1, max=256), NoneOf(curr_fqdn, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=1, max=256)],
             default='localhost')
         port = IntegerField(
             'T-rex daemon port',
@@ -157,35 +149,48 @@ def trex_create():
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # general
-        hostname = form.hostname.data
-        form.hostname.data = None
+        # management
         ip4 = form.ip4.data
         form.ip4.data = '127.0.0.1'
         ip6 = form.ip6.data
         form.ip6.data = '::1'
         fqdn = form.fqdn.data
         form.fqdn.data = None
-        port = int(form.port.data)
-        form.port.data = 8090
+        # management was not defined
+        if not ip4 and not ip6 and not fqdn:
+            # Warning message
+            msg = messages['warn_no_close'].format('Any of management type (IPv4, IPv6, DNS name) has to be defined')
+            return render_template(
+                'trex_action.html',
+                form=form, note=note,
+                title=page_title,
+                msg=msg)
+        hostname = form.hostname.data
         vm_id = form.vm_id.data
-        form.vm_id.data = None
+        # checking vm id existing
+        if vm_id == '':
+            if hostname in curr_vm_id:
+                msg = messages['warn_no_close'].format('VM ID {} aready exists'.format(vm_id))
+                return render_template(
+                    'trex_action.html',
+                    form=form, note=note,
+                    title=page_title,
+                    msg=msg)
+            else:
+                vm_id = hostname
+        port = int(form.port.data)
         host = form.host.data
-        form.host.data = None
         version = form.version.data
-        form.version.data = None
         status = form.status.data
-        form.status.data = status[0]
         description = form.description.data
-        form.description.data = None
         # creates DB entr
         new_trex = models.Trex(
             hostname=hostname,
-            ip4=ip4,
-            ip6=ip6,
-            fqdn=fqdn,
+            ip4=ip4 if ip4 != '' else None,
+            ip6=ip6 if ip6 != '' else None,
+            fqdn=fqdn if fqdn != '' else None,
             port=port,
-            vm_id=(vm_id if vm_id != '' else hostname),
+            vm_id=vm_id,
             host=host,
             version=version,
             status=status,
@@ -195,6 +200,16 @@ def trex_create():
         db.session.commit()
         # Success message
         msg = messages['success'].format('New t-rex was added')
+        form.hostname.data = None
+        form.vm_id.data = None
+        form.ip4.data = '127.0.0.1'
+        form.ip6.data = '::1'
+        form.fqdn.data = 'localhost'
+        form.port.data = 8090
+        form.host.data = None
+        form.version.data = None
+        form.status.data = status[0]
+        form.description.data = None
         # showing form with success message
         return render_template(
             'trex_action.html',
@@ -236,35 +251,30 @@ def trex_edit(trex_id):
     list_statuses.remove(('error', 'error'))
     # getting lists of current trexes values for checking
     curr_trexes = models.Trex.query.filter(models.Trex.id != trex_id).all()
-    curr_name = []
-    curr_ip4 = []
-    curr_ip6 = []
-    curr_fqdn = []
-    curr_vm_id = []
     if len(curr_trexes) > 0:
         for curr_trex in curr_trexes:
-            curr_name.append(curr_trex.hostname)
-            curr_ip4.append(curr_trex.ip4)
-            curr_ip6.append(curr_trex.ip6)
-            curr_fqdn.append(curr_trex.fqdn)
-            curr_vm_id.append(curr_trex.vm_id)
+            curr_names = [curr.hostname for curr in curr_trexes]
+            curr_vm_id = [curr.vm_id for curr in curr_trexes]
+        else:
+            curr_names = []
+            curr_vm_id = []
 
     class TrexForm(FlaskForm):
         # making form
         hostname = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Hostname must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Hostname must contain only letters numbers or underscore'), NoneOf(curr_names, message=validator_err['exist'])],
             default=trex_entr.hostname)
         ip4 = StringField(
             'Management IPv4 address',
-            validators=[Required(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address'), NoneOf(curr_ip4, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address')],
             default=trex_entr.ip4)
         ip6 = StringField(
             'Management IPv6 address',
-            validators=[Required(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address'), NoneOf(curr_ip6, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address')],
             default=trex_entr.ip6)
         fqdn = StringField(
             'Management DNS name',
-            validators=[Required(), Length(min=1, max=256), NoneOf(curr_fqdn, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=1, max=256)],
             default=trex_entr.fqdn)
         port = IntegerField(
             'T-rex daemon port',
@@ -310,21 +320,41 @@ def trex_edit(trex_id):
     if form.validate_on_submit():
         # defining variables value from submitted form
         # general
-        hostname = form.hostname.data
         ip4 = form.ip4.data
         ip6 = form.ip6.data
         fqdn = form.fqdn.data
-        port = int(form.port.data)
+        # management was not defined
+        if not ip4 and not ip6 and not fqdn:
+            # Warning message
+            msg = messages['warn_no_close'].format('Any of management type (IPv4, IPv6, DNS name) has to be defined ')
+            return render_template(
+                'trex_action.html',
+                form=form, note=note,
+                title=page_title,
+                msg=msg)
+        hostname = form.hostname.data
         vm_id = form.vm_id.data
+        # checking vm id existing
+        if vm_id == '':
+            if hostname in curr_vm_id:
+                msg = messages['warn_no_close'].format('VM ID {} aready exists'.format(vm_id))
+                return render_template(
+                    'trex_action.html',
+                    form=form, note=note,
+                    title=page_title,
+                    msg=msg)
+            else:
+                vm_id = hostname
+        port = int(form.port.data)
         host = form.host.data
         version = form.version.data
         status = form.status.data
         description = form.description.data
         # creates DB entr
         trex_entr.hostname = hostname
-        trex_entr.ip4 = ip4
-        trex_entr.ip6 = ip6
-        trex_entr.fqdn = fqdn
+        trex_entr.ip4 = ip4 if ip4 != '' else None
+        trex_entr.ip6 = ip6 if ip6 != '' else None
+        trex_entr.fqdn = fqdn if fqdn != '' else None
         trex_entr.port = port
         trex_entr.vm_id = (vm_id if vm_id != '' else hostname)
         trex_entr.host = host
@@ -415,7 +445,36 @@ def trex_idle(trex_id):
     return(msg)
 
 
-@app.route('/trex/<int:trex_id>')
+@app.route('/trex/<int:trex_id>/')
 def trex_show(trex_id):
     trex = models.Trex.query.get(trex_id)
     return trexes_table(trex_info=trex, filter_nav=False)
+
+
+@app.route('/trex/<int:trex_id>/autoset/')
+def trex_autoset(trex_id):
+    trex = models.Trex.query.get(trex_id)
+    if trex:
+        result = trex_check(trex)
+        if result['state'] == 'idle':
+            trex.status = 'idle'
+            msg_status = 'idle'
+        elif result['state'] == 'unavailable':
+            trex.status = 'down'
+            msg_status = 'down'
+        elif result['state'] == 'running' or result['state'] == 'stateless':
+            trex.status = 'testing'
+            msg_status = 'testing'
+        elif result['state'] == 'error_rpc':
+            trex.status = 'error_rpc'
+            msg_status = 'error_rpc'
+        else:
+            msg_status = 'unknown'
+            msg = messages['no_succ'].format('The t-rex {} status was not changed. Got unknown state'.format(trex.hostname))
+        if msg_status != 'unknown':
+            db.session.commit()
+            msg = messages['success'].format('The t-rex {} was changed to <label>{}</label>'.format(trex.hostname, msg_status))
+    else:
+        msg = messages['no_succ'].format('The t-rex {} status was not changed. No t-rex'.format(trex.hostname))
+        msg_status = 'no_trex'
+    return jsonify({'msg': msg, 'status': msg_status})

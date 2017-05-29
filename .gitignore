@@ -101,4 +101,9 @@ _unuse/
 
 trex/conf/
 just_test.py
+<<<<<<< HEAD
+>>>>>>> ck
+=======
+config.py
+wrex.conf
 >>>>>>> ck

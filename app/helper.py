@@ -1,4 +1,12 @@
+<<<<<<< .merge_file_a06804
 def humanize(data, units='si', end=''):
+=======
+# different repeating values on pages, notes, etc
+
+
+def humanize(data, units='si', end=''):
+    # changed kilo/mega/giga/etc to K/M/G/etc; uses modulus, no "-"
+>>>>>>> .merge_file_a03328
     types = ('', '', 'K', 'M', 'G', 'P', 'E')
     if units == 'si':
         base = 1000
@@ -19,6 +27,10 @@ general_notes = {
 
 test_types = ['common', 'selection']  # in future 'cyclic', 'bundle'
 
+<<<<<<< .merge_file_a06804
+=======
+# traffic patterns from cap2 directory on t-rex
+>>>>>>> .merge_file_a03328
 stf_traffic_patterns = [
     'cap2/dns.yaml',
     'cap2/dns_one_server.yaml',
@@ -50,7 +62,14 @@ stf_notes = {
     ],
     'pattern': ['Test pattern which is executed on T-rex (for some reason pattern must located on T-rex now)'],
     'multiplier': ['Multiplier affects test pattern values (number of packets per second and packet flow gaps)'],
+<<<<<<< .merge_file_a06804
     'sampler': ['Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart (for some reason number of sampler size limited to 100 entries now, be careful choosing appropriate value)'],
+=======
+    'sampler': [
+        'Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart (for some reason number of sampler size limited to 100 entries now, be careful choosing appropriate value)',
+        'Set sampler to 0 for auto calculating sample value and solving situation with history size limit'
+    ],
+>>>>>>> .merge_file_a03328
     'warm': ['Time for "warm" traffic which services for reasons like in case need to wait for some changes on network like tunnel upping, STP/dot1X timeouts, etc (migth not work on VM due some T-rex soft nuances in current releases)'],
     'accuracy': ['Accuracy defines percent of per flow packet loss which can be accepted for passing test'],
     'rate_incr_step': ['Rate step value will be used for increasing/decreasing rate value in case test pass/not pass'],
@@ -67,7 +86,14 @@ stl_notes = {
     'pattern': ['Test pattern which is executed on T-rex'],
     'rate': ['Number of packets or bits per second'],
     'rate_type': ['Value for rate defines pps or bps rate will be used in test'],
+<<<<<<< .merge_file_a06804
     'sampler': stf_notes['sampler'],
+=======
+    'sampler': [
+        'Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart.',
+        'Set sampler to 0 for auto calculating sample value.'
+    ],
+>>>>>>> .merge_file_a03328
     'accuracy': stf_notes['accuracy'],
     'rate_incr_step': stf_notes['rate_incr_step'],
     'selection_test_type': stf_notes['selection_test_type'],
@@ -101,6 +127,10 @@ devices_statuses = {
     'gui': trexes_statuses['gui'],
 }
 
+<<<<<<< .merge_file_a06804
+=======
+# labels
+>>>>>>> .merge_file_a03328
 messages = {
     'success': '''
         <div class="alert alert-success alert-dismissible" role="alert">
@@ -116,4 +146,18 @@ messages = {
     'succ_no_close_time': '<div class="alert alert-success" role="alert"><strong>Success!</strong> {0} Page is going to reload in <span id="timeout">{seconds}</span> seconds</div>',
     'no_succ_no_close': '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> {}</div>',
     'warn_no_close': '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> {}</div>',
+<<<<<<< .merge_file_a06804
+=======
+    'danger': '''
+    <div class="alert alert-danger alert-dismissible" role="alert">
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <strong>Attention!</strong> {}
+    </div>''',
+    'warning': '''
+    <div class="alert alert-danger alert-warning" role="alert">
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <strong>Warning!</strong> {}
+    </div>''',
+    'warn_no_close_time': '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> {0} Need to wait for <span id="timeout">{seconds}</span> seconds</div>',
+>>>>>>> .merge_file_a03328
 }

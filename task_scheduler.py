@@ -8,13 +8,14 @@ from rq.job import Job, cancel_job
 from worker import redis_connect
 # other
 from datetime import datetime
-import time
+from time import sleep
 # exception
 from json import JSONDecodeError, loads, dumps
 # for correct stop
 import signal
 from sys import exit
 from exceptions import GracefulExit, signal_handler
+from trex.client.stf import trex_kill
 
 
 def task_finder():
@@ -55,7 +56,7 @@ def task_queuer(interval=300, safe_int=600):
         task.status = 'done'
 
     while True:
-        time.sleep(interval)
+        sleep(interval)
         tasks = task_finder()
         if tasks['status']:
             for task in tasks['values']:
@@ -83,6 +84,32 @@ tasks_queue = Queue('tasks', connection=redis_connect, default_timeout=90)
 # statuses_queue = Queue('statuses', connection=redis_connect, default_timeout=30)
 
 
+def task_killer(task):
+    # kills task and active trex task; getting db item as task
+    job = Job.fetch(str(task.id), connection=redis_connect)
+    # deleting current executing task
+    if job.is_started or job.is_queued:
+        cancel_job(str(job.get_id()), connection=redis_connect)
+    # kills active trex task
+    result = {'status': False, 'state': ''}
+    soft_kill = trex_kill.soft(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+    force_kill = {'status': False}
+    if not soft_kill['status']:
+        force_kill = trex_kill.force(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+    if soft_kill['status'] or force_kill['status']:
+        result['status'] = True
+        # making DB changes
+        task.status = 'canceled'
+        if task.trexes.status.lower() != 'idle':
+            task.trexes.status = 'idle'
+        if task.devices.status.lower() != 'idle':
+            task.devices.status = 'idle'
+        db.session.commit()
+    else:
+        result['state'] = 'soft kill: {}, force kill: {}'.format(soft_kill['state'], force_kill['state'])
+    return result
+
+
 if __name__ == '__main__':
     signal.signal(signal.SIGTERM, signal_handler)
     try:
@@ -97,6 +124,9 @@ if __name__ == '__main__':
                 # deleting current executing tasks
                 if job.is_started or job.is_queued:
                     cancel_job(str(job.get_id()), connection=redis_connect)
+                # kills active trex task
+                if not trex_kill.soft(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)['status']:
+                    trex_kill.force(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
                 # making DB changes
                 task.status = 'pending'
                 if task.trexes.status.lower() != 'idle':
