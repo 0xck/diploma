@@ -130,7 +130,7 @@
         <!-- selection fields end -->
 
         <div class="form-group">
-        {{form.sampler.label}} {{form.sampler(class="form-control", placeholder="Default is 1 second", required="required")}}
+        {{form.sampler.label}} {{form.sampler(class="form-control", placeholder="Default is 0 (auto calculating)", required="required")}}
         {% if notes.sampler %}
             {% for item in notes.sampler %}
             <p class="help-block">{{item}}<p>
