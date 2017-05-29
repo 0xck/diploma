@@ -1,9 +1,10 @@
-from flask import render_template, abort
+from flask import render_template, abort, jsonify
 from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, BooleanField
-from wtforms.validators import Required, Length, AnyOf, Regexp, IPAddress, NoneOf
+from wtforms.validators import Required, Length, AnyOf, Regexp, IPAddress, NoneOf, Optional
 from app.helper import general_notes, validator_err, messages, devices_statuses
+from checker import device_check
 
 
 @app.route('/devices/')
@@ -29,18 +30,18 @@ def devices_table(device_info=False, filter_nav=True):
         'separator': '<li role="separator" class="divider"></li>',
         'down': '<li><a href="/device/{0}/down" class="down" id="{0}">Down device</a></li>',
         'idle': '<li><a href="/device/{0}/idle" class="idle" id="{0}">To idle</a></li>',
-        'check': '<li><a href="/device/{0}/check" class="check" id="{0}">Autoset status</a></li>'
+        'check': '<li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>'
     }
     for entr in devices_entr:
         status_row = 'tr class="condition'
         if entr.status in {'idle', 'error'}:
-            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
+            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
             if entr.status == 'error':
                 status_row += ' danger error"'
             else:
                 status_row += ' idle"'
         elif entr.status == 'down':
-            act_button = act_button_template['begin'] + act_button_template['idle'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
+            act_button = act_button_template['begin'] + act_button_template['idle'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
             status_row += ' active down"'
         elif entr.status == 'testing':
             # unactiving button
@@ -51,7 +52,7 @@ def devices_table(device_info=False, filter_nav=True):
             status_row += ' warning testing"'
         # different errors
         else:
-            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['separator'] + act_button_template['check'] + act_button_template['end']
+            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
             status_row += ' danger error"'
         table_items = {}
         table_items.update(entr['ALL_DICT'])
@@ -88,33 +89,27 @@ def device_create():
     statuses = devices_statuses['all']
     list_statuses = [(device_status, device_status) for device_status in statuses[1:-2]]
     list_statuses.insert(0, (statuses[0], '{} (Default)'.format(statuses[0])))
-    curr_trexes = models.Device.query.all()
-    curr_name = []
-    curr_ip4 = []
-    curr_ip6 = []
-    curr_fqdn = []
-    if len(curr_trexes) > 0:
-        for device_entr in curr_trexes:
-            curr_name.append(device_entr.name)
-            curr_ip4.append(device_entr.ip4)
-            curr_ip6.append(device_entr.ip6)
-            curr_fqdn.append(device_entr.fqdn)
+    curr_devices = models.Device.query.all()
+    if len(curr_devices) > 0:
+        curr_names = [curr.name for curr in curr_devices]
+    else:
+        curr_names = []
 
     class DeviceForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_names, message=validator_err['exist'])])
         ip4 = StringField(
             'Management IPv4 address',
-            validators=[Required(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address'), NoneOf(curr_ip4, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address')],
             default='127.0.0.1')
         ip6 = StringField(
             'Management IPv6 address',
-            validators=[Required(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address'), NoneOf(curr_ip6, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address')],
             default='::1')
         fqdn = StringField(
             'Management DNS name',
-            validators=[Required(), Length(min=1, max=256), NoneOf(curr_fqdn, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=1, max=256)],
             default='localhost')
         vendor = StringField(
             'Device vendor',
@@ -151,31 +146,31 @@ def device_create():
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # general
-        name = form.name.data
-        form.name.data = None
+        # management
         ip4 = form.ip4.data
-        form.ip4.data = '127.0.0.1'
         ip6 = form.ip6.data
-        form.ip6.data = '::1'
         fqdn = form.fqdn.data
-        form.fqdn.data = None
+        # management was not defined
+        if not ip4 and not ip6 and not fqdn:
+            # Warning message
+            msg = messages['warn_no_close'].format('Any of management type (IPv4, IPv6, DNS name) has to be defined ')
+            return render_template(
+                'device_action.html',
+                form=form, note=note,
+                title=page_title,
+                msg=msg)
+        name = form.name.data
         vendor = form.vendor.data
-        form.vendor.data = None
         model = form.model.data
-        form.model.data = None
         firmware = form.firmware.data
-        form.firmware.data = None
         status = form.status.data
-        form.status.data = status[0]
         description = form.description.data
-        form.description.data = None
         # creates DB entr
         new_device = models.Device(
             name=name,
-            ip4=ip4,
-            ip6=ip6,
-            fqdn=fqdn,
+            ip4=ip4 if ip4 != '' else None,
+            ip6=ip6 if ip6 != '' else None,
+            fqdn=fqdn if fqdn != '' else None,
             vendor=vendor,
             model=model,
             firmware=firmware,
@@ -186,6 +181,15 @@ def device_create():
         db.session.commit()
         # Success message
         msg = messages['success'].format('New device was added')
+        form.ip4.data = '127.0.0.1'
+        form.ip6.data = '::1'
+        form.fqdn.data = 'localhost'
+        form.name.data = None
+        form.vendor.data = None
+        form.model.data = None
+        form.firmware.data = None
+        form.status.data = status[0]
+        form.description.data = None
         # showing form with success message
         return render_template(
             'device_action.html',
@@ -225,34 +229,28 @@ def device_edit(device_id):
     list_statuses.remove(('testing', 'testing'))
     list_statuses.remove(('error', 'error'))
     # getting lists of current trexes values for checking
-    curr_trexes = models.Device.query.filter(models.Device.id != device_id).all()
-    curr_name = []
-    curr_ip4 = []
-    curr_ip6 = []
-    curr_fqdn = []
-    if len(curr_trexes) > 0:
-        for curr_trex in curr_trexes:
-            curr_name.append(curr_trex.name)
-            curr_ip4.append(curr_trex.ip4)
-            curr_ip6.append(curr_trex.ip6)
-            curr_fqdn.append(curr_trex.fqdn)
+    curr_devices = models.Device.query.filter(models.Device.id != device_id).all()
+    if len(curr_devices) > 0:
+        curr_names = [curr.name for curr in curr_devices]
+    else:
+        curr_names = []
 
     class DeviceForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_names, message=validator_err['exist'])],
             default=device_entr.name)
         ip4 = StringField(
             'Management IPv4 address',
-            validators=[Required(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address'), NoneOf(curr_ip4, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address')],
             default=device_entr.ip4)
         ip6 = StringField(
             'Management IPv6 address',
-            validators=[Required(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address'), NoneOf(curr_ip6, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address')],
             default=device_entr.ip6)
         fqdn = StringField(
             'Management DNS name',
-            validators=[Required(), Length(min=1, max=256), NoneOf(curr_fqdn, message=validator_err['exist'])],
+            validators=[Optional(), Length(min=1, max=256)],
             default=device_entr.fqdn)
         vendor = StringField(
             'Device vendor',
@@ -293,11 +291,20 @@ def device_edit(device_id):
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # general
-        name = form.name.data
+        # management
         ip4 = form.ip4.data
         ip6 = form.ip6.data
         fqdn = form.fqdn.data
+        # management was not defined
+        if not ip4 and not ip6 and not fqdn:
+            # Warning message
+            msg = messages['warn_no_close'].format('Any of management type (IPv4, IPv6, DNS name) has to be defined ')
+            return render_template(
+                'device_action.html',
+                form=form, note=note,
+                title=page_title,
+                msg=msg)
+        name = form.name.data
         vendor = form.vendor.data
         model = form.model.data
         firmware = form.firmware.data
@@ -305,9 +312,9 @@ def device_edit(device_id):
         description = form.description.data
         # creates DB entr
         device_entr.name = name
-        device_entr.ip4 = ip4
-        device_entr.ip6 = ip6
-        device_entr.fqdn = fqdn
+        device_entr.ip4 = ip4 if ip4 != '' else None
+        device_entr.ip6 = ip6 if ip6 != '' else None
+        device_entr.fqdn = fqdn if fqdn != '' else None
         device_entr.vendor = vendor
         device_entr.model = model
         device_entr.firmware = firmware
@@ -404,3 +411,27 @@ def device_idle(device_id):
 def device_show(device_id):
     device = models.Device.query.get(device_id)
     return devices_table(device_info=device, filter_nav=False)
+
+
+@app.route('/device/<int:device_id>/autoset/')
+def device_autoset(device_id):
+    device = models.Device.query.get(device_id)
+    if device:
+        result = device_check(device)
+        if result['state'] == 'idle':
+            device.status = 'idle'
+            msg_status = 'idle'
+        elif result['state'] == 'unavailable':
+            device.status = 'down'
+            msg_status = 'down'
+        else:
+            msg_status = 'unknown'
+            msg = messages['no_succ'].format('The device {} status was not changed. Got unknown state'.format(device.name))
+        if msg_status != 'unknown':
+            db.session.commit()
+            msg = messages['success'].format('The device {} was changed to <label>{}</label>'.format(device.name, msg_status))
+    else:
+        msg = messages['no_succ'].format('The device {} status was not changed. No device'.format(device.name))
+        msg_status = 'no_device'
+
+    return jsonify({'msg': msg, 'status': msg_status})
