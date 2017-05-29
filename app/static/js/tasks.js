@@ -64,6 +64,18 @@ $(document).ready(function() {
         });
     });
 });
+// kill
+$(document).ready(function() {
+    $('.kill[id]').bind('click', function( event ) {
+        event.preventDefault();
+        $.get('/task/' + this.id + '/kill', function (data) {
+            $('#alert_place').html(data);
+        });
+        $(this).closest('tr').children('td.task_status').text('canceled');
+        $(this).closest('tr').removeClass();
+        $(this).closest('tr').addClass('active');
+    });
+});
 // task filter
 // all
 $(document).ready(function() {
