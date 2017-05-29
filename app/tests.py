@@ -2,10 +2,23 @@ from flask import render_template, abort, redirect
 from app import app, db, models
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField, StringField, IntegerField, FloatField
-from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp, NoneOf
+from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp, NoneOf, InputRequired
 from app.helper import stf_traffic_patterns, stf_notes, stl_notes, general_notes, validator_err, messages, test_types, stl_test_val, sel_test_types
 from json import loads, dumps
 from os import listdir, getcwd, path
+
+
+def autosampler(duration):
+    # auto sets sampler according to duration value
+    sampler = 1
+    if 100 < duration <= 1000:
+        sampler = int(duration / 100)
+    elif duration > 1000:
+        sampler = 10
+        # increacing history size, default for trex is 100 (affects only stateful)
+        history = int((duration / sampler) + 1)
+        return(sampler, history)
+    return(sampler)
 
 
 @app.route('/tests/')
@@ -106,8 +119,8 @@ def test_create_stf():
             default=1)
         sampler = IntegerField(
             label='Sampler time in seconds',
-            validators=[Required(), NumberRange(min=1, max=600)],
-            default=1)
+            validators=[InputRequired(), NumberRange(min=0, max=3600)],
+            default=0)
         # selection test params
         accuracy = FloatField(
             label='Accuracy of test result in percents',
@@ -165,7 +178,7 @@ def test_create_stf():
     wait = None
     soft_test = True
     hw_chsum = False
-    description = ''
+    description = None
     # notes
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
     notes = stf_notes
@@ -175,40 +188,31 @@ def test_create_stf():
         # defining variables value from submitted form
         # general
         name = form.name.data
-        form.name.data = None
         test_type = form.test_type.data
-        form.test_type.data = None
         duration = int(form.duration.data)
-        form.duration.data = 60
         traffic_pattern = form.traffic_pattern.data
-        form.traffic_pattern.data = ''
         multiplier = float(form.multiplier.data)
-        form.multiplier.data = 1
         # selection
         accuracy = (float(form.accuracy.data) / 100)
-        form.accuracy.data = 0.1
         rate_incr_step = float(form.rate_incr_step.data)
-        form.rate_incr_step.data = 1
         max_succ_attempt = int(form.max_succ_attempt.data)
-        form.max_succ_attempt.data = 3
         max_test_count = int(form.max_test_count.data)
-        form.max_test_count.data = 30
         selection_test_type = form.selection_test_type.data
-        form.selection_test_type.data = ''
         # other
         sampler = int(form.sampler.data)
-        form.sampler.data = 1
         warm = int(form.warm.data)
-        form.warm.data = 10
         wait = int(form.wait.data)
-        form.wait.data = 1
         soft_test = form.soft_test.data
-        form.soft_test.data = True
         hw_chsum = form.hw_chsum.data
-        form.hw_chsum.data = False
         description = form.description.data
-        form.description.data = ''
-
+        # calculating sampler
+        if sampler == 0:
+            history = False
+            if duration <= 1000:
+                sampler = autosampler(duration)
+            else:
+                sampler = autosampler(duration)[0]
+                history = autosampler(duration)[1]
         # creates DB entry
         trex_params = dict(
             duration=duration,
@@ -219,6 +223,9 @@ def test_create_stf():
             wait=wait,
             soft_test=soft_test,
             hw_chsum=hw_chsum)
+        # addiding history param
+        if history:
+            trex_params['history_size'] = history
         rate_params = dict(
             accuracy=accuracy,
             rate=multiplier,
@@ -239,6 +246,24 @@ def test_create_stf():
         db.session.commit()
         # Success message
         msg = messages['success'].format('New test was added')
+        form.name.data = None
+        form.test_type.data = None
+        form.duration.data = 60
+        form.traffic_pattern.data = patterns[0]
+        form.multiplier.data = 1
+        # selection
+        form.accuracy.data = 0.1
+        form.rate_incr_step.data = 1
+        form.max_succ_attempt.data = 3
+        form.max_test_count.data = 30
+        form.selection_test_type.data = ''
+        # other
+        form.sampler.data = 0
+        form.warm.data = 10
+        form.wait.data = 1
+        form.soft_test.data = True
+        form.hw_chsum.data = False
+        form.description.data = None
         # showing form with success message
         return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
     # if error occured
@@ -354,7 +379,7 @@ def test_edit_stf(test_id):
             default=test_papams_trex['multiplier'])
         sampler = IntegerField(
             label='Sampler time in seconds',
-            validators=[Required(), NumberRange(min=1, max=600)],
+            validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=test_papams_trex['sampler'])
         # selection test params
         accuracy = FloatField(
@@ -417,7 +442,6 @@ def test_edit_stf(test_id):
     # notes
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
     notes = stf_notes
-
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
@@ -440,6 +464,14 @@ def test_edit_stf(test_id):
         soft_test = form.soft_test.data
         hw_chsum = form.hw_chsum.data
         description = form.description.data
+        # calculating sampler
+        if sampler == 0:
+            history = False
+            if duration <= 1000:
+                sampler = autosampler(duration)
+            else:
+                sampler = autosampler(duration)[0]
+                history = autosampler(duration)[1]
         # creates DB entry values
         trex_params = dict(
             duration=duration,
@@ -450,6 +482,9 @@ def test_edit_stf(test_id):
             wait=wait,
             soft_test=soft_test,
             hw_chsum=hw_chsum)
+        # addiding history param
+        if history:
+            trex_params['history_size'] = history
         rate_params = dict(
             accuracy=accuracy,
             rate=multiplier,
@@ -562,8 +597,8 @@ def test_create_stl():
             default=1000)
         sampler = IntegerField(
             label='Sampler time in seconds',
-            validators=[Required(), NumberRange(min=1, max=600)],
-            default=1)
+            validators=[InputRequired(), NumberRange(min=0, max=3600)],
+            default=0)
         # selection test params
         accuracy = FloatField(
             label='Accuracy of test result in percents',
@@ -619,35 +654,27 @@ def test_create_stl():
         # defining variables value from submitted form
         # general
         name = form.name.data
-        form.name.data = None
         test_type = form.test_type.data
-        form.test_type.data = None
         rate_type = form.rate_type.data
-        form.rate_type.data = None
         duration = int(form.duration.data)
-        form.duration.data = 60
         traffic_pattern = form.traffic_pattern.data
-        form.traffic_pattern.data = ''
         rate = int(form.rate.data)
-        form.rate.data = 1000
         # selection
         accuracy = (float(form.accuracy.data) / 100)
-        form.accuracy.data = 0.1
         rate_incr_step = int(form.rate_incr_step.data)
-        form.rate_incr_step.data = 1000
         max_succ_attempt = int(form.max_succ_attempt.data)
-        form.max_succ_attempt.data = 3
         max_test_count = int(form.max_test_count.data)
-        form.max_test_count.data = 30
         selection_test_type = form.selection_test_type.data
-        form.selection_test_type.data = ''
         # other
         sampler = int(form.sampler.data)
-        form.sampler.data = 1
         hw_chsum = form.hw_chsum.data
-        form.hw_chsum.data = False
         description = form.description.data
-        form.description.data = ''
+        # calculating sampler
+        if sampler == 0:
+            if duration <= 1000:
+                sampler = autosampler(duration)
+            else:
+                sampler = autosampler(duration)[0]
         # creates DB entry
         trex_params = dict(
             duration=duration,
@@ -663,7 +690,6 @@ def test_create_stl():
             max_succ_attempt=max_succ_attempt,
             max_test_count=max_test_count,
             test_type=selection_test_type)
-
         new_test = models.Test(
             name=name,
             mode=mode,
@@ -676,6 +702,22 @@ def test_create_stl():
         db.session.commit()
         # Success message
         msg = messages['success'].format('New test was added')
+        form.name.data = None
+        form.test_type.data = None
+        form.rate_type.data = rate_types[0]
+        form.duration.data = 60
+        form.traffic_pattern.data = patterns[0]
+        form.rate.data = 1000
+        # selection
+        form.accuracy.data = 0.1
+        form.rate_incr_step.data = 1000
+        form.max_succ_attempt.data = 3
+        form.max_test_count.data = 30
+        form.selection_test_type.data = selection_types[0]
+        # other
+        form.sampler.data = 0
+        form.hw_chsum.data = False
+        form.description.data = None
         # showing form with success message
         return render_template(
             'test_action.html',
@@ -798,7 +840,7 @@ def test_edit_stl(test_id):
             default=test_papams_trex['rate'])
         sampler = IntegerField(
             label='Sampler time in seconds',
-            validators=[Required(), NumberRange(min=1, max=600)],
+            validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=test_papams_trex['sampler'])
         # selection test params
         accuracy = FloatField(
@@ -870,6 +912,12 @@ def test_edit_stl(test_id):
         sampler = int(form.sampler.data)
         hw_chsum = form.hw_chsum.data
         description = form.description.data
+        # calculating sampler
+        if sampler == 0:
+            if duration <= 1000:
+                sampler = autosampler(duration)
+            else:
+                sampler = autosampler(duration)[0]
         # creates DB entry values
         trex_params = dict(
             duration=duration,
@@ -1010,7 +1058,7 @@ def test_show(test_id, page=True):
                         <td>{wait}</td>
                     </tr>
                     <tr>
-                        <td>T-rex is VM</td>
+                        <td>T-rex is software appliance</td>
                         <td>{soft_test}</td>
                     </tr>
                     <tr>
