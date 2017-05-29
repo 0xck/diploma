@@ -11,7 +11,7 @@ if __name__ == "__main__":
     try:
         app.run(host=app_listen, port=app_port, debug=True)
     except (KeyboardInterrupt, GracefulExit):
-        print('STOPSIG')
+        print('Got stop signal. Exiting')
         '''
         here something for DB done
         '''
