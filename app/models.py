@@ -10,11 +10,11 @@ class Trex(db.Model):
     # t-rex instance hostname
     hostname = db.Column(db.String(64), unique=True)
     # IPv4 mng address
-    ip4 = db.Column(db.String(15), unique=True)
+    ip4 = db.Column(db.String(15), nullable=True)
     # IPv6 mng address
-    ip6 = db.Column(db.String(39), unique=True)
+    ip6 = db.Column(db.String(39), nullable=True)
     # FQDN mng address
-    fqdn = db.Column(db.String(256), unique=True)
+    fqdn = db.Column(db.String(256), nullable=True)
     # t-rex instance port
     port = db.Column(db.Integer)
     # VM id
@@ -107,13 +107,13 @@ class Device(db.Model):
     # device id
     id = db.Column(db.Integer, primary_key=True)
     # device name
-    name = db.Column(db.String(64), unique=True)
+    name = db.Column(db.String(64))
     # IPv4 mng address
-    ip4 = db.Column(db.String(15), unique=True)
+    ip4 = db.Column(db.String(15), nullable=True)
     # IPv6 mng address
-    ip6 = db.Column(db.String(39), unique=True)
+    ip6 = db.Column(db.String(39), nullable=True)
     # FQDN mng address
-    fqdn = db.Column(db.String(256), unique=True)
+    fqdn = db.Column(db.String(256), nullable=True)
     # device vendor
     vendor = db.Column(db.String(128))
     # device model
@@ -387,7 +387,3 @@ class User(db.Model):
             self.email,
             self.password,
             self.user_type)
-
-
-if __name__ == "__main__":
-    db.create_all()
