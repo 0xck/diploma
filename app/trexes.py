@@ -1,21 +1,34 @@
+# flask
 from flask import render_template, abort, jsonify
+# DB
 from app import app, db, models
+# forms
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, IntegerField, BooleanField
 from wtforms.validators import Required, Length, AnyOf, Regexp, NumberRange, IPAddress, NoneOf, Optional
+# notes, etc
 from app.helper import general_notes, validator_err, trexes_statuses, messages
+# autoset status
 from checker import trex_check
 
 
 @app.route('/trexes/')
 def trexes_table(trex_info=False, filter_nav=True):
+    '''showing trexes table
+    if trex_info that means needs to return only certain trexes, for task view page;
+    filter_nav for showing tasks nav bar'''
+
     page_title = 'T-rexes list'
+    # getting devices info
+    # from list
     if trex_info:
         trexes_entr = [trex_info]
+    # from DB
     else:
         trexes_entr = models.Trex.query.order_by(models.Trex.id.desc()).all()
-    script_file = 'trexes.js'
+    # var for future filling
     table_data = ''
+    # action button template
     act_button_template = {
         'begin': '''<div class="btn-group">
                         <button type="button" class="btn btn-primary btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
@@ -32,7 +45,9 @@ def trexes_table(trex_info=False, filter_nav=True):
         'idle': '<li><a href="/trex/{0}/idle" class="idle" id="{0}">To idle</a></li>',
         'check': '<li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>'
     }
+    # processing trexes
     for entr in trexes_entr:
+        # checking status and sets html params for rows and buttons
         status_row = 'tr class="condition'
         if entr.status in {'idle', 'error'}:
             act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
@@ -50,11 +65,16 @@ def trexes_table(trex_info=False, filter_nav=True):
         else:
             act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
             status_row += ' danger error"'
+        # gathering information for filling table
         table_items = {}
+        # adding trex db base info
         table_items.update(entr['ALL_DICT'])
         table_items['status_row'] = status_row
+        # action button
         table_items['act_button'] = act_button.format(entr.id)
+        # link for showing connected tasks
         table_items['show'] = '<a href="/tasks/trex/{0}/">Show</a>'.format(entr.id)
+        # making table row
         table_data += '''
             <{status_row}>
                 <td>{id}</td>
@@ -71,6 +91,7 @@ def trexes_table(trex_info=False, filter_nav=True):
                 <td>{act_button}</td>
                 <td>{show}</td>
             </tr>'''.format(**table_items)
+    script_file = 'trexes.js'
 
     return render_template(
         'trexes.html',
@@ -82,11 +103,15 @@ def trexes_table(trex_info=False, filter_nav=True):
 
 @app.route('/trex/new/', methods=['GET', 'POST'])
 def trex_create():
+    # making new trex
+    # getting info for filling forms in especial order
     # getting trex status list
     statuses = trexes_statuses['all']
     list_statuses = [(trex_status, trex_status) for trex_status in statuses[1:-2]]
     list_statuses.insert(0, (statuses[0], '{} (Default)'.format(statuses[0])))
+    # getting trexes for filling hostname and VM ID lists
     curr_trexes = models.Trex.query.all()
+    # making lists, needs for uniq trex hostname and VM ID
     if len(curr_trexes) > 0:
         curr_names = [curr.hostname for curr in curr_trexes]
         curr_vm_id = [curr.vm_id for curr in curr_trexes]
@@ -130,7 +155,7 @@ def trex_create():
             validators=[Length(max=1024)])
         # submit
         submit = SubmitField('Add new')
-    # form
+    # form obj
     form = TrexForm()
     # variables
     page_title = 'New T-rex'
@@ -144,21 +169,18 @@ def trex_create():
     status = None
     version = None
     description = None
-    # notes
+    # require note
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # management
+        # management data
         ip4 = form.ip4.data
-        form.ip4.data = '127.0.0.1'
         ip6 = form.ip6.data
-        form.ip6.data = '::1'
         fqdn = form.fqdn.data
-        form.fqdn.data = None
-        # management was not defined
+        # management data was not defined
         if not ip4 and not ip6 and not fqdn:
-            # Warning message
+            # warning message
             msg = messages['warn_no_close'].format('Any of management type (IPv4, IPv6, DNS name) has to be defined')
             return render_template(
                 'trex_action.html',
@@ -167,7 +189,7 @@ def trex_create():
                 msg=msg)
         hostname = form.hostname.data
         vm_id = form.vm_id.data
-        # checking vm id existing
+        # checking if vm id existing as hostname among current vm ids in case no vm id provided
         if vm_id == '':
             if hostname in curr_vm_id:
                 msg = messages['warn_no_close'].format('VM ID {} aready exists'.format(vm_id))
@@ -176,6 +198,7 @@ def trex_create():
                     form=form, note=note,
                     title=page_title,
                     msg=msg)
+            # sets vm id from hostname
             else:
                 vm_id = hostname
         port = int(form.port.data)
@@ -198,8 +221,9 @@ def trex_create():
         # adding DB entry in DB
         db.session.add(new_trex)
         db.session.commit()
-        # Success message
+        # success message
         msg = messages['success'].format('New t-rex was added')
+        # cleaning form
         form.hostname.data = None
         form.vm_id.data = None
         form.ip4.data = '127.0.0.1'
@@ -217,8 +241,9 @@ def trex_create():
             note=note,
             title=page_title,
             msg=msg)
-    # if error occured
+    # if any error occured during validation process
     if len(form.errors) > 0:
+        # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
@@ -228,7 +253,7 @@ def trex_create():
             note=note,
             title=page_title,
             msg=msg)
-    # return clean form
+
     return render_template(
         'trex_action.html',
         form=form,
@@ -238,10 +263,12 @@ def trex_create():
 
 @app.route('/trex/<int:trex_id>/edit/', methods=['GET', 'POST'])
 def trex_edit(trex_id):
+    # edits existing trex
     trex_entr = models.Trex.query.get(trex_id)
-    # no task id return 404
+    # no task id returns 404
     if not trex_entr:
         abort(404)
+    # getting info for filling forms in especial order, fields will equal current trex values
     # getting trex status list
     statuses = trexes_statuses['all']
     statuses.remove(trex_entr.status)
@@ -249,8 +276,9 @@ def trex_edit(trex_id):
     list_statuses = [(trex_status, trex_status) for trex_status in statuses]
     list_statuses.remove(('testing', 'testing'))
     list_statuses.remove(('error', 'error'))
-    # getting lists of current trexes values for checking
+    # getting current devices
     curr_trexes = models.Trex.query.filter(models.Trex.id != trex_id).all()
+    # making name list, needs for uniq trexes hostname and vm id
     if len(curr_trexes) > 0:
         for curr_trex in curr_trexes:
             curr_names = [curr.hostname for curr in curr_trexes]
@@ -300,7 +328,7 @@ def trex_edit(trex_id):
             default=trex_entr.description)
         # submit
         submit = SubmitField('Save t-rex')
-    # form
+    # form obj
     form = TrexForm()
     # variables
     page_title = 'Edit T-rex {}'.format(trex_entr.hostname)
@@ -314,18 +342,18 @@ def trex_edit(trex_id):
     status = None
     version = None
     description = None
-    # notes
+    # require note
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # general
+        # management data
         ip4 = form.ip4.data
         ip6 = form.ip6.data
         fqdn = form.fqdn.data
-        # management was not defined
+        # management data was not defined
         if not ip4 and not ip6 and not fqdn:
-            # Warning message
+            # warning message
             msg = messages['warn_no_close'].format('Any of management type (IPv4, IPv6, DNS name) has to be defined ')
             return render_template(
                 'trex_action.html',
@@ -334,7 +362,7 @@ def trex_edit(trex_id):
                 msg=msg)
         hostname = form.hostname.data
         vm_id = form.vm_id.data
-        # checking vm id existing
+        # checking if vm id existing as hostname among current vm ids in case no vm id provided
         if vm_id == '':
             if hostname in curr_vm_id:
                 msg = messages['warn_no_close'].format('VM ID {} aready exists'.format(vm_id))
@@ -350,7 +378,7 @@ def trex_edit(trex_id):
         version = form.version.data
         status = form.status.data
         description = form.description.data
-        # creates DB entr
+        # changing DB entr
         trex_entr.hostname = hostname
         trex_entr.ip4 = ip4 if ip4 != '' else None
         trex_entr.ip6 = ip6 if ip6 != '' else None
@@ -361,9 +389,8 @@ def trex_edit(trex_id):
         trex_entr.version = version
         trex_entr.status = status
         trex_entr.description = description
-        # adding DB entry in DB
         db.session.commit()
-        # Success message
+        # success message
         msg = messages['succ_no_close'].format('t-rex {} was changed'.format(trex_entr.hostname))
         # showing form with success message
         return render_template(
@@ -372,8 +399,9 @@ def trex_edit(trex_id):
             note=note,
             title=page_title,
             msg=msg)
-    # if error occured
+    # if any error occured during validation process
     if len(form.errors) > 0:
+        # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
@@ -383,7 +411,7 @@ def trex_edit(trex_id):
             note=note,
             title=page_title,
             msg=msg)
-    # return clean form
+
     return render_template(
         'trex_action.html',
         form=form,
@@ -393,8 +421,9 @@ def trex_edit(trex_id):
 
 @app.route('/trex/<int:trex_id>/delete/', methods=['GET', 'POST'])
 def trex_delete(trex_id):
+    # deleting trex from DB
     trex_entr = models.Trex.query.get(trex_id)
-    # no task id return 404
+    # if no task id returns 404
     if not trex_entr:
         abort(404)
 
@@ -405,11 +434,12 @@ def trex_delete(trex_id):
 
     form = DeleteForm()
     page_title = 'T-rex {} deleting confirmation'.format(trex_entr.hostname)
-
+    # checking if checked
     if form.checker.data:
-        form.checker.data = False
         db.session.delete(trex_entr)
         db.session.commit()
+        # cleans form fields
+        form.checker.data = False
         del_msg = messages['succ_no_close'].format('The t-rex {} was deleted</div>'.format(trex_entr.hostname))
         return render_template(
             'delete.html',
@@ -421,6 +451,7 @@ def trex_delete(trex_id):
 
 @app.route('/trex/<int:trex_id>/down/')
 def trex_hold(trex_id):
+    # changing device status to down
     trex_entr = models.Trex.query.get(trex_id)
     if trex_entr:
         trex_entr.status = 'down'
@@ -434,6 +465,7 @@ def trex_hold(trex_id):
 
 @app.route('/trex/<int:trex_id>/idle/')
 def trex_idle(trex_id):
+    # changing trex status to idle
     trex_entr = models.Trex.query.get(trex_id)
     if trex_entr:
         trex_entr.status = 'idle'
@@ -447,13 +479,16 @@ def trex_idle(trex_id):
 
 @app.route('/trex/<int:trex_id>/')
 def trex_show(trex_id):
+    # show trex detail
     trex = models.Trex.query.get(trex_id)
     return trexes_table(trex_info=trex, filter_nav=False)
 
 
 @app.route('/trex/<int:trex_id>/autoset/')
 def trex_autoset(trex_id):
+    # autosets status for trex
     trex = models.Trex.query.get(trex_id)
+    # getting status
     if trex:
         result = trex_check(trex)
         if result['state'] == 'idle':
@@ -468,6 +503,7 @@ def trex_autoset(trex_id):
         elif result['state'] == 'error_rpc':
             trex.status = 'error_rpc'
             msg_status = 'error_rpc'
+        # handles unknown value
         else:
             msg_status = 'unknown'
             msg = messages['no_succ'].format('The t-rex {} status was not changed. Got unknown state'.format(trex.hostname))
@@ -477,4 +513,5 @@ def trex_autoset(trex_id):
     else:
         msg = messages['no_succ'].format('The t-rex {} status was not changed. No t-rex'.format(trex.hostname))
         msg_status = 'no_trex'
+    # return json for js handling
     return jsonify({'msg': msg, 'status': msg_status})

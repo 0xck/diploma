@@ -352,7 +352,6 @@ def device_edit(device_id):
         device_entr.firmware = firmware
         device_entr.status = status
         device_entr.description = description
-        # adding DB entry in DB
         db.session.commit()
         # Success message
         msg = messages['success'].format('Device {} was changed'.format(device_entr.name))
