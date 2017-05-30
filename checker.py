@@ -32,8 +32,3 @@ def device_check(device):
     else:
         result = dict(status=False, state='unavailable')
     return result
-
-
-if __name__ == '__main__':
-    result = trex_status.check(trex_mng='192.168.0.192', daemon_port=8090)
-    print(result)
