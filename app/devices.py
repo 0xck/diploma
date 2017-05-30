@@ -15,7 +15,7 @@ from checker import device_check
 @app.route('/devices/')
 def devices_table(device_info=False, filter_nav=True):
     '''shows table of devices
-    if device_info that means needs to return only specific devices, for task status page;
+    if device_info that means needs to return only certain devices, for task view page;
     filter_nav for showing tasks nav bar'''
 
     page_title = 'Devices list'
