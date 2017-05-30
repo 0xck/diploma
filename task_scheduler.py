@@ -16,6 +16,8 @@ import signal
 from sys import exit
 from exceptions import GracefulExit, signal_handler
 from trex.client.stf import trex_kill
+# task scheduller config
+from config import task_sched_interval, task_sched_safe
 
 
 def task_finder():
@@ -40,7 +42,7 @@ def task_finder():
     return result
 
 
-def task_queuer(interval=300, safe_int=600):
+def task_queuer(interval=task_sched_interval, safe_int=task_sched_safe):
     # checking DB for appropriate tasks in cycle
 
     def err_handler(task, err_msg):
