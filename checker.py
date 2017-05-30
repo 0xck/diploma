@@ -26,7 +26,8 @@ def trex_check(trex):
 
 def device_check(device):
     # checks device condition; takes device db entry as parameter
-    ping_check = call(['ping', '-c', '3', '-n', device.ip4], stdout=DEVNULL)
+    # 3 packets with 500ms interval
+    ping_check = call(['ping', '-c', '3', '-i', '0.5', '-n', '-q', device.ip4], stdout=DEVNULL)
     if ping_check == 0:
         result = dict(status=True, state='idle')
     else:

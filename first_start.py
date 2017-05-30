@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
+# config generator
+# sys
 import os
+from sys import exit
+# for key generation
 from string import ascii_letters, digits
 from random import choice, SystemRandom
-from sys import exit
+# supervisor config generator
 from ext_conf import config_generator
 
 
 def main_cfg_gen():
+    # terminal formatting
     term = {
         'red': '\033[91m',
         'grey': '\033[90m',
@@ -53,13 +58,15 @@ task_sched_safe = {}
 '''.format(task_sched_interval, task_sched_safe)
 
     def sqlite_create():
+        # creates sqlite DB
         # cheking path
         if db_addr == 'db.sqlite':
             # adding full path
             full_db_addr = os.path.join(curr_dir, 'app', db_addr)
+        # if user setuped path to DB
         else:
             full_db_addr = db_addr
-        # checking if db exists
+        # checking if DB exists and rewrites one
         if os.access(full_db_addr, mode=os.F_OK):
             print('''
 SQLite DB file {bold}{}{end} already exists, should {red}replace{end} it?
@@ -68,23 +75,23 @@ SQLite DB file {bold}{}{end} already exists, should {red}replace{end} it?
             while rewrite.strip().lower() not in {'y', 'n'}:
                 rewrite = input('Please use only {bold}"y"{end} or {bold}"n"{end} '.format(**term))
             if rewrite.strip().lower() == 'y':
-                # removes old db
+                # removes old DB
                 if os.access(full_db_addr, mode=os.W_OK):
                     os.remove(full_db_addr)
-                    # create db metadata
+                    # create DB file and metadata
                     from app import db
                     db.create_all()
                     print('DB {bold}{}{end} was replased '.format(full_db_addr, **term))
                 else:
                     print('DB {bold}{}{end} can not be replased. {bold}No permissions{end}'.format(full_db_addr, **term))
+        # create DB file and metadata
         else:
-            # create db metadata
             from app import db
             db.create_all()
             print('New DB was created as {bold}{}{end}'.format(full_db_addr, **term))
 
     def wr_cfg():
-        # writes config
+        # writes config file
         with open(conf_file, 'w', encoding='utf-8') as cfg_file:
             cfg_file.write(db_part_conf + app_part_conf + task_shed_part_conf + redis_part_conf)
         # creating app.log file
@@ -95,7 +102,7 @@ SQLite DB file {bold}{}{end} already exists, should {red}replace{end} it?
                 pass
             with open(app_log_file, 'w', encoding='utf-8') as log_file:
                 log_file.write('app.log was created')
-        # trying to create sqlite db
+        # trying to create sqlite DB
         if db_type == 'sqlite':
             sqlite_create()
 
@@ -106,12 +113,12 @@ Welcome to {blue}wrex first start{end} config generator.
     {grey}Note. Use default settings only in case you exactly know what you are doing.
     By default SQLite is used as DB, app listens all host addresses on {} port and redis URL is {}. Web app listens all addresses and uses {} port. Task scheduller checks for new tasks every {} seconds.{end}
         '''.format(app_port, redis_url, app_port, task_sched_interval, **term))
-    # generating using default
+    # generating using default values
     generate = input('Generate with default settings y/n ')
     if generate.strip().lower() not in {'y', 'n'}:
         while generate.strip().lower() not in {'y', 'n'}:
             generate = input('Please use only {bold}"y"{end} or {bold}"n"{end} '.format(**term))
-    # generates and exiting
+    # generates and starts supervisor config generator
     if generate.strip().lower() == 'y':
         wr_cfg()
         print('''
@@ -143,8 +150,9 @@ Main config was generated as {bold}{}{end}
         db_type = 'postgresql'
     else:
         db_type = 'sqlite'
-    # DB params
+    # DB params in case no sqlite
     if db_type != 'sqlite':
+        # DB address
         print('''
 Select DB address:
 {grey}Note. Please, do not specify DB port or credentials here{end}'''.format(**term))
@@ -153,11 +161,13 @@ Select DB address:
             db_addr = user_val
         else:
             db_addr = 'localhost'
+            # DB name
             print('''
 Select DB name''')
             user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(db_name, **term))
             if user_val.strip().lower() != '':
                 db_name = user_val
+            # DB port
             print('''
 Select DB port''')
             sw = True
@@ -176,19 +186,23 @@ Select DB port''')
                 else:
                     db_port = 3306 if db_type == 'mysql' else 5432
                     sw = False
+            # DB username
             print('''
 Specify DB username''')
             user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(db_name, **term))
             if user_val.strip().lower() != '':
                 db_user = user_val
+            # DB password
             print('''
 Specify DB password''')
             user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(db_pass, **term))
             if user_val.strip().lower() != '':
                 db_pass = user_val
+            # making changes in defaults
             db_part_conf = '''SQLALCHEMY_DATABASE_URI = "{}://{}:{}@{}:{}/{}"
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 '''.format(db_type, db_user, db_pass, db_addr, db_port, db_name)
+    # if DB is sqlite
     else:
         # DB location
         print('''
@@ -200,12 +214,14 @@ Select SQLite DB file name with full path''')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 '''.format(db_type, db_addr)
     # app params
+    # listened addresses
     print('''
 Select addresses which will be listened by web application.
 {grey}Note. Use 0.0.0.0 for all addresses on host{end}'''.format(**term))
     user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(app_listen, **term))
     if user_val.strip().lower() != '':
         app_listen = user_val
+    # app port
     print('''
 Select web application port''')
     sw = True
@@ -227,7 +243,7 @@ Select web application port''')
                 continue
         else:
             sw = False
-    # task scheduller params
+    # task scheduller time interval
     print('''
 Select time interval which will be used by task scheduller for checking new tasks.
 '{grey}Note. Do not set too low interval, task sheduller uses DB for checking new tasks, if interval is small it may affect DB performance.{end}'''.format(**term))
@@ -254,11 +270,13 @@ Select redis parameters. Default redis URL is {bold}{}{end}'''.format(redis_url,
         while user_val.strip().lower() not in {'', 'n'}:
             user_val = input('Please press {bold}"Enter"{end} or type {bold}"n"{end} '.format(**term))
     if user_val.strip().lower() == 'n':
+        # redis address
         print('''
 Select redis address''')
         user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(redis_addr, **term))
         if user_val.strip().lower() != '':
             redis_addr = user_val
+        # redis port
         print('''
 Select redis port''')
         sw = True
@@ -279,7 +297,7 @@ Select redis port''')
                     continue
             else:
                 sw = False
-    # write config
+    # writes config and starts supervisor config generator
     wr_cfg()
     print('''
 Main config was generated as {bold}{}{end}

@@ -1,4 +1,5 @@
 'use strict';
+// shows and hides fielsd in test forms (common, selection, etc)
 $(document).ready(function() {
     document.getElementById('test_type').onchange=function () {
         var sel = $("#test_type").val();

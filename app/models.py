@@ -1,3 +1,5 @@
+# models for working with DB
+# DB
 from app import db
 
 

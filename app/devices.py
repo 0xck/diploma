@@ -1,3 +1,4 @@
+# device pages
 # flask
 from flask import render_template, abort, jsonify
 # DB

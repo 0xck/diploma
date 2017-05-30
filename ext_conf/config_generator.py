@@ -17,6 +17,7 @@ def supervisor_cfg_gen():
     # vars
     curr_dir = os.getcwd()
     conf_file = 'wrex.conf'
+    # in case script is started from first_start.py
     if os.path.split(curr_dir)[1] != 'ext_conf':
         app_path = curr_dir
         curr_dir = os.path.join(curr_dir, 'ext_conf')
@@ -101,18 +102,20 @@ programs=tasksched,worker,server,redis
 '''
 
     def wr_cfg():
+        # writes config file
         with open(conf_file, 'w', encoding='utf-8') as cfg_file:
+            # if redis is managed by supervisor
             if incl_redis:
                 cfg_file.write(app_part_conf + redis_part_conf + group_part_conf)
+            # redis is not managed by supervisor
             else:
-
                 cfg_file.write(app_part_conf + group_part_conf)
         print('''
 Your config has been saved in {bold}{}{end} directory.
     Bye.
             '''.format(curr_dir, **term))
 
-    # welcome
+    # welcome msg
     print('''
 Welcome to {blue}wrex supervisor{end} config generator.
     If you would like create config with default settings just type "y" otherwise interactive setup will be started.

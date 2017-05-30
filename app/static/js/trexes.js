@@ -1,4 +1,5 @@
 'use strict';
+// actions button and dropdown actions
 // to down
 $(document).ready(function() {
     $('.down[id]').bind('click', function( event ) {
