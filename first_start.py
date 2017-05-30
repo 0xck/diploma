@@ -18,13 +18,14 @@ def main_cfg_gen():
 
     conf_file = 'config.py'
     curr_dir = os.getcwd()
+    # DB
     db_addr = 'db.sqlite'
     db_type = 'sqlite'
     db_name = 'wrex'
     db_user = 'wrex'
     db_pass = 'wrex'
     db_port = ''
-    #
+    # redis
     redis_addr = 'localhost'
     redis_port = 6379
     redis_url = os.getenv('REDIS_URL', 'redis://{}:{}'.format(redis_addr, redis_port))
@@ -33,6 +34,9 @@ def main_cfg_gen():
     app_port = 5000
     csrf_key = ''.join(SystemRandom().choice(ascii_letters + digits) for item in range(16))
     app_log_file = os.path.join(curr_dir, './app/logs/app.log')
+    # task scheduller
+    task_sched_interval = 300
+    task_sched_safe = 600
 
     db_part_conf = '''SQLALCHEMY_DATABASE_URI = "{}:///{}"
 SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -44,6 +48,9 @@ SECRET_KEY = "{}"
 '''.format(app_listen, app_port, csrf_key)
     redis_part_conf = '''redis_url = "{}"
 '''.format(redis_url)
+    task_shed_part_conf = '''task_sched_interval = {}
+task_sched_safe = {}
+'''.format(task_sched_interval, task_sched_safe)
 
     def sqlite_create():
         # cheking path
@@ -55,7 +62,7 @@ SECRET_KEY = "{}"
         # checking if db exists
         if os.access(full_db_addr, mode=os.F_OK):
             print('''
-SQLite DB file {bold}{}{end} already exists, should script {red}replace{end} it?
+SQLite DB file {bold}{}{end} already exists, should {red}replace{end} it?
 '''.format(full_db_addr, **term))
             rewrite = input('Replace y/n ')
             while rewrite.strip().lower() not in {'y', 'n'}:
@@ -79,7 +86,7 @@ SQLite DB file {bold}{}{end} already exists, should script {red}replace{end} it?
     def wr_cfg():
         # writes config
         with open(conf_file, 'w', encoding='utf-8') as cfg_file:
-            cfg_file.write(db_part_conf + app_part_conf + redis_part_conf)
+            cfg_file.write(db_part_conf + app_part_conf + task_shed_part_conf + redis_part_conf)
         # creating app.log file
         if not os.access(app_log_file, mode=os.F_OK):
             try:
@@ -97,8 +104,8 @@ SQLite DB file {bold}{}{end} already exists, should script {red}replace{end} it?
 Welcome to {blue}wrex first start{end} config generator.
     If you would like create config with default settings just type "y" otherwise interactive setup will be started.
     {grey}Note. Use default settings only in case you exactly know what you are doing.
-    By default SQLite is used as DB, app listens all host addresses on {} port and redis URL is {}.{end}
-        '''.format(app_port, redis_url, **term))
+    By default SQLite is used as DB, app listens all host addresses on {} port and redis URL is {}. Web app listens all addresses and uses {} port. Task scheduller checks for new tasks every {} seconds.{end}
+        '''.format(app_port, redis_url, app_port, task_sched_interval, **term))
     # generating using default
     generate = input('Generate with default settings y/n ')
     if generate.strip().lower() not in {'y', 'n'}:
@@ -153,11 +160,22 @@ Select DB name''')
                 db_name = user_val
             print('''
 Select DB port''')
-            user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format('3306' if db_type == 'mysql' else '5432', **term))
-            if user_val.strip().lower() == '':
-                db_port = '3306' if db_type == 'mysql' else '5432'
-            else:
-                db_port = user_val
+            sw = True
+            while sw is True:
+                user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format('3306' if db_type == 'mysql' else '5432', **term))
+                if user_val.strip().lower() != '':
+                    try:
+                        if 0 < int(user_val.strip()) < 65536:
+                            db_port = int(user_val)
+                            sw = False
+                        else:
+                            print('Wrong port, try again.')
+                    except ValueError:
+                        print('Wrong port, try again.')
+                        continue
+                else:
+                    db_port = 3306 if db_type == 'mysql' else 5432
+                    sw = False
             print('''
 Specify DB username''')
             user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(db_name, **term))
@@ -190,14 +208,44 @@ Select addresses which will be listened by web application.
         app_listen = user_val
     print('''
 Select web application port''')
-    user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(app_port, **term))
-    if user_val.strip().lower() != '':
-        app_port = int(user_val)
-        app_part_conf = '''app_listen = "{}"
-app_port = {}
-CSRF_ENABLED = True
-SECRET_KEY = "{}"
-'''.format(app_listen, app_port, csrf_key)
+    sw = True
+    while sw is True:
+        user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(app_port, **term))
+        if user_val.strip().lower() != '':
+            try:
+                if 0 < int(user_val.strip()) < 65536:
+                    app_port = int(user_val)
+                    app_part_conf = '''app_listen = "{}"
+    app_port = {}
+    CSRF_ENABLED = True
+    SECRET_KEY = "{}"'''.format(app_listen, app_port, csrf_key)
+                    sw = False
+                else:
+                    print('Wrong port, try again.')
+            except ValueError:
+                print('Wrong port, try again.')
+                continue
+        else:
+            sw = False
+    # task scheduller params
+    print('''
+Select time interval which will be used by task scheduller for checking new tasks.
+'{grey}Note. Do not set too low interval, task sheduller uses DB for checking new tasks, if interval is small it may affect DB performance.{end}'''.format(**term))
+    sw = True
+    while sw is True:
+        user_val = input('{grey}Defaul is{end} {bold}{}{end}{grey} seconds. And must be{end} {bold}{}{end} {grey}or more.{end} '.format(task_sched_interval, 1, **term))
+        if user_val.strip().lower() != '':
+            try:
+                if int(user_val.strip()) >= 1:
+                    task_sched_interval = int(user_val)
+                    sw = False
+                else:
+                    print('Wrong time interval, try again.')
+            except ValueError:
+                print('Wrong time interval, try again.')
+                continue
+        else:
+            sw = False
     # redis params
     print('''
 Select redis parameters. Default redis URL is {bold}{}{end}'''.format(redis_url, **term))
@@ -213,12 +261,24 @@ Select redis address''')
             redis_addr = user_val
         print('''
 Select redis port''')
-        user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(redis_port, **term))
-        if user_val.strip().lower() != '':
-            redis_port = user_val
-        redis_part_conf = '''redis_url = "redis://{}:{}'"
+        sw = True
+        while sw is True:
+            user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(redis_port, **term))
+            if user_val.strip().lower() != '':
+                try:
+                    if 0 < int(user_val.strip()) < 65536:
+                        redis_port = int(user_val)
+                        redis_part_conf = '''redis_url = "redis://{}:{}'"
 
 '''.format(redis_addr, redis_port)
+                        sw = False
+                    else:
+                        print('Wrong port, try again.')
+                except ValueError:
+                    print('Wrong port, try again.')
+                    continue
+            else:
+                sw = False
     # write config
     wr_cfg()
     print('''
