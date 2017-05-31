@@ -3,9 +3,9 @@ Small app for network device testing with [Cisco T-rex](https://trex-tgn.cisco.c
 > App is still in active development state now and some features might not work or work improperly
 
 ## Requirements
-App writes on _python_ and needs *python 3* _(3.5 and above would be better)_. And you should install several *python modules* from requirements.txt _(see Install notes below)._
+App writes on _python_ and needs *python 3* _(3.5 and above would be better)_. And you should install several *python modules* from requirements.txt _(see [Install](#install) notes below)._
 
-App _works on *NIX_ systems _(due some Windows limitations, see limits below)._
+App _works on *NIX_ systems _(due some Windows limitations, see [limits](#limits) below)._
 
 *Redis* server is required, because some elements using queue feature. You may _install new_ or _use existing_ redis server.
 
@@ -28,8 +28,8 @@ Install all python modules listed in _requirements.txt:_
 - rq
 - timeout-decorator
 
-
 For this purpose, you may use any module manager: _pip, easyinstall, pypm._ For example pip manager is used. If module `pip` is not installed on your system just install one using system software manager _(e.g. apt, yum, pkg)._ And go to app directory and execute command:
+
 `python3 -m pip install -r requirements.txt` or if your system uses python3 by default `pip install -r requirements.txt`
 
 ---
@@ -120,9 +120,9 @@ T-rex config for 2x10G interfaces L2:
           - dest_mac        :   [0x0,0x0,0x0,0x4,0x0,0x0]
             src_mac         :   [0x0,0x0,0x0,0x3,0x0,0x0]
 ```
-Item `interfaces` has to contain list of proper NICs ID use `dpdk_setup_ports.py -s` with sudo/root permission for finding your values, see [manual](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_identify_the_ports)
+Item `interfaces` has to contain list of proper NICs ID use `dpdk_setup_ports.py -s` with sudo/root privileges for finding your values, see [manual](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_identify_the_ports)
 Item `port_info ` must be changed on your values.
 ###### Daemon operations
-After T-rex setup was complited go to T-rex directory and start a daemon `trex_daemon_server start` with sudo/root permission. Also you can check status `trex_daemon_server show`, restat `trex_daemon_server restart` and stop daemon `trex_daemon_server stop`, use sudo/root permission for all of them.
+After T-rex setup was complited go to T-rex directory and start a daemon `trex_daemon_server start` with sudo/root privileges. Also you can check status `trex_daemon_server show`, restat `trex_daemon_server restart` and stop daemon `trex_daemon_server stop`, use sudo/root privileges for all of them.
 
 By default daemon listens _TCP port 8090_ make sure this port is available for wrex host. Also for stateless T-rex mode _TCP ports 4500 and 4501_ have to be available for wrex host. More about stateful/stateless modes see at [documentation](https://trex-tgn.cisco.com/trex/doc/trex_stateless.html#_stateful_vs_stateless)
