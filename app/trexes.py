@@ -19,7 +19,7 @@ def trexes_table(trex_info=False, filter_nav=True):
     if trex_info that means needs to return only certain trexes, for task view page;
     filter_nav for showing tasks nav bar'''
 
-    page_title = 'T-rexes list'
+    page_title = 'TRexes list'
     # getting devices info
     # from list
     if trex_info:
@@ -137,7 +137,7 @@ def trex_create():
             validators=[Optional(), Length(min=1, max=256)],
             default='localhost')
         port = IntegerField(
-            'T-rex daemon port',
+            'TRex daemon port',
             validators=[Required(), NumberRange(min=1, max=65535, message='Invalid port')],
             default=8090)
         vm_id = StringField(
@@ -150,7 +150,7 @@ def trex_create():
             choices=list_statuses,
             default=statuses[0])
         version = StringField(
-            'T-rex software version',
+            'TRex software version',
             validators=[Length(max=8)])
         description = TextAreaField(
             validators=[Length(max=1024)])
@@ -159,7 +159,7 @@ def trex_create():
     # form obj
     form = TrexForm()
     # variables
-    page_title = 'New T-rex'
+    page_title = 'New TRex'
     hostname = None
     ip4 = None
     ip6 = None
@@ -306,7 +306,7 @@ def trex_edit(trex_id):
             validators=[Optional(), Length(min=1, max=256)],
             default=trex_entr.fqdn)
         port = IntegerField(
-            'T-rex daemon port',
+            'TRex daemon port',
             validators=[Required(), NumberRange(min=1, max=65535, message='Invalid port')],
             default=trex_entr.port)
         vm_id = StringField(
@@ -321,7 +321,7 @@ def trex_edit(trex_id):
             choices=list_statuses,
             default=statuses[0])
         version = StringField(
-            'T-rex software version',
+            'TRex software version',
             validators=[Length(max=8)],
             default=trex_entr.version)
         description = TextAreaField(
@@ -332,7 +332,7 @@ def trex_edit(trex_id):
     # form obj
     form = TrexForm()
     # variables
-    page_title = 'Edit T-rex {}'.format(trex_entr.hostname)
+    page_title = 'Edit TRex {}'.format(trex_entr.hostname)
     hostname = None
     ip4 = None
     ip6 = None
@@ -434,7 +434,7 @@ def trex_delete(trex_id):
         submit = SubmitField('Delete t-rex')
 
     form = DeleteForm()
-    page_title = 'T-rex {} deleting confirmation'.format(trex_entr.hostname)
+    page_title = 'TRex {} deleting confirmation'.format(trex_entr.hostname)
     # checking if checked
     if form.checker.data:
         db.session.delete(trex_entr)

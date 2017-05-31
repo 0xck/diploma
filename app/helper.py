@@ -53,13 +53,13 @@ stf_notes = {
         '"Common" is simple test which executes one time',
         '"Selection" is test which is executed different number of time in order to reach result defined in parameters'
     ],
-    'pattern': ['Test pattern which is executed on T-rex (for some reason pattern must located on T-rex now)'],
+    'pattern': ['Test pattern which is executed on TRex (for some reason pattern must located on TRex now)'],
     'multiplier': ['Multiplier affects test pattern values (number of packets per second and packet flow gaps)'],
     'sampler': [
         'Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart (for some reason number of sampler size limited to 100 entries now, be careful choosing appropriate value)',
         'Set sampler to 0 for auto calculating sample value and solving situation with history size limit'
     ],
-    'warm': ['Time for "warm" traffic which services for reasons like in case need to wait for some changes on network like tunnel upping, STP/dot1X timeouts, etc (migth not work on VM due some T-rex soft nuances in current releases)'],
+    'warm': ['Time for "warm" traffic which services for reasons like in case need to wait for some changes on network like tunnel upping, STP/dot1X timeouts, etc (migth not work on VM due some TRex soft nuances in current releases)'],
     'accuracy': ['Accuracy defines percent of per flow packet loss which can be accepted for passing test'],
     'rate_incr_step': ['Rate step value will be used for increasing/decreasing rate value in case test pass/not pass'],
     'selection_test_type': [
@@ -72,7 +72,7 @@ stf_notes = {
 
 stl_notes = {
     'test': stf_notes['test'],
-    'pattern': ['Test pattern which is executed on T-rex'],
+    'pattern': ['Test pattern which is executed on TRex'],
     'rate': ['Number of packets or bits per second'],
     'rate_type': ['Value for rate defines pps or bps rate will be used in test'],
     'sampler': [

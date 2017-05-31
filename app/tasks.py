@@ -132,7 +132,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         if entr.trexes:
             table_items['trex'] = '<a href="/trex/{1}">{0}</a><br /><small class="text-{2}">{3}</small>'.format(entr.trexes.hostname, entr.trexes.id, trex_label, entr.trexes.status)
         else:
-            table_items['trex'] = '<em>T-rex was deleted</em>'
+            table_items['trex'] = '<em>TRex was deleted</em>'
         # device
         if entr.device:
             table_items['device'] = '<a href="/device/{1}">{0}</a><br /><small class="text-{2}">{3}</small>'.format(entr.devices.name, entr.devices.id, dev_label, entr.devices.status)
@@ -205,7 +205,7 @@ def task_create():
             choices=list_tests,
             default=tests[0])
         trex = SelectField(
-            'T-rex',
+            'TRex',
             validators=[Required(), Length(min=1, max=64), AnyOf(trexes)],
             choices=list_trexes,
             default=trexes[0])
@@ -599,7 +599,7 @@ def task_show(task_id):
                 <th>Bytes RX</th>
                 <th>Computed losses</th>
                 <th>% from flow</th>
-                <th>T-rex drops</th>
+                <th>TRex drops</th>
             </tr>
             <tr>
                 <td>0</td>
@@ -637,9 +637,9 @@ def task_show(task_id):
                 <th>Packet rate pps RX</th>
                 <th>Bits rate bps TX</th>
                 <th>Bits rate bps RX</th>
-                <th>T-rex RX Drops bps</th>
-                <th>T-rex queue drops</th>
-                <th>T-rex queue full</th>
+                <th>TRex RX Drops bps</th>
+                <th>TRex queue drops</th>
+                <th>TRex queue full</th>
             </tr>
              <tr>
                 <td>{tx_pps}</td>
@@ -672,7 +672,7 @@ def task_show(task_id):
         <tr>
             <td>{0}</td>
             <td>{1}</td>
-        </tr>'''.format(*(task_entr.trex, task_entr.trexes.description) if task_entr.trex else ('T-rex was deleted', ''))
+        </tr>'''.format(*(task_entr.trex, task_entr.trexes.description) if task_entr.trex else ('TRex was deleted', ''))
         # device data table
         device_data = '''
         <tr>
@@ -797,7 +797,7 @@ def kill_trex_tasks(task_id):
                 msg = messages['success'].format('Task ID {} was killed.'.format(task_id))
             # shows error info if task was not deleted
             else:
-                msg = messages['danger'].format('''<p>Tasks ID {0} was not killed due T-rex error:</p>
+                msg = messages['danger'].format('''<p>Tasks ID {0} was not killed due TRex error:</p>
                     <blockquote>
                         <p>{1}</p>
                     </blockquote>'''.format(task_id, result['state']))

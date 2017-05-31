@@ -135,7 +135,7 @@ def test_create_stf():
             label='Sampler time in seconds',
             validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=0)
-        hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=False)
+        hw_chsum = BooleanField(label="Check if TRex's NICs support HW offloading", default=False)
         description = TextAreaField(
             validators=[Length(max=1024)])
         # selection test params
@@ -169,7 +169,7 @@ def test_create_stf():
             label='NIC initial delay in seconds',
             validators=[Required(), NumberRange(min=1, max=10)],
             default=1)
-        soft_test = BooleanField(label='Check if T-rex is software appliance', default=True)
+        soft_test = BooleanField(label='Check if TRex is software appliance', default=True)
         # submit
         submit = SubmitField('Add new')
     # form obj
@@ -403,7 +403,7 @@ def test_edit_stf(test_id):
             label='Sampler time in seconds',
             validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=test_papams_trex['sampler'])
-        hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
+        hw_chsum = BooleanField(label="Check if TRex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
         description = TextAreaField(
             validators=[Length(max=1024)], default=test_entr.description)
         # selection test params
@@ -437,7 +437,7 @@ def test_edit_stf(test_id):
             label='NIC initial delay in seconds',
             validators=[Required(), NumberRange(min=1, max=10)],
             default=test_papams_trex['wait'])
-        soft_test = BooleanField(label='Check if T-rex is software appliance', default=test_papams_trex['soft_test'])
+        soft_test = BooleanField(label='Check if TRex is software appliance', default=test_papams_trex['soft_test'])
         # submit
         submit = SubmitField('Save test')
     # form obj
@@ -629,7 +629,7 @@ def test_create_stl():
             label='Sampler time in seconds',
             validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=0)
-        hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=False)
+        hw_chsum = BooleanField(label="Check if TRex's NICs support HW offloading", default=False)
         description = TextAreaField(
             validators=[Length(max=1024)])
         # selection test params
@@ -879,7 +879,7 @@ def test_edit_stl(test_id):
             label='Sampler time in seconds',
             validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=test_papams_trex['sampler'])
-        hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
+        hw_chsum = BooleanField(label="Check if TRex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
         description = TextAreaField(
             validators=[Length(max=1024)], default=test_entr.description)
         # selection test params
@@ -1044,7 +1044,7 @@ def test_show(test_id, page=True):
             <td>{name}</td>
         </tr>
         <tr>
-            <td>T-rex test mode</td>
+            <td>TRex test mode</td>
             <td>{mode}</td>
         </tr>
         <tr>
@@ -1100,17 +1100,17 @@ def test_show(test_id, page=True):
                         <td>{wait}</td>
                     </tr>
                     <tr>
-                        <td>T-rex is software appliance</td>
+                        <td>TRex is software appliance</td>
                         <td>{soft_test}</td>
                     </tr>
                     <tr>
-                        <td>T-rex supports HW offloading</td>
+                        <td>TRex supports HW offloading</td>
                         <td>{hw_chsum}</td>
                     </tr>
                     </table></div></div>'''.format(**test_params_trex)
     else:
         table_data += '''<tr>
-                        <td>T-rex supports HW offloading</td>
+                        <td>TRex supports HW offloading</td>
                         <td>{hw_chsum}</td>
                     </tr>
                     </table></div></div>'''.format(**test_params_trex)
