@@ -151,7 +151,7 @@ In app directory in subdirectory `ext_config/` there is script `config_generator
 ## Usage
 
 #### App components
-App has several components that service for different tasks.
+App has several components service for different tasks.
 
 ###### Web app (server.py)
 This is web interface for app. One allows you to manage elements on test task.
@@ -160,7 +160,7 @@ This is web interface for app. One allows you to manage elements on test task.
 Task scheduller tracks new test task in DB and when found appropriate task launch test process.
 
 ###### Worker (worker.py)
-Worker is queue manager one provide background task execution.
+Worker is queue manager one provides background task execution.
 
 ###### _Redis_
 Actually it is not an element of app but important part provides app work. Redis server queue feature is used by Worker.
@@ -195,9 +195,8 @@ Button **restart server** in http console restarts web app component.
 
 `stop wrex:task_scheduller` in `supervisorctl` stop task scheduller component.
 
-
 #### Web interface
-Aftrer app was successfully launched go to http://<host address>:<app port> _(e.g. http://localhost:5000)_. Now you have access to web interface and can setup TRexes/devices/tests/tasks.
+Aftrer app was successfully launched go to _http://host address:app port_ _(e.g. http://localhost:5000)_. Now you have access to web interface and can setup TRexes/devices/tests/tasks.
 
 For making a test you should create task but befor task making it is necessary to create all task element:
 - test
@@ -263,7 +262,7 @@ In whole app is not web interface for TRex, it uses TRex for making tests, gathe
 - all TRex port statistic
 - work with traffic capture
 - changing parameters during test for stateless
-- pushing config/pattern on TRex
+- pushing config/pattern/pcap on TRex
 
 ###### Device
 Are not supported:
