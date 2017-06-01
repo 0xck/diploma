@@ -42,7 +42,7 @@ _Actually there is one more way is using virtual python environment, but it make
 ### Redis server
 >Redis queue feature is used by some components of app for making different tasks in background.
 
-If you have already installed reis server you may skip this paragraph. In future, you need redis URI, base and credentials for setup app _(see [App configuration](#app-configuration) notes)._
+If you have already installed redis server you may skip this paragraph. In future, you need redis URI, base and credentials for setup app _(see [App configuration](#app-configuration) notes)._
 
 If you do not have installed redis server you should install one using system software manager _(e.g. apt, yum, pkg)._ In most cases generic settings which software manager provides for redis is enough for using one.
 
@@ -89,9 +89,10 @@ Section `[include]` defines place for additional config one will be needed us wh
 >Cisco TRex is used as main network testing software.
 
 ###### Setup and configuration
-This product is available in [repository](http://trex-tgn.cisco.com/trex/release/). Download latest release and setup it using [official documentation](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_first_time_running). One may be installed on several Linux distro, please check capability [here](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_supported_versions) as bare-metal or [VM instance](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_trex_on_esxi). Please check [hardware recomendations](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_hardware_recommendations) in order to make sure TRex will function properly.
+This product is available in [repository](http://trex-tgn.cisco.com/trex/release/). Download latest release and setup it using [official documentation](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_first_time_running). One may be installed on several Linux distro (please check capability [here](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_supported_versions)) as bare-metal or [VM instance](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_trex_on_esxi). Please check [hardware recomendations](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_hardware_recommendations) in order to make sure TRex will function properly.
 
 For example:
+
 TRex config for _2x1G interfaces and L3_ is given below:
 ```yaml
 - port_limit      : 2
@@ -123,11 +124,89 @@ Item `port_info ` must be changed on your values.
 ###### Daemon operations
 After TRex setup was complited go to TRex directory and start a daemon `trex_daemon_server start` with sudo/root privileges. Also you can check status `trex_daemon_server show`, restat `trex_daemon_server restart` and stop daemon `trex_daemon_server stop`, use sudo/root privileges for all of them.
 
-By default daemon listens _TCP port 8090_ make sure this port is available for wrex host. Also for stateless TRex mode _TCP ports 4500 and 4501_ have to be available for wrex host. More about stateful/stateless modes see at [documentation](https://trex-tgn.cisco.com/trex/doc/trex_stateless.html#_stateful_vs_stateless).
+---
+**Note.** By default daemon listens _TCP port 8090_ make sure this port is available for wrex host. Also for stateless TRex mode _TCP ports 4500 and 4501_ have to be available for wrex host. More about stateful/stateless modes see at [documentation](https://trex-tgn.cisco.com/trex/doc/trex_stateless.html#_stateful_vs_stateless).
 
 ## App configuration
+>After making all above preparation before using app has to be setuped
+
+###### first_start.py
+Setup procedure is prety easy. Go to app directory and execute command: `python3 first_start.py` this stars interactive script which can help you setup app. There you should provide information about some components like DB parameters, redis values, supervisord parameters etc. Just follow wizard steps and provide appropriate values.
+
+Script will make several changed:
+1. Creating `config.py`, which stores app settings
+2. Creating `wrex.conf` in `ext_config/` directory
+3. Creating SQLite DB
+
+Copy file `wrex.conf` from `ext_config/` into supervisor directory with additional config _(see [Supervisor configuration](#configuration))._ And start or restart supervisor. 
+
+Now app _is ready to be launched._ Go to [start app](start-app) for getting information about launching app.
+
+---
+**Note.** If you change app directory location you should execute `python3 first_start.py` again for making changes.
+
+###### ext_conf/config_generator.py
+In app directory in subdirectory `ext_config/` there is script `config_generator.py` it is serviced for generate configuration for supervisor. If you would like to change some settings just execute one `python3 config_generator.py` and after it finishes its work new supervisor configuration will be available as `wrex.conf` at the same directory.
 
 ## Usage
+
+#### App components
+App has several components that service for different tasks.
+
+###### Web app (server.py)
+This is web interface for app. One allows you to manage elements on test task.
+
+###### Task scheduller (task_scheduller.py)
+Task scheduller tracks new test task in DB and when found appropriate task launch test process.
+
+###### Worker (worker.py)
+Worker is queue manager one provide background task execution.
+
+###### _Redis_
+Actually it is not an element of app but important part provides app work. Redis server queue feature is used by Worker.
+
+#### Manage app
+
+##### Statrup/Shutdown
+
+For manage app startup/shutdown use supervisor:
+- http console in case you setup it
+- `supervisorctl` command with sudo/root privileges
+
+###### Start app
+For http console go to setup address and port _(e.g. http://localhost:9001)_ click **start all** and wait until all components will be started.
+
+For `supervisorctl` execute this command and type `start wrex:*` which launches all wrex components.
+
+###### Stop app
+For http console go to setup address and port _(e.g. http://localhost:9001)_ click **stop all** and wait until all components will be started.
+
+For `supervisorctl` execute this command and type `stop wrex:*` which launches all wrex components.
+
+###### Restart app
+For http console go to setup address and port _(e.g. http://localhost:9001)_ click **restart all** and wait until all components will be started.
+
+For `supervisorctl` execute this command and type `restart wrex:*` which launches all wrex components.
+
+###### Work with components
+You can start/restart/stop any app components. For this use **start/restart/stop** _<component name>_. For example:
+
+Button **restart server** in http console restarts web app component.
+
+`stop wrex:task_scheduller` in `supervisorctl` stop task scheduller component.
+
+
+#### Web interface
+Aftrer app was successfully launched go to http://<host address>:<app port> _(e.g. http://localhost:5000)_. Now you have access to web interface and can setup TRexes/devices/tests/tasks.
+
+For making a test you should create task but befor task making it is necessary to create all task element:
+- test
+- TRex
+- device
+
+Just go to menu item _New_ and in dropdown menu check approptiate item, fill the form and click _Add_ button.
+
+After task was created task scheduller track one and start test proccess. After test completed you can look at the result (or error in case one failed) using link _Show_ of task on _Tasks_ page.
 
 ## Limits
 >There are some limits for using app in whole. They are described below.
@@ -136,7 +215,8 @@ By default daemon listens _TCP port 8090_ make sure this port is available for w
 App works only on *NIX systems, because some app components _(RQ workers)_ use `fork()` that is not implemented on Windows.
 
 #### TRex limits
-Current TRex releases have some limits _got from [here](https://communities.cisco.com/community/developer/trex/blog/2017/03/29/how-trex-is-used-by-mellanox)_:
+Current TRex releases have some limits _(got from [here](https://communities.cisco.com/community/developer/trex/blog/2017/03/29/how-trex-is-used-by-mellanox))_:
+
 TRex Missing Functionality:
 
 The following items are lacking from TRex in our view:
@@ -163,6 +243,7 @@ Are not supported:
 - online statistic during test
 - any management for TRexes or devices
 - notification
+- SSL/TSL
 
 ###### TRex
 In whole app is not web interface for TRex, it uses TRex for making tests, gathering information and presenting test result. That means not all TRex features are supported. Are not supported:
@@ -179,10 +260,16 @@ In whole app is not web interface for TRex, it uses TRex for making tests, gathe
 - any traffic pattern constructors
 - more than 1 test per TRex instance
 - connection to TRex via IPv6 and DNS
-- full TRex port statistic
+- all TRex port statistic
 - work with traffic capture
 - changing parameters during test for stateless
+- pushing config/pattern on TRex
 
 ###### Device
 Are not supported:
 - determination realy device status _(only ICMP availability)_
+
+###### Redis
+Are not supported:
+- queues management
+- queues status and statistic
