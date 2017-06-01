@@ -14,7 +14,7 @@ App _works on **NIX_ systems _(due some Windows limitations, see [limits](#opera
 **Cisco TRex** installed locally or separately
 
 ## Install
-Download last [app release](https://github.com/0xck/diploma/releases) and unarchive it into directory you plan to use for app.
+Download last [app release](https://github.com/0xck/diploma/releases) and unarchive into directory you plan to use for app.
 
 ### Python
 Make sure you have got installed _python 3_, otherwise just use system software manager _(e.g. apt, yum, pkg)_ or download one from [official site](https://www.python.org/downloads/) and install. App tested on 3.5 version and should work on other python 3 releases as well.
@@ -37,7 +37,7 @@ For this purpose, you may use any module manager: _pip, easyinstall, pypm._ For 
 - using sudo/root privileges for force installation
 - install modules with system software manager
 
-_Actually there is one more way is using virtual python environment, but it makes additional complication in app usability that is the reason I do not recommend this way for people who do not what is it and how do use it._
+_Actually there is one more way is using virtual python environment, but it makes additional complication in app usability that is the reason I do not recommend this way for people who do not what is it and how to use it._
 
 ### Redis server
 >Redis queue feature is used by some components of app for making different tasks in background.
@@ -91,6 +91,9 @@ Section `[include]` defines place for additional config one will be needed us wh
 ###### Setup and configuration
 This product is available in [repository](http://trex-tgn.cisco.com/trex/release/). Download latest release and setup it using [official documentation](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_first_time_running). One may be installed on several Linux distro (please check capability [here](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_supported_versions)) as bare-metal or [VM instance](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_trex_on_esxi). Please check [hardware recomendations](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_hardware_recommendations) in order to make sure TRex will function properly.
 
+---
+**Note.** You may install TRex on the same host there is app installed.
+
 For example:
 
 TRex config for _2x1G interfaces and L3_ is given below:
@@ -118,7 +121,9 @@ Below TRex config for _2x10G interfaces L2_ is presented:
           - dest_mac        :   [0x0,0x0,0x0,0x4,0x0,0x0]
             src_mac         :   [0x0,0x0,0x0,0x3,0x0,0x0]
 ```
-Item `interfaces` has to contain list of proper NICs ID use `dpdk_setup_ports.py -s` with sudo/root privileges for finding your values, see [manual](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_identify_the_ports).
+
+---
+**Attention.** Item `interfaces` has to contain list of proper NICs ID use `dpdk_setup_ports.py -s` with sudo/root privileges for finding your values, see [manual](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_identify_the_ports).
 
 Item `port_info ` must be changed on your values.
 ###### Daemon operations
@@ -128,15 +133,15 @@ After TRex setup was complited go to TRex directory and start a daemon `trex_dae
 **Note.** By default daemon listens _TCP port 8090_ make sure this port is available for wrex host. Also for stateless TRex mode _TCP ports 4500 and 4501_ have to be available for wrex host. More about stateful/stateless modes see at [documentation](https://trex-tgn.cisco.com/trex/doc/trex_stateless.html#_stateful_vs_stateless).
 
 ## App configuration
->After making all above preparation before using app has to be setuped
+>After making all preparation above, before using app has to be setuped
 
 ###### first_start.py
-Setup procedure is prety easy. Go to app directory and execute command: `python3 first_start.py` this stars interactive script which can help you setup app. There you should provide information about some components like DB parameters, redis values, supervisord parameters etc. Just follow wizard steps and provide appropriate values.
+Setup procedure is pretty easy. Go to app directory and execute command: `python3 first_start.py` this starts interactive script which can help you setup app. There you should provide information about some components like DB parameters, redis values, supervisord parameters, etc. Just follow wizard steps and provide appropriate values.
 
 Script will make several changed:
-1. Creating `config.py`, which stores app settings
-2. Creating `wrex.conf` in `ext_config/` directory
-3. Creating SQLite DB
+1. Created `config.py`, which stores app settings
+2. Created `wrex.conf` in `ext_config/` directory
+3. Created SQLite DB
 
 Copy file `wrex.conf` from `ext_config/` into supervisor directory with additional config _(see [Supervisor configuration](#configuration))._ And start or restart supervisor. 
 
@@ -191,7 +196,7 @@ For `supervisorctl` execute this command and type `restart wrex:*` which launche
 ###### Work with components
 You can start/restart/stop any app components. For this use **start/restart/stop** _<component name>_. For example:
 
-Button **restart server** in http console restarts web app component.
+Click on link **restart** in **server** element in http console restarts web app component.
 
 `stop wrex:task_scheduller` in `supervisorctl` stop task scheduller component.
 
