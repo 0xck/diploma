@@ -68,11 +68,13 @@ def test(task_id=0, **kwargs):
             result['state'] = 'trex is not idle'
             task_err(result)
             return result
-        # device is not busy or down etc
-        elif task.devices.status.lower() != 'idle':
-            result['state'] = 'device is not idle'
-            task_err(result)
-            return result
+        # in case device is not empty
+        if task.devices:
+            # device is not busy or down etc
+            if task.devices.status.lower() != 'idle':
+                result['state'] = 'device is not idle'
+                task_err(result)
+                return result
     # something wrong with trex or device name
     except AttributeError:
         result['state'] = 'trex or device name error'
@@ -92,7 +94,9 @@ def test(task_id=0, **kwargs):
 
     # change statuses before test
     task.trexes.status = 'testing'
-    task.devices.status = 'testing'
+    # in case device is not empty
+    if task.devices:
+        task.devices.status = 'testing'
     task.status = 'testing'
     db.session.commit()
 
@@ -111,7 +115,7 @@ def test(task_id=0, **kwargs):
     # processing results
     # in case getting error
     if not result['status']:
-        # possile error states for working t-rex
+        # possile error states for working TRex
         err_states = {
             'other_user',
             'duration is wrong',
@@ -124,17 +128,19 @@ def test(task_id=0, **kwargs):
             'error soft kill',
             'error fault during kill'
         }
-        # checking for reservation and t-rex parameter errors
+        # checking for reservation and TRex parameter errors
         if result['state'] in err_states:
             task.trexes.status = 'idle'
-        # in case t-rex was in stateless due error and trying to resolve was unsuccessful
+        # in case TRex was in stateless due error and trying to resolve was unsuccessful
         elif result['state'] in kill_err:
             task.trexes.status = 'error'
-        # for something wrong with t-rex
+        # for something wrong with TRex
         else:
             task.trexes.status = result['state']
         # return error
-        task.devices.status = 'idle'
+        # in case device is not empty
+        if task.devices:
+            task.devices.status = 'idle'
         result['task_id'] = task_id
         task_err(result)
         return result
@@ -147,7 +153,9 @@ def test(task_id=0, **kwargs):
     if test_attr['mode'] == 'stateless':
         if not result['kill_status']:
             task.trexes.status = 'error'
-    task.devices.status = 'idle'
+    # in case device is not empty
+    if task.devices:
+        task.devices.status = 'idle'
     task.result = 'success'
     task.status = 'done'
     # type of result data depends on test type

@@ -1,7 +1,7 @@
 # task scheduller for handling pending tasks and makes test with trex client
 # work with DB
 from app import db, models
-# work with t-rex
+# work with TRex
 from trex import test_proc
 # for queueing
 from rq import Queue, get_failed_queue
@@ -29,11 +29,18 @@ def task_finder():
     # getting pending tasks
     tasks = models.Task.query.filter(models.Task.status == 'pending').order_by(models.Task.id).all()
     for task in tasks:
-        # search for idle t-rexes and devices
-        if task.trexes.status.lower() == 'idle' and task.devices.status.lower() == 'idle':
-            # gathering dict appropriate tasks only one for t-rex and device pair ordered by creation time (lower task id)
-            if not appr_tasks.get((task.trexes.id, task.devices.id), False):
-                appr_tasks[(task.trexes.id, task.devices.id)] = task
+        # search for idle TRexes and devices
+        # if devise is not empty
+        if task.devices:
+            if task.trexes.status.lower() == 'idle' and task.devices.status.lower() == 'idle':
+                # gathering dict appropriate tasks only one for TRex and device pair ordered by creation time (lower task id)
+                if not appr_tasks.get((task.trexes.id, task.devices.id), False):
+                    appr_tasks[(task.trexes.id, task.devices.id)] = task
+        else:
+            if task.trexes.status.lower() == 'idle':
+                # gathering dict appropriate tasks only one for TRex ordered by creation time (lower task id)
+                if not appr_tasks.get((task.trexes.id, None), False):
+                    appr_tasks[(task.trexes.id, None)] = task
     # making list of tasks in case of they exist
     if len(appr_tasks) > 0:
         result['values'] = [appr_tasks[task] for task in appr_tasks]
@@ -107,8 +114,10 @@ def task_killer(task):
         task.status = 'canceled'
         if task.trexes.status.lower() != 'idle':
             task.trexes.status = 'idle'
-        if task.devices.status.lower() != 'idle':
-            task.devices.status = 'idle'
+        # in case device is not empty
+        if task.devices:
+            if task.devices.status.lower() != 'idle':
+                task.devices.status = 'idle'
         db.session.commit()
     # if kill was not succesful returns error msg
     else:
@@ -139,8 +148,10 @@ if __name__ == '__main__':
                 task.status = 'pending'
                 if task.trexes.status.lower() != 'idle':
                     task.trexes.status = 'idle'
-                if task.devices.status.lower() != 'idle':
-                    task.devices.status = 'idle'
+                # in case device is not empty
+                if task.devices:
+                    if task.devices.status.lower() != 'idle':
+                        task.devices.status = 'idle'
         # clear failed queues
         failed_task = get_failed_queue(connection=redis_connect)
         if failed_task.count > 0:

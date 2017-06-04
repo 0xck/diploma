@@ -1,4 +1,4 @@
-# task pages
+# tasks pages
 # flask
 from flask import render_template, abort
 # DB
@@ -6,7 +6,7 @@ from app import app, db, models
 # forms
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField
-from wtforms.validators import Required, Length, AnyOf
+from wtforms.validators import Required, Length, AnyOf, Optional
 # json for getting params
 from json import loads
 # helper for notes, buttons, etc
@@ -110,10 +110,11 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         else:
             table_items['trex'] = '<em>TRex was deleted</em>'
         # device
+
         if entr.device:
             table_items['device'] = '<a href="/device/{1}">{0}</a><br /><small class="text-{2}">{3}</small>'.format(entr.devices.name, entr.devices.id, dev_label, entr.devices.status)
         else:
-            table_items['device'] = '<em>Device was deleted</em>'
+            table_items['device'] = '<em>No device</em>'
         # test
         table_items['test'] = '<a href="/test/{1}">{0}</a><br /><span class="label label-{3}">{2}</span>'.format(entr.tests.name, entr.tests.id, entr.tests.mode, test_label)
         # actions button
@@ -167,8 +168,12 @@ def task_create():
     # geta devices list
     get_devices = models.Device.query.order_by(models.Device.id.desc()).all()
     devices = [device.name for device in get_devices]
+    # adding empty device
+    devices.insert(0, 'no_device')
     list_devices = [(device, device) for device in devices[1:]]
-    list_devices.insert(0, (devices[0], '{} (Default)'.format(devices[0])))
+    # by default there is not any device for task
+    list_devices.pop(0)
+    list_devices.insert(0, ('no_device', 'No device (Default)'))
     # geta statuses list
     statuses = tasks_statuses['gui_new']
     list_statuses = [(status, status) for status in statuses[1:]]
@@ -215,6 +220,9 @@ def task_create():
         device = form.device.data
         description = form.description.data
         status = form.status.data
+        # checking for empty device
+        if device == 'no_device':
+            device = None
         # creates DB entry
         new_task = models.Task(
             test=test,
@@ -319,9 +327,26 @@ def task_edit(task_id):
     # geta devices list
     get_devices = models.Device.query.order_by(models.Device.id.desc()).all()
     devices = [device.name for device in get_devices]
-    devices.remove(task_entr.device)
-    devices.insert(0, task_entr.device)
+    # adding empty device
+    devices.insert(0, 'no_device')
+    # makes current device first
+    try:
+        devices.remove(task_entr.device)
+        devices.insert(0, task_entr.device)
+        empty_dev = False
+    # if error that means empty device was choosen for task
+    except ValueError:
+        empty_dev = True
     list_devices = [(device, device) for device in devices]
+    # changing empty device entry
+    # in case empty device was choosen for task
+    if empty_dev:
+        list_devices.pop(0)
+        list_devices.insert(0, ('no_device', 'No device'))
+    # if real device was choosen for task
+    else:
+        list_devices.pop(1)
+        list_devices.insert(1, ('no_device', 'No device'))
     # geta statuses list
     statuses = tasks_statuses['all']
     statuses.remove(task_entr.status)
@@ -376,6 +401,9 @@ def task_edit(task_id):
         form.description.data = description
         status = form.status.data
         form.status.data = status
+        # checking for empty device
+        if device == 'no_device':
+            device = None
         # changing DB entry
         task_entr.test = test
         task_entr.trex = trex
@@ -385,7 +413,7 @@ def task_edit(task_id):
         # save DB entry in DB
         db.session.commit()
         # success message
-        msg = messages['succ_no_close'].format('The task ID {} was changed</div>'.format(task_entr.id))
+        msg = messages['succ_no_close'].format('The task ID {} was changed'.format(task_entr.id))
         # showing form with success message
         return render_template(
             'task_action.html',
@@ -654,7 +682,7 @@ def task_show(task_id):
         <tr>
             <td>{0}</td>
             <td>{1}</td>
-        </tr>'''.format(*(task_entr.device, task_entr.devices.description) if task_entr.device else ('Device was deleted', ''))
+        </tr>'''.format(*(task_entr.device, task_entr.devices.description) if task_entr.device else ('No device', ''))
 
         return render_template(
             'task.html',
