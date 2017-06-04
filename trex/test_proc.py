@@ -89,7 +89,15 @@ def test(task_id=0, **kwargs):
         return result
 
     # adds trex address and port
-    test_attr['params']['trex']['trex_mng'] = task.trexes.ip4
+    # sets management entr
+    if task.trexes.ip4:
+        mng = task.trexes.ip4
+    elif task.trexes.ip6:
+        mng = task.trexes.ip6
+    elif task.trexes.fqdn:
+        mng = task.trexes.fqdn
+    test_attr['params']['trex']['trex_mng'] = mng
+    # sets port
     test_attr['params']['trex']['daemon_port'] = task.trexes.port
 
     # change statuses before test
