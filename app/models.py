@@ -215,7 +215,7 @@ class Task(db.Model):
     # associated trex instance
     trex = db.Column(db.Integer, db.ForeignKey('trex.hostname'))
     # associated device
-    device = db.Column(db.Integer, db.ForeignKey('device.name'))
+    device = db.Column(db.Integer, db.ForeignKey('device.name'), nullable=True)
     # associated test
     test = db.Column(db.Integer, db.ForeignKey('test.name'))
     # associated user
