@@ -117,7 +117,7 @@ def trex_create():
             default='::1')
         fqdn = StringField(
             'Management DNS name',
-            validators=[Optional(), Length(min=1, max=256)],
+            validators=[Optional(), Length(min=1, max=256), Regexp('^[A-Za-z0-9_.-]+$', message='DNS name must contain only letters numbers, underscore, dot or dash')],
             default='localhost')
         port = IntegerField(
             'TRex daemon port',
@@ -125,9 +125,9 @@ def trex_create():
             default=8090)
         vm_id = StringField(
             'VM ID',
-            validators=[Length(max=64), Optional(), Regexp('^\w+$', message='VM ID must contain only letters numbers or underscore'), NoneOf(curr_vm_id, message=validator_err['exist'])])
+            validators=[Length(max=64), Optional(), Regexp('^[A-Za-z0-9_.-]+$', message='VM ID must contain only letters numbers, underscore, dot or dash'), NoneOf(curr_vm_id, message=validator_err['exist'])])
         host = StringField(
-            validators=[Length(max=64), Optional(), Regexp('^\w+$', message='Host must contain only letters numbers or underscore')])
+            validators=[Length(max=64), Optional(), Regexp('^[A-Za-z0-9_.-]+$', message='Host must contain only letters numbers, underscore, dot or dash')])
         status = SelectField(
             validators=[Required(), Length(min=1, max=64), AnyOf(statuses)],
             choices=list_statuses,
@@ -206,7 +206,7 @@ def trex_create():
         db.session.add(new_trex)
         db.session.commit()
         # success message
-        msg = messages['success'].format('New t-rex was added')
+        msg = messages['success'].format('New TRex was added')
         # cleaning form
         form.hostname.data = None
         form.vm_id.data = None
@@ -286,7 +286,7 @@ def trex_edit(trex_id):
             default=trex_entr.ip6)
         fqdn = StringField(
             'Management DNS name',
-            validators=[Optional(), Length(min=1, max=256)],
+            validators=[Optional(), Length(min=1, max=256), Regexp('^[A-Za-z0-9_.-]+$', message='DNS name must contain only letters numbers, underscore, dot or dash')],
             default=trex_entr.fqdn)
         port = IntegerField(
             'TRex daemon port',
@@ -294,10 +294,10 @@ def trex_edit(trex_id):
             default=trex_entr.port)
         vm_id = StringField(
             'VM ID',
-            validators=[Length(max=64), Optional(), Regexp('^\w+$', message='VM ID must contain only letters numbers or underscore'), NoneOf(curr_vm_id, message=validator_err['exist'])],
+            validators=[Length(max=64), Optional(), Regexp('^[A-Za-z0-9_.-]+$', message='VM ID must contain only letters numbers, underscore, dot or dash'), NoneOf(curr_vm_id, message=validator_err['exist'])],
             default=trex_entr.vm_id)
         host = StringField(
-            validators=[Length(max=64), Optional(), Regexp('^\w+$', message='Host must contain only letters numbers or underscore')],
+            validators=[Length(max=64), Optional(), Regexp('^[A-Za-z0-9_.-]+$', message='Host must contain only letters numbers, underscore, dot or dash')],
             default=trex_entr.host)
         status = SelectField(
             validators=[Required(), Length(min=1, max=64), AnyOf(statuses)],
@@ -311,7 +311,7 @@ def trex_edit(trex_id):
             validators=[Length(max=1024)],
             default=trex_entr.description)
         # submit
-        submit = SubmitField('Save t-rex')
+        submit = SubmitField('Save TRex')
     # form obj
     form = TrexForm()
     # variables
@@ -375,7 +375,7 @@ def trex_edit(trex_id):
         trex_entr.description = description
         db.session.commit()
         # success message
-        msg = messages['succ_no_close'].format('t-rex {} was changed'.format(trex_entr.hostname))
+        msg = messages['succ_no_close'].format('TRex {} was changed'.format(trex_entr.hostname))
         # showing form with success message
         return render_template(
             'trex_action.html',
@@ -413,8 +413,8 @@ def trex_delete(trex_id):
 
     class DeleteForm(FlaskForm):
         # making form
-        checker = BooleanField(label='Check for deleting t-rex {}'.format(trex_entr.hostname))
-        submit = SubmitField('Delete t-rex')
+        checker = BooleanField(label='Check for deleting TRex {}'.format(trex_entr.hostname))
+        submit = SubmitField('Delete TRex')
 
     form = DeleteForm()
     page_title = 'TRex {} deleting confirmation'.format(trex_entr.hostname)
@@ -424,7 +424,7 @@ def trex_delete(trex_id):
         db.session.commit()
         # cleans form fields
         form.checker.data = False
-        del_msg = messages['succ_no_close'].format('The t-rex {} was deleted</div>'.format(trex_entr.hostname))
+        del_msg = messages['succ_no_close'].format('The TRex {} was deleted</div>'.format(trex_entr.hostname))
         return render_template(
             'delete.html',
             del_msg=del_msg,
@@ -441,9 +441,9 @@ def trex_hold(trex_id):
         trex_entr.status = 'down'
         # save DB entry in DB
         db.session.commit()
-        msg = messages['success'].format('The t-rex {} was changed to down'.format(trex_entr.hostname))
+        msg = messages['success'].format('The TRex {} was changed to down'.format(trex_entr.hostname))
     else:
-        msg = messages['no_succ'].format('The t-rex {} was not changed to down. No t-rex'.format(trex_entr.hostname))
+        msg = messages['no_succ'].format('The TRex {} was not changed to down. No TRex'.format(trex_entr.hostname))
     return(msg)
 
 
@@ -455,9 +455,9 @@ def trex_idle(trex_id):
         trex_entr.status = 'idle'
         # save DB entry in DB
         db.session.commit()
-        msg = messages['success'].format('The t-rex {} was changed to idle'.format(trex_entr.hostname))
+        msg = messages['success'].format('The TRex {} was changed to idle'.format(trex_entr.hostname))
     else:
-        msg = messages['no_succ'].format('The t-rex {} was not changed to idle. No t-rex'.format(trex_entr.hostname))
+        msg = messages['no_succ'].format('The TRex {} was not changed to idle. No TRex'.format(trex_entr.hostname))
     return(msg)
 
 
@@ -490,12 +490,12 @@ def trex_autoset(trex_id):
         # handles unknown value
         else:
             msg_status = 'unknown'
-            msg = messages['no_succ'].format('The t-rex {} status was not changed. Got unknown state'.format(trex.hostname))
+            msg = messages['no_succ'].format('The TRex {} status was not changed. Got unknown state'.format(trex.hostname))
         if msg_status != 'unknown':
             db.session.commit()
-            msg = messages['success'].format('The t-rex {} was changed to <label>{}</label>'.format(trex.hostname, msg_status))
+            msg = messages['success'].format('The TRex {} was changed to <label>{}</label>'.format(trex.hostname, msg_status))
     else:
-        msg = messages['no_succ'].format('The t-rex {} status was not changed. No t-rex'.format(trex.hostname))
+        msg = messages['no_succ'].format('The TRex {} status was not changed. No TRex'.format(trex.hostname))
         msg_status = 'no_trex'
     # return json for js handling
     return jsonify({'msg': msg, 'status': msg_status})

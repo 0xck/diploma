@@ -115,7 +115,7 @@ def device_create():
             default='::1')
         fqdn = StringField(
             'Management DNS name',
-            validators=[Optional(), Length(min=1, max=256)],
+            validators=[Optional(), Length(min=1, max=256), Regexp('^[A-Za-z0-9_.-]+$', message='DNS name must contain only letters numbers, underscore, dot or dash')],
             default='localhost')
         vendor = StringField(
             'Device vendor',
@@ -262,7 +262,7 @@ def device_edit(device_id):
             default=device_entr.ip6)
         fqdn = StringField(
             'Management DNS name',
-            validators=[Optional(), Length(min=1, max=256)],
+            validators=[Optional(), Length(min=1, max=256), Regexp('^[A-Za-z0-9_.-]+$', message='DNS name must contain only letters numbers, underscore, dot or dash')],
             default=device_entr.fqdn)
         vendor = StringField(
             'Device vendor',
