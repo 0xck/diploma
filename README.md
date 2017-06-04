@@ -1,4 +1,4 @@
-re# wrex
+# wrex
 Small app for network device testing with [Cisco TRex](https://trex-tgn.cisco.com)
 > App is still in active development state now and some features might not work or work improperly
 
