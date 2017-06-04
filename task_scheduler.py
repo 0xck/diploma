@@ -101,12 +101,19 @@ def task_killer(task):
         cancel_job(str(job.get_id()), connection=redis_connect)
     # kills executing trex task
     result = {'status': False, 'state': ''}
+    # sets management entr
+    if task.trexes.ip4:
+        mng = task.trexes.ip4
+    elif task.trexes.ip6:
+        mng = task.trexes.ip6
+    elif task.trexes.fqdn:
+        mng = task.trexes.fqdn
     # trying soft kill
-    soft_kill = trex_kill.soft(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+    soft_kill = trex_kill.soft(trex_mng=mng, daemon_port=task.trexes.port)
     force_kill = {'status': False}
     # trying force kill
     if not soft_kill['status']:
-        force_kill = trex_kill.force(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+        force_kill = trex_kill.force(trex_mng=mng, daemon_port=task.trexes.port)
     # if kill was succesful makes DB changes
     if soft_kill['status'] or force_kill['status']:
         result['status'] = True
@@ -142,8 +149,15 @@ if __name__ == '__main__':
                 if job.is_started or job.is_queued:
                     cancel_job(str(job.get_id()), connection=redis_connect)
                 # kills executing trex task
-                if not trex_kill.soft(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)['status']:
-                    trex_kill.force(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+                # sets management entr
+                if task.trexes.ip4:
+                    mng = task.trexes.ip4
+                elif task.trexes.ip6:
+                    mng = task.trexes.ip6
+                elif task.trexes.fqdn:
+                    mng = task.trexes.fqdn
+                if not trex_kill.soft(trex_mng=mng, daemon_port=task.trexes.port)['status']:
+                    trex_kill.force(trex_mng=mng, daemon_port=task.trexes.port)
                 # making DB changes
                 task.status = 'pending'
                 if task.trexes.status.lower() != 'idle':
