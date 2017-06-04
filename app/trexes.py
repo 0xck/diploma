@@ -8,7 +8,7 @@ from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, IntegerField, BooleanField
 from wtforms.validators import Required, Length, AnyOf, Regexp, NumberRange, IPAddress, NoneOf, Optional
 # notes, etc
-from app.helper import general_notes, validator_err, trexes_statuses, messages
+from app.helper import general_notes, validator_err, trexes_statuses, messages, trexes_buttons
 # autoset status
 from checker import trex_check
 
@@ -29,42 +29,25 @@ def trexes_table(trex_info=False, filter_nav=True):
         trexes_entr = models.Trex.query.order_by(models.Trex.id.desc()).all()
     # var for future filling
     table_data = ''
-    # action button template
-    act_button_template = {
-        'begin': '''<div class="btn-group">
-                        <button type="button" class="btn btn-primary btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
-                            <span class="sr-only">Toggle Dropdown</span>
-                        </button>
-                        <ul class="dropdown-menu">''',
-        'end': '''<li><a href="/trex/{0}/edit/" class="edit" id="{0}">Edit</a></li>
-                <li role="separator" class="divider"></li>
-                <li><a href="/trex/{0}/delete" class="delete" id="{0}">Delete</a></li>
-                </ul>
-            </div>''',
-        'separator': '<li role="separator" class="divider"></li>',
-        'down': '<li><a href="/trex/{0}/down" class="down" id="{0}">Down t-rex</a></li>',
-        'idle': '<li><a href="/trex/{0}/idle" class="idle" id="{0}">To idle</a></li>',
-        'check': '<li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>'
-    }
     # processing trexes
     for entr in trexes_entr:
         # checking status and sets html params for rows and buttons
         status_row = 'tr class="condition'
         if entr.status in {'idle', 'error'}:
-            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
+            act_button = trexes_buttons['idle'] + trexes_buttons['down_hid'] + trexes_buttons['testing_hid']
             if entr.status == 'error':
                 status_row += ' danger error"'
             else:
                 status_row += ' idle"'
         elif entr.status == 'down':
-            act_button = act_button_template['begin'] + act_button_template['idle'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
+            act_button = trexes_buttons['idle_hid'] + trexes_buttons['down'] + trexes_buttons['testing_hid']
             status_row += ' active down"'
         elif entr.status == 'testing':
-            act_button = act_button_template['begin'] + act_button_template['check'] + '</ul>'
+            act_button = trexes_buttons['idle_hid'] + trexes_buttons['down_hid'] + trexes_buttons['testing']
             status_row += ' warning testing"'
         # different errors
         else:
-            act_button = act_button_template['begin'] + act_button_template['down'] + act_button_template['check'] + act_button_template['separator'] + act_button_template['end']
+            act_button = trexes_buttons['idle'] + trexes_buttons['down_hid'] + trexes_buttons['testing_hid']
             status_row += ' danger error"'
         # gathering information for filling table
         table_items = {}

@@ -2,7 +2,7 @@
 // actions button and dropdown actions
 // on hold
 $(document).ready(function() {
-    $('.hold[id]').one('click', function( event ) {
+    $('.hold[id]').bind('click', function( event ) {
         event.preventDefault();
         $.get('/task/' + this.id + '/hold', function (data) {
             $('#alert_place').html(data);
@@ -10,15 +10,13 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('hold');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('info');
-        $(this).removeClass();
-        $(this).addClass('queue');
-        $(this).text('To queue');
-        $(this).prop("href", '/task/' + this.id + '/queue');
+        $('div#' + this.id + '.btn-pending').addClass('hidden');
+        $('div#' + this.id + '.btn-hold').removeClass('hidden');
     });
 });
 // to queue
 $(document).ready(function() {
-    $('.queue[id]').one('click', function( event ) {
+    $('.queue[id]').bind('click', function( event ) {
         event.preventDefault();
         $.get('/task/' + this.id + '/queue', function (data) {
             $('#alert_place').html(data);
@@ -26,10 +24,8 @@ $(document).ready(function() {
         });
         $(this).closest('tr').children('td.task_status').text('pending');
         $(this).closest('tr').removeClass();
-        $(this).removeClass();
-        $(this).addClass('hold');
-        $(this).text('On hold');
-        $(this).prop("href", '/task/' + this.id + '/hold');
+        $('div#' + this.id + '.btn-hold').addClass('hidden');
+        $('div#' + this.id + '.btn-pending').removeClass('hidden');
     });
 });
 // re add
@@ -41,6 +37,9 @@ $(document).ready(function() {
         });
         $(this).closest('tr').children('td.task_status').text('pending');
         $(this).closest('tr').removeClass();
+        $('div#' + this.id + '.btn-done').addClass('hidden');
+        $('div#' + this.id + '.btn-canceled').addClass('hidden');
+        $('div#' + this.id + '.btn-pending').removeClass('hidden');
     });
 });
 // cancel
@@ -53,6 +52,9 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('canceled');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('active');
+        $('div#' + this.id + '.btn-pending').addClass('hidden');
+        $('div#' + this.id + '.btn-hold').addClass('hidden');
+        $('div#' + this.id + '.btn-canceled').removeClass('hidden');
     });
 });
 // clone
@@ -83,6 +85,8 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('canceled');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('active');
+        $('div#' + this.id + '.btn-pending').addClass('hidden');
+        $('div#' + this.id + '.btn-canceled').removeClass('hidden');
     });
 });
 // task filter

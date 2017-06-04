@@ -9,8 +9,8 @@ from wtforms import SubmitField, SelectField, TextAreaField, BooleanField
 from wtforms.validators import Required, Length, AnyOf
 # json for getting params
 from json import loads
-# helper
-from app.helper import general_notes, humanize, tasks_statuses, messages
+# helper for notes, buttons, etc
+from app.helper import general_notes, humanize, tasks_statuses, messages, tasks_buttons
 # test show func for task view
 from app.tests import test_show
 # killer for killing task
@@ -32,29 +32,6 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         tasks_entr = query
     else:
         tasks_entr = models.Task.query.order_by(models.Task.id.desc()).all()
-    # action button template
-    act_button_template = {
-        'begin': '''<div class="btn-group">
-                        <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
-                            <span class="sr-only">Toggle Dropdown</span>
-                        </button>
-                        <ul class="dropdown-menu">''',
-        'end': '''<li role="separator" class="divider"></li>
-                <li><a href="/task/{0}/edit" class="edit" id="{0}">Edit</a></li>
-                <li role="separator" class="divider"></li>
-                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
-                <li role="separator" class="divider"></li>
-                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
-                </ul>
-            </div>''',
-        'separator': '<li role="separator" class="divider"></li>',
-        'hold': '<li><a href="/task/{0}/hold" class="hold" id="{0}">On hold</a></li>',
-        'queue': '<li><a href="/task/{0}/queue" class="queue" id="{0}">To queue</a></li>',
-        'readd': '<li><a href="/task/{0}/readd" class="readd" id="{0}">Re add</a></li>',
-        'cancel': '<li><a href="/task/{0}/cancel" class="cancel" id="{0}">Cancel</a></li>',
-        'clone': '<li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>',
-        'kill': '<li><a href="/task/{0}/kill" class="kill" id="{0}"><span class="text-danger">Force kill task</span></a></li>',
-    }
     # var for future filling
     table_data = ''
     # processing tasks
@@ -65,24 +42,23 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             status_row += ' success successful"'
         elif entr.result == 'error':
             status_row += ' danger error"'
-        act_button = act_button_template['begin']
+        act_button = tasks_buttons['pending_hid'] + tasks_buttons['hold_hid'] + tasks_buttons['done_hid'] + tasks_buttons['canceled'] + tasks_buttons['testing_hid']
         if entr.status == 'pending':
-            act_button += act_button_template['hold'] + act_button_template['separator'] + act_button_template['cancel'] + act_button_template['end']
+            act_button = tasks_buttons['pending'] + tasks_buttons['hold_hid'] + tasks_buttons['done_hid'] + tasks_buttons['canceled_hid'] + tasks_buttons['testing_hid']
             status_row += ' pending"'
         elif entr.status == 'done':
-            act_button += act_button_template['readd'] + act_button_template['end']
+            act_button = tasks_buttons['pending_hid'] + tasks_buttons['hold_hid'] + tasks_buttons['done'] + tasks_buttons['canceled_hid'] + tasks_buttons['testing_hid']
         elif entr.status == 'hold':
-            act_button += act_button_template['queue'] + act_button_template['separator'] + act_button_template['cancel'] + act_button_template['end']
+            act_button = tasks_buttons['pending_hid'] + tasks_buttons['hold'] + tasks_buttons['done_hid'] + tasks_buttons['canceled_hid'] + tasks_buttons['testing_hid']
             status_row += ' info hold"'
         elif entr.status == 'canceled':
-            act_button += act_button_template['readd'] + act_button_template['end']
+            act_button = tasks_buttons['pending_hid'] + tasks_buttons['hold_hid'] + tasks_buttons['done_hid'] + tasks_buttons['canceled'] + tasks_buttons['testing_hid']
             status_row += ' active canceled"'
         elif entr.status == 'testing':
-            # inactive button
-            act_button += act_button_template['clone'] + act_button_template['separator'] + act_button_template['kill']
+            act_button = tasks_buttons['pending_hid'] + tasks_buttons['hold_hid'] + tasks_buttons['done_hid'] + tasks_buttons['canceled_hid'] + tasks_buttons['testing']
             status_row += ' warning testing"'
         else:
-            act_button += act_button_template['hold'] + act_button_template['queue'] + act_button_template['separator'] + act_button_template['readd'] + act_button_template['cancel'] + act_button_template['end']
+            act_button = tasks_buttons['pending'] + tasks_buttons['hold_hid'] + tasks_buttons['done_hid'] + tasks_buttons['canceled_hid'] + tasks_buttons['testing_hid']
         # checing task result and sets html params for result labels
         if entr.result == 'success':
             res_label = 'success'
@@ -148,7 +124,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         else:
             table_items['show'] = 'Is not collected yet'
         # making table row
-        table_data = '''
+        table_data += '''
             <{status_row}>
                 <td>{id}</td>
                 <td class="task_status">{status}<br /><span class="label label-{res_label}">{result}</span></td>
@@ -802,6 +778,7 @@ def kill_trex_tasks(task_id):
                         <p>{1}</p>
                     </blockquote>'''.format(task_id, result['state']))
         # if task has not got "testing" status returns message
+
         else:
             msg = messages['warning'].format('Tasks ID {} was not killed. The task is not in testing state now'.format(task_id))
     else:
