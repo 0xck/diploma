@@ -1,4 +1,4 @@
-# wrex
+re# wrex
 Small app for network device testing with [Cisco TRex](https://trex-tgn.cisco.com)
 > App is still in active development state now and some features might not work or work improperly
 
@@ -92,11 +92,11 @@ Section `[include]` defines place for additional config one will be needed us wh
 This product is available in [repository](http://trex-tgn.cisco.com/trex/release/). Download latest release and setup it using [official documentation](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_first_time_running). One may be installed on several Linux distro (please check capability [here](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_supported_versions)) as bare-metal or [VM instance](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_trex_on_esxi). Please check [hardware recomendations](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_hardware_recommendations) in order to make sure TRex will function properly.
 
 ---
-**Note.** You may install TRex on the same host there is app installed.
+**Note.** You may install TRex on the same host there app is installed.
 
-For example:
+For example a couple TRex config:
 
-TRex config for _2x1G interfaces and L3_ is given below:
+TRex config for _2x1G interfaces and L3:_
 ```yaml
 - port_limit      : 2
   version         : 2
@@ -109,7 +109,7 @@ TRex config for _2x1G interfaces and L3_ is given below:
             default_gw : 10.0.1.1
 ```
 
-Below TRex config for _2x10G interfaces L2_ is presented:
+TRex config for _2x10G interfaces L2:_
 ```yaml
 - port_limit      : 2
   version         : 2
@@ -216,7 +216,9 @@ After task was created task scheduller track one and start test proccess. After 
 >There are some limits for using app in whole. They are described below.
 
 #### Operation system limits
-App works only on *NIX systems, because some app components _(RQ workers)_ use `fork()` that is not implemented on Windows.
+App works only on *NIX systems:
+- some app components _(RQ workers)_ use `fork()` that is not implemented on Windows
+- app contains TRex client which works with certain libraries that are able to work only on *NIX
 
 #### TRex limits
 Current TRex releases have some limits _(got from [here](https://communities.cisco.com/community/developer/trex/blog/2017/03/29/how-trex-is-used-by-mellanox))_:
