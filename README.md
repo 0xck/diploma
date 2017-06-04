@@ -1,5 +1,5 @@
 # wrex
-Small app for network device testing with [Cisco TRex](https://trex-tgn.cisco.com)
+Small app for network testing with [Cisco TRex](https://trex-tgn.cisco.com)
 > App is still in active development state now and some features might not work or work improperly
 
 ## Requirements
@@ -139,9 +139,9 @@ After TRex setup was complited go to TRex directory and start a daemon `trex_dae
 Setup procedure is pretty easy. Go to app directory and execute command: `python3 first_start.py` this starts interactive script which can help you setup app. There you should provide information about some components like DB parameters, redis values, supervisord parameters, etc. Just follow wizard steps and provide appropriate values.
 
 Script will make several changed:
-1. Created `config.py`, which stores app settings
-2. Created `wrex.conf` in `ext_config/` directory
-3. Created SQLite DB
+1. Creates `config.py`, which stores app settings
+2. Creates `wrex.conf` in `ext_config/` directory
+3. Creates SQLite DB
 
 Copy file `wrex.conf` from `ext_config/` into supervisor directory with additional config _(see [Supervisor configuration](#configuration))._ And start or restart supervisor. 
 
@@ -151,7 +151,7 @@ Now app _is ready to be launched._ Go to [start app](start-app) for getting info
 **Note.** If you change app directory location you should execute `python3 first_start.py` again for making changes.
 
 ###### ext_conf/config_generator.py
-In app directory in subdirectory `ext_config/` there is script `config_generator.py` it is serviced for generate configuration for supervisor. If you would like to change some settings just execute one `python3 config_generator.py` and after it finishes its work new supervisor configuration will be available as `wrex.conf` at the same directory.
+In app directory in subdirectory `ext_config/` there is script `config_generator.py` It services for generating configuration for supervisor. If you would like to change some settings just execute one `python3 config_generator.py` and after it finishes new supervisor configuration will be available as `wrex.conf` at the same directory.
 
 ## Usage
 
