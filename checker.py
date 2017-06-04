@@ -6,10 +6,10 @@ from subprocess import call, DEVNULL
 import timeout_decorator
 
 
-def trex_check(trex):
+def trex_check(trex, timeout=5):
     # checks trex condition; takes trex db entry as parameter
 
-    @timeout_decorator.timeout(timeout=10, use_signals=False)
+    @timeout_decorator.timeout(timeout, use_signals=False)
     def trex_checker(trex):
         # checks status with timeout
         result = trex_status.check(trex_mng=trex.ip4, daemon_port=trex.port)
