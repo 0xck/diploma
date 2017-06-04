@@ -1,10 +1,17 @@
+# test pages
+# flask
 from flask import render_template, abort, redirect
+# DB
 from app import app, db, models
+# forms
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField, StringField, IntegerField, FloatField
 from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp, NoneOf, InputRequired
+# notes, etc
 from app.helper import stf_traffic_patterns, stf_notes, stl_notes, general_notes, validator_err, messages, test_types, stl_test_val, sel_test_types
+# for handling trex params
 from json import loads, dumps
+# for pattern list
 from os import listdir, getcwd, path
 
 
@@ -23,8 +30,9 @@ def autosampler(duration):
 
 @app.route('/tests/')
 def tests_table():
+    # shows tests table
     tests_entr = models.Test.query.filter(models.Test.hidden == False).order_by(models.Test.id.desc()).all()
-    table_data = ''
+    # action button template
     act_button_template = {
         'begin': '''<div class="btn-group">
                         <button type="button" class="btn btn-primary btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
@@ -37,9 +45,13 @@ def tests_table():
                 </ul>
             </div>'''
     }
-
+    # var for future filling
+    table_data = ''
+    # processing tests
     for entr in tests_entr:
+        # action button
         act_button = act_button_template['begin'] + act_button_template['end']
+        # gathering information for filling table
         table_items = {}
         # getting test db info
         table_items.update(entr['ALL_DICT'])
@@ -48,11 +60,11 @@ def tests_table():
             table_items['act_button'] = act_button.format(entr.id, 'stf')
         else:
             table_items['act_button'] = act_button.format(entr.id, 'stl')
-        # details
+        # link to details
         table_items['show'] = '<a href="/test/{0}">Show</a>'.format(entr.id)
-        # associated tasks
+        # link to associated tasks
         table_items['tasks'] = '<a href="/tasks/test/{0}">Show tasks</a>'.format(entr.id)
-
+        # making table row
         table_data += '''
             <tr>
                 <td>{id}</td>
@@ -69,12 +81,14 @@ def tests_table():
     return render_template(
         'tests.html',
         title='List of tests',
-        content=table_data,
-        script_file='tests.js')
+        content=table_data)
 
 
 @app.route('/test/new/stf/', methods=['GET', 'POST'])
 def test_create_stf():
+    # creates new statefull test
+    # getting info for filling forms in especial order
+    # defining mode
     mode = 'stateful'
     # getting test type list
     types = test_types
@@ -88,7 +102,7 @@ def test_create_stf():
     selection_types = sel_test_types['all']
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types[1:]]
     list_selection_types.insert(0, (selection_types[0], '{} (Default)'.format(selection_types[0])))
-    # getting lists of current tests values for checking
+    # getting lists of current tests values for checking name
     curr_tests = models.Test.query.all()
     curr_name = []
     if len(curr_tests) > 0:
@@ -99,7 +113,7 @@ def test_create_stf():
         # making form
         name = StringField(
             validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
-        # general test params
+        # common test params
         test_type = SelectField(
             label='Test type',
             validators=[Required(), Length(min=1, max=128), AnyOf(types)],
@@ -121,6 +135,9 @@ def test_create_stf():
             label='Sampler time in seconds',
             validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=0)
+        hw_chsum = BooleanField(label="Check if TRex's NICs support HW offloading", default=False)
+        description = TextAreaField(
+            validators=[Length(max=1024)])
         # selection test params
         accuracy = FloatField(
             label='Accuracy of test result in percents',
@@ -152,13 +169,10 @@ def test_create_stf():
             label='NIC initial delay in seconds',
             validators=[Required(), NumberRange(min=1, max=10)],
             default=1)
-        soft_test = BooleanField(label='Check if T-rex is software appliance', default=True)
-        hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=False)
-        description = TextAreaField(
-            validators=[Length(max=1024)])
+        soft_test = BooleanField(label='Check if TRex is software appliance', default=True)
         # submit
         submit = SubmitField('Add new')
-    # form
+    # form obj
     form = TestForm()
     # variables
     page_title = 'New stateful test'
@@ -179,19 +193,23 @@ def test_create_stf():
     soft_test = True
     hw_chsum = False
     description = None
-    # notes
+    # require note
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
+    # describing notes
     notes = stf_notes
 
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # general
+        # common
         name = form.name.data
         test_type = form.test_type.data
         duration = int(form.duration.data)
         traffic_pattern = form.traffic_pattern.data
         multiplier = float(form.multiplier.data)
+        sampler = int(form.sampler.data)
+        hw_chsum = form.hw_chsum.data
+        description = form.description.data
         # selection
         accuracy = (float(form.accuracy.data) / 100)
         rate_incr_step = float(form.rate_incr_step.data)
@@ -199,12 +217,9 @@ def test_create_stf():
         max_test_count = int(form.max_test_count.data)
         selection_test_type = form.selection_test_type.data
         # other
-        sampler = int(form.sampler.data)
         warm = int(form.warm.data)
         wait = int(form.wait.data)
         soft_test = form.soft_test.data
-        hw_chsum = form.hw_chsum.data
-        description = form.description.data
         # calculating sampler
         if sampler == 0:
             history = False
@@ -213,7 +228,7 @@ def test_create_stf():
             else:
                 sampler = autosampler(duration)[0]
                 history = autosampler(duration)[1]
-        # creates DB entry
+        # trex params
         trex_params = dict(
             duration=duration,
             traffic_pattern=traffic_pattern,
@@ -223,9 +238,10 @@ def test_create_stf():
             wait=wait,
             soft_test=soft_test,
             hw_chsum=hw_chsum)
-        # addiding history param
+        # addiding history param if need
         if history:
             trex_params['history_size'] = history
+        # rate params
         rate_params = dict(
             accuracy=accuracy,
             rate=multiplier,
@@ -233,7 +249,7 @@ def test_create_stf():
             max_succ_attempt=max_succ_attempt,
             max_test_count=max_test_count,
             test_type=selection_test_type)
-
+        # creates new DB entry
         new_test = models.Test(
             name=name,
             mode=mode,
@@ -246,11 +262,16 @@ def test_create_stf():
         db.session.commit()
         # Success message
         msg = messages['success'].format('New test was added')
+        # cleaning form
+        # common
         form.name.data = None
         form.test_type.data = None
         form.duration.data = 60
         form.traffic_pattern.data = patterns[0]
         form.multiplier.data = 1
+        form.sampler.data = 0
+        form.hw_chsum.data = False
+        form.description.data = None
         # selection
         form.accuracy.data = 0.1
         form.rate_incr_step.data = 1
@@ -258,35 +279,29 @@ def test_create_stf():
         form.max_test_count.data = 30
         form.selection_test_type.data = ''
         # other
-        form.sampler.data = 0
         form.warm.data = 10
         form.wait.data = 1
         form.soft_test.data = True
-        form.hw_chsum.data = False
-        form.description.data = None
         # showing form with success message
         return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
-    # if error occured
+    # if any error occured during validation process
     if len(form.errors) > 0:
+        # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
         return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
-    # return clean form
+
     return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, test_type=test_type, mode=mode)
 
 
 @app.route('/test/<int:test_id>/delete/', methods=['GET', 'POST'])
 def test_delete(test_id):
+    # deletes test
     test_entr = models.Test.query.get(test_id)
-    # no task id return 404
+    # if no task id returns 404
     if not test_entr or test_entr.hidden:
         abort(404)
-
-    if test_entr.tasks:
-        print('ok', test_entr.tasks)
-    else:
-        print('not ok', test_entr.tasks)
 
     class DeleteForm(FlaskForm):
         # making form
@@ -295,16 +310,17 @@ def test_delete(test_id):
 
     form = DeleteForm()
     page_title = 'Test {} deleting confirmation'.format(test_entr.name)
-
+    # checking if checked
     if form.checker.data:
-        form.checker.data = False
-        # even one task exists need to hide test
+        # even one task exists need to hide this test, in order to access test info from task view
         if test_entr.tasks:
             test_entr.hidden = True
         # in case no tasks for test deletes test
         else:
             db.session.delete(test_entr)
         db.session.commit()
+        # cleans form
+        form.checker.data = False
         del_msg = messages['succ_no_close'].format('The test {} was deleted'.format(test_entr.name))
         return render_template('delete.html', del_msg=del_msg, title=page_title)
 
@@ -313,26 +329,31 @@ def test_delete(test_id):
 
 @app.route('/test/<int:test_id>/edit/stf/', methods=['GET', 'POST'])
 def test_edit_stf(test_id):
-    mode = 'stateful'
+    # edits current stateful
     test_entr = models.Test.query.get(test_id)
-    # no task id return 404
+    # defining mode
+    mode = 'stateful'
+    # if no task id returns 404
     if not test_entr or test_entr.hidden:
         abort(404)
+    # redirects to stateless edit in case test mode is not stateful
     elif test_entr.mode != mode:
         return redirect('/test/{}/edit/stl/'.format(test_id))
+    # getting info for filling forms in especial order, fields will equal current test values
     # getting test type list
     types = test_types
     list_types = [(test_type, test_type) for test_type in types]
     types.remove(test_entr.test_type)
     types.insert(0, test_entr.test_type)
-
+    # getting parameters
+    # trex params
     test_papams_trex = loads(test_entr.parameters)['trex']
     # getting patterns list
     patterns = stf_traffic_patterns
     list_patterns = [(test_pattern, test_pattern) for test_pattern in patterns]
     patterns.remove(test_papams_trex['traffic_pattern'])
     patterns.insert(0, test_papams_trex['traffic_pattern'])
-    # getting rate params
+    # getting rate params if exists
     try:
         test_papams_rate = loads(test_entr.parameters)['rate']
     except KeyError:
@@ -347,19 +368,20 @@ def test_edit_stf(test_id):
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types]
     selection_types.remove(test_papams_rate['test_type'])
     selection_types.insert(0, test_papams_rate['test_type'])
-    # getting lists of current tests values for checking
+    # getting lists of current tests values for checking name
     curr_tests = models.Test.query.filter(models.Test.id != test_id).all()
-    curr_name = []
+    # making name list, needs for uniq test name
     if len(curr_tests) > 0:
-        for curr_test in curr_tests:
-            curr_name.append(curr_test.name)
+        curr_names = [curr.name for curr in curr_tests]
+    else:
+        curr_names = []
 
     class TestForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_names, message=validator_err['exist'])],
             default=test_entr.name)
-        # general test params
+        # common test params
         test_type = SelectField(
             label='Test type',
             validators=[Required(), Length(min=1, max=128), AnyOf(types)],
@@ -381,6 +403,9 @@ def test_edit_stf(test_id):
             label='Sampler time in seconds',
             validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=test_papams_trex['sampler'])
+        hw_chsum = BooleanField(label="Check if TRex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
+        description = TextAreaField(
+            validators=[Length(max=1024)], default=test_entr.description)
         # selection test params
         accuracy = FloatField(
             label='Accuracy of test result in percents',
@@ -412,13 +437,10 @@ def test_edit_stf(test_id):
             label='NIC initial delay in seconds',
             validators=[Required(), NumberRange(min=1, max=10)],
             default=test_papams_trex['wait'])
-        soft_test = BooleanField(label='Check if T-rex is software appliance', default=test_papams_trex['soft_test'])
-        hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
-        description = TextAreaField(
-            validators=[Length(max=1024)], default=test_entr.description)
+        soft_test = BooleanField(label='Check if TRex is software appliance', default=test_papams_trex['soft_test'])
         # submit
         submit = SubmitField('Save test')
-    # form
+    # form obj
     form = TestForm()
     # variables
     page_title = 'Edit stateful test {}'.format(test_entr.name)
@@ -439,18 +461,22 @@ def test_edit_stf(test_id):
     soft_test = True
     hw_chsum = False
     description = ''
-    # notes
+    # require note
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
+    # describing notes
     notes = stf_notes
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # general
+        # common
         name = form.name.data
         test_type = form.test_type.data
         duration = int(form.duration.data)
         traffic_pattern = form.traffic_pattern.data
         multiplier = float(form.multiplier.data)
+        sampler = int(form.sampler.data)
+        hw_chsum = form.hw_chsum.data
+        description = form.description.data
         # selection
         accuracy = (float(form.accuracy.data) / 100)
         rate_incr_step = float(form.rate_incr_step.data)
@@ -458,12 +484,9 @@ def test_edit_stf(test_id):
         max_test_count = int(form.max_test_count.data)
         selection_test_type = form.selection_test_type.data
         # other
-        sampler = int(form.sampler.data)
         warm = int(form.warm.data)
         wait = int(form.wait.data)
         soft_test = form.soft_test.data
-        hw_chsum = form.hw_chsum.data
-        description = form.description.data
         # calculating sampler
         if sampler == 0:
             history = False
@@ -472,7 +495,7 @@ def test_edit_stf(test_id):
             else:
                 sampler = autosampler(duration)[0]
                 history = autosampler(duration)[1]
-        # creates DB entry values
+        # trex params
         trex_params = dict(
             duration=duration,
             traffic_pattern=traffic_pattern,
@@ -485,6 +508,7 @@ def test_edit_stf(test_id):
         # addiding history param
         if history:
             trex_params['history_size'] = history
+        # rate params
         rate_params = dict(
             accuracy=accuracy,
             rate=multiplier,
@@ -492,13 +516,14 @@ def test_edit_stf(test_id):
             max_succ_attempt=max_succ_attempt,
             max_test_count=max_test_count,
             test_type=selection_test_type)
+        # changing DB entry values
         test_entr.name = name
         test_entr.test_type = test_type
         test_entr.description = description
         test_entr.parameters = dumps(dict(trex=trex_params) if test_type == 'common' else dict(trex=trex_params, rate=rate_params))
         # commit DB entry changes
         db.session.commit()
-        # Success message
+        # success message
         msg = messages['success'].format('The test was changed')
         # showing form with success message
         return render_template(
@@ -511,8 +536,9 @@ def test_edit_stf(test_id):
             msg=msg,
             test_type=test_type,
             mode=mode)
-    # if error occured
+    # if any error occured during validation process
     if len(form.errors) > 0:
+        # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
@@ -526,7 +552,7 @@ def test_edit_stf(test_id):
             msg=msg,
             test_type=test_type,
             mode=mode)
-    # return clean form
+
     return render_template(
         'test_action.html',
         form=form,
@@ -540,6 +566,9 @@ def test_edit_stf(test_id):
 
 @app.route('/test/new/stl/', methods=['GET', 'POST'])
 def test_create_stl():
+    # creates new stateless test
+    # getting info for filling forms in especial order, fields will equal current test values
+    # defining mode
     mode = 'stateless'
     # getting test type list
     types = test_types
@@ -549,7 +578,7 @@ def test_create_stl():
     rate_types = stl_test_val['rate_types']  # in future 'cyclic', 'bundle'
     list_rate_types = [(rate_type, rate_type) for rate_type in rate_types[1:]]
     list_rate_types.insert(0, (rate_types[0], '{} (Default)'.format(rate_types[0])))
-    # getting patterns list
+    # getting patterns list from "wrex_root/trex/test/stl"
     patterns = []
     lsdir = listdir(path=path.join(getcwd(), 'trex/test/stl/'))
     for item in lsdir:
@@ -561,18 +590,19 @@ def test_create_stl():
     selection_types = sel_test_types['all']
     list_selection_types = [(sel_type, sel_type) for sel_type in selection_types[1:]]
     list_selection_types.insert(0, (selection_types[0], '{} (Default)'.format(selection_types[0])))
-    # getting lists of current tests values for checking
+    # getting lists of current tests values for checking name
     curr_tests = models.Test.query.all()
-    curr_name = []
+    # making name list, needs for uniq test name
     if len(curr_tests) > 0:
-        for curr_test in curr_tests:
-            curr_name.append(curr_test.name)
+        curr_names = [curr.name for curr in curr_tests]
+    else:
+        curr_names = []
 
     class TestForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
-        # general test params
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_names, message=validator_err['exist'])])
+        # common test params
         test_type = SelectField(
             label='Test type',
             validators=[Required(), Length(min=1, max=128), AnyOf(types)],
@@ -599,6 +629,9 @@ def test_create_stl():
             label='Sampler time in seconds',
             validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=0)
+        hw_chsum = BooleanField(label="Check if TRex's NICs support HW offloading", default=False)
+        description = TextAreaField(
+            validators=[Length(max=1024)])
         # selection test params
         accuracy = FloatField(
             label='Accuracy of test result in percents',
@@ -621,13 +654,9 @@ def test_create_stl():
             validators=[Required(), Length(min=1, max=128), AnyOf(selection_types)],
             choices=list_selection_types,
             default=selection_types[0])
-        # other parameters
-        hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=False)
-        description = TextAreaField(
-            validators=[Length(max=1024)])
         # submit
         submit = SubmitField('Add new')
-    # form
+    # form obj
     form = TestForm()
     # variables
     page_title = 'New stateless test'
@@ -645,37 +674,37 @@ def test_create_stl():
     selection_test_type = None
     sampler = None
     hw_chsum = False
-    description = ''
-    # notes
+    description = None
+    # require note
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
+    # describing notes
     notes = stl_notes
     # checking if submit or submit without errors
     if form.validate_on_submit():
         # defining variables value from submitted form
-        # general
+        # common
         name = form.name.data
         test_type = form.test_type.data
         rate_type = form.rate_type.data
         duration = int(form.duration.data)
         traffic_pattern = form.traffic_pattern.data
         rate = int(form.rate.data)
+        sampler = int(form.sampler.data)
+        hw_chsum = form.hw_chsum.data
+        description = form.description.data
         # selection
         accuracy = (float(form.accuracy.data) / 100)
         rate_incr_step = int(form.rate_incr_step.data)
         max_succ_attempt = int(form.max_succ_attempt.data)
         max_test_count = int(form.max_test_count.data)
         selection_test_type = form.selection_test_type.data
-        # other
-        sampler = int(form.sampler.data)
-        hw_chsum = form.hw_chsum.data
-        description = form.description.data
         # calculating sampler
         if sampler == 0:
             if duration <= 1000:
                 sampler = autosampler(duration)
             else:
                 sampler = autosampler(duration)[0]
-        # creates DB entry
+        # trex params
         trex_params = dict(
             duration=duration,
             traffic_pattern=traffic_pattern,
@@ -683,6 +712,7 @@ def test_create_stl():
             rate_type=rate_type,
             sampler=sampler,
             hw_chsum=hw_chsum)
+        # rate params
         rate_params = dict(
             accuracy=accuracy,
             rate=rate,
@@ -690,6 +720,7 @@ def test_create_stl():
             max_succ_attempt=max_succ_attempt,
             max_test_count=max_test_count,
             test_type=selection_test_type)
+        # creates new DB entry
         new_test = models.Test(
             name=name,
             mode=mode,
@@ -700,24 +731,25 @@ def test_create_stl():
         # adding DB entry in DB
         db.session.add(new_test)
         db.session.commit()
-        # Success message
+        # success message
         msg = messages['success'].format('New test was added')
+        # cleans form fields
+        # common
         form.name.data = None
         form.test_type.data = None
         form.rate_type.data = rate_types[0]
         form.duration.data = 60
         form.traffic_pattern.data = patterns[0]
         form.rate.data = 1000
+        form.sampler.data = 0
+        form.hw_chsum.data = False
+        form.description.data = None
         # selection
         form.accuracy.data = 0.1
         form.rate_incr_step.data = 1000
         form.max_succ_attempt.data = 3
         form.max_test_count.data = 30
         form.selection_test_type.data = selection_types[0]
-        # other
-        form.sampler.data = 0
-        form.hw_chsum.data = False
-        form.description.data = None
         # showing form with success message
         return render_template(
             'test_action.html',
@@ -729,8 +761,9 @@ def test_create_stl():
             msg=msg,
             test_type=test_type,
             mode=mode)
-    # if error occured
+    # if any error occured during validation process
     if len(form.errors) > 0:
+        # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
@@ -744,7 +777,7 @@ def test_create_stl():
             msg=msg,
             test_type=test_type,
             mode=mode)
-    # return clean form
+
     return render_template(
         'test_action.html',
         form=form,
@@ -758,11 +791,14 @@ def test_create_stl():
 
 @app.route('/test/<int:test_id>/edit/stl/', methods=['GET', 'POST'])
 def test_edit_stl(test_id):
+    # edits current shateless test
+    # defining mode
     mode = 'stateless'
     test_entr = models.Test.query.get(test_id)
-    # no task id return 404
+    # if no task id returns 404
     if not test_entr or test_entr.hidden:
         abort(404)
+    # redirects to stateful edit in case test mode is not stateless
     elif test_entr.mode != mode:
         return redirect('/test/{}/edit/stf/'.format(test_id))
     # getting test type list
@@ -770,14 +806,15 @@ def test_edit_stl(test_id):
     list_types = [(test_type, test_type) for test_type in types]
     types.remove(test_entr.test_type)
     types.insert(0, test_entr.test_type)
-
+    # getting parameters
+    # trex params
     test_papams_trex = loads(test_entr.parameters)['trex']
-    # getting test type list
+    # getting rate types
     rate_types = stl_test_val['rate_types']
     list_rate_types = [(rate_type, rate_type) for rate_type in rate_types]
     rate_types.remove(test_papams_trex['rate_type'])
     rate_types.insert(0, test_papams_trex['rate_type'])
-    # getting patterns list
+    # getting patterns list from "wrex_root/trex/test/stl"
     patterns = []
     lsdir = listdir(path=path.join(getcwd(), 'trex/test/stl/'))
     for item in lsdir:
@@ -804,18 +841,18 @@ def test_edit_stl(test_id):
     selection_types.insert(0, test_papams_rate['test_type'])
     # getting lists of current tests values for checking
     curr_tests = models.Test.query.filter(models.Test.id != test_id).all()
-    print(curr_tests)
-    curr_name = []
+    # making name list, needs for uniq test name
     if len(curr_tests) > 0:
-        for curr_test in curr_tests:
-            curr_name.append(curr_test.name)
+        curr_names = [curr.name for curr in curr_tests]
+    else:
+        curr_names = []
 
     class TestForm(FlaskForm):
         # making form
         name = StringField(
-            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_names, message=validator_err['exist'])],
             default=test_entr.name)
-        # general test params
+        # common test params
         test_type = SelectField(
             label='Test type',
             validators=[Required(), Length(min=1, max=128), AnyOf(types)],
@@ -842,6 +879,9 @@ def test_edit_stl(test_id):
             label='Sampler time in seconds',
             validators=[InputRequired(), NumberRange(min=0, max=3600)],
             default=test_papams_trex['sampler'])
+        hw_chsum = BooleanField(label="Check if TRex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
+        description = TextAreaField(
+            validators=[Length(max=1024)], default=test_entr.description)
         # selection test params
         accuracy = FloatField(
             label='Accuracy of test result in percents',
@@ -864,13 +904,9 @@ def test_edit_stl(test_id):
             validators=[Required(), Length(min=1, max=128), AnyOf(selection_types)],
             choices=list_selection_types,
             default=selection_types[0])
-        # other parameters
-        hw_chsum = BooleanField(label="Check if T-rex's NICs support HW offloading", default=test_papams_trex['hw_chsum'])
-        description = TextAreaField(
-            validators=[Length(max=1024)], default=test_entr.description)
         # submit
         submit = SubmitField('Save test')
-    # form
+    # form obj
     form = TestForm()
     # variables
     page_title = 'Edit stateless test {}'.format(test_entr.name)
@@ -888,9 +924,10 @@ def test_edit_stl(test_id):
     selection_test_type = None
     sampler = None
     hw_chsum = False
-    description = ''
-    # notes
+    description = None
+    # require note
     note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
+    # describing notes
     notes = stl_notes
     # checking if submit or submit without errors
     if form.validate_on_submit():
@@ -902,23 +939,22 @@ def test_edit_stl(test_id):
         duration = int(form.duration.data)
         traffic_pattern = form.traffic_pattern.data
         rate = int(form.rate.data)
+        sampler = int(form.sampler.data)
+        hw_chsum = form.hw_chsum.data
+        description = form.description.data
         # selection
         accuracy = (float(form.accuracy.data) / 100)
         rate_incr_step = int(form.rate_incr_step.data)
         max_succ_attempt = int(form.max_succ_attempt.data)
         max_test_count = int(form.max_test_count.data)
         selection_test_type = form.selection_test_type.data
-        # other
-        sampler = int(form.sampler.data)
-        hw_chsum = form.hw_chsum.data
-        description = form.description.data
         # calculating sampler
         if sampler == 0:
             if duration <= 1000:
                 sampler = autosampler(duration)
             else:
                 sampler = autosampler(duration)[0]
-        # creates DB entry values
+        # trex params
         trex_params = dict(
             duration=duration,
             traffic_pattern=traffic_pattern,
@@ -926,6 +962,7 @@ def test_edit_stl(test_id):
             rate_type=rate_type,
             sampler=sampler,
             hw_chsum=hw_chsum)
+        # rate params
         rate_params = dict(
             accuracy=accuracy,
             rate=rate,
@@ -933,13 +970,14 @@ def test_edit_stl(test_id):
             max_succ_attempt=max_succ_attempt,
             max_test_count=max_test_count,
             test_type=selection_test_type)
+        # changing DB entry values
         test_entr.name = name
         test_entr.test_type = test_type
         test_entr.description = description
         test_entr.parameters = dumps(dict(trex=trex_params) if test_type == 'common' else dict(trex=trex_params, rate=rate_params))
         # commit DB entry changes
         db.session.commit()
-        # Success message
+        # success message
         msg = messages['success'].format('The test was changed')
         # showing form with success message
         return render_template(
@@ -952,8 +990,9 @@ def test_edit_stl(test_id):
             msg=msg,
             test_type=test_type,
             mode=mode)
-    # if error occured
+    # if any error occured during validation process
     if len(form.errors) > 0:
+        # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
@@ -967,7 +1006,7 @@ def test_edit_stl(test_id):
             msg=msg,
             test_type=test_type,
             mode=mode)
-    # return clean form
+
     return render_template(
         'test_action.html',
         form=form,
@@ -981,28 +1020,31 @@ def test_edit_stl(test_id):
 
 @app.route('/test/<int:test_id>/')
 def test_show(test_id, page=True):
+    '''shows test detail
+    page means making page otherwise returns only certain test data for task view'''
     test_entr = models.Test.query.get(test_id)
-    # no task id return 404
+    # no test or test is hidden id returns 404
     if not page:
         if not test_entr:
             abort(404)
     else:
         if not test_entr or test_entr.hidden:
             abort(404)
-
+    # getting trex params
     test_params_trex = loads(test_entr.parameters)['trex']
+    # getting rate params
     try:
         test_papams_rate = loads(test_entr.parameters)['rate']
     except KeyError:
         test_papams_rate = False
-
+    # var for future filling
     table_data = '''
         <tr>
             <td>Test name</td>
             <td>{name}</td>
         </tr>
         <tr>
-            <td>T-rex test mode</td>
+            <td>TRex test mode</td>
             <td>{mode}</td>
         </tr>
         <tr>
@@ -1014,19 +1056,19 @@ def test_show(test_id, page=True):
             <td>{description}</td>
         </tr>
         </table></div></div>'''.format(**test_entr['ALL_DICT'])
-
+    # gathering information for filling table
     table_items = {}
-    # getting params db info
+    # getting base params db info
     table_items.update(test_params_trex)
-    # rate/multiplier switcher
+    # rate/multiplier switcher, multiplier for stateful and rate for stateless
     if test_entr.mode == 'stateful':
         table_items['rate_label'] = 'Multiplier'
     else:
         table_items['rate_label'] = 'Rate'
-    # rate/multiplier data
+    # rate/multiplier data, , multiplier for stateful and rate for stateless
     if test_entr.mode == 'stateful':
         table_items['rate'] = table_items['multiplier']
-
+    # making table row
     table_data += '''<div class="panel panel-default">
         <div class="panel-heading">Test details</div>
         <div class="table-responsive">
@@ -1047,7 +1089,7 @@ def test_show(test_id, page=True):
                 <td>Sampler</td>
                 <td>{sampler}</td>
             </tr>'''.format(**table_items)
-
+    # table row entries if stateful
     if test_entr.mode == 'stateful':
         table_data += '''<tr>
                         <td>Warm time</td>
@@ -1058,20 +1100,21 @@ def test_show(test_id, page=True):
                         <td>{wait}</td>
                     </tr>
                     <tr>
-                        <td>T-rex is software appliance</td>
+                        <td>TRex is software appliance</td>
                         <td>{soft_test}</td>
                     </tr>
                     <tr>
-                        <td>T-rex supports HW offloading</td>
+                        <td>TRex supports HW offloading</td>
                         <td>{hw_chsum}</td>
                     </tr>
                     </table></div></div>'''.format(**test_params_trex)
     else:
         table_data += '''<tr>
-                        <td>T-rex supports HW offloading</td>
+                        <td>TRex supports HW offloading</td>
                         <td>{hw_chsum}</td>
                     </tr>
                     </table></div></div>'''.format(**test_params_trex)
+    # in case rate params adding inro to table
     if test_papams_rate:
         test_papams_rate['accuracy'] = test_papams_rate['accuracy'] * 100
         table_data += '''<div class="panel panel-default">

@@ -1,4 +1,5 @@
 'use strict';
+// shows nav bar current link
 $(document).ready(function() {
     if ($('h1').hasClass('tasks')) {
         $('li.tasks_menu').addClass('active');

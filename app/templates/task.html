@@ -1,3 +1,4 @@
+{# task view template #}
 {% extends "base.html" %}
 {% block content %}
 <div class="container">
@@ -42,10 +43,10 @@
 </div>
 {# trex and device info #}
 <div class="container">
-<h3>T-rex & Device</h3>
+<h3>TRex & Device</h3>
 
     <div class="panel panel-default">
-        <div class="panel-heading">T-rex details</div>
+        <div class="panel-heading">TRex details</div>
         <div class="table-responsive">
             <table class="table table-hover">
                 <tr>
@@ -203,8 +204,8 @@
                         var tx = 'TX: ' + tx_pps[tooltipItem.index] + ' pps';
                         var rx = 'RX: ' + rx_pps[tooltipItem.index] + ' pps';
                         var expected = 'Expected rate: ' + expected_pps[tooltipItem.index] + ' pps';
-                        var q_drop = 'T-rex queue Drops: ' + queue_drop[tooltipItem.index];
-                        var q_full = 'T-rex queue Full: ' + queue_full[tooltipItem.index];
+                        var q_drop = 'TRex queue Drops: ' + queue_drop[tooltipItem.index];
+                        var q_full = 'TRex queue Full: ' + queue_full[tooltipItem.index];
                         return [tx, rx, expected, q_drop, q_full];
                     },
                     title: function(tooltipItem, data) {
@@ -228,7 +229,7 @@
                             var tx = 'TX: ' + tx_bps[tooltipItem.index] + ' bps';
                             var rx = 'RX: ' + rx_bps[tooltipItem.index] + ' bps';
                             var expected = 'Expected rate: ' + expected_bps[tooltipItem.index] + ' bps';
-                            var rx_drop = 'T-rex RX Drops: ' + rx_drop_bps[tooltipItem.index] + ' bps';
+                            var rx_drop = 'TRex RX Drops: ' + rx_drop_bps[tooltipItem.index] + ' bps';
                             return [tx, rx, expected, rx_drop];
                         },
                         title: function(tooltipItem, data) {

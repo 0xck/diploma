@@ -10,6 +10,8 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('hold');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('info');
+        $('div#' + this.id + '.btn-pending').addClass('hidden');
+        $('div#' + this.id + '.btn-hold').removeClass('hidden');
     });
 });
 // to queue
@@ -18,9 +20,12 @@ $(document).ready(function() {
         event.preventDefault();
         $.get('/task/' + this.id + '/queue', function (data) {
             $('#alert_place').html(data);
+            return false;
         });
         $(this).closest('tr').children('td.task_status').text('pending');
         $(this).closest('tr').removeClass();
+        $('div#' + this.id + '.btn-hold').addClass('hidden');
+        $('div#' + this.id + '.btn-pending').removeClass('hidden');
     });
 });
 // re add
@@ -32,6 +37,9 @@ $(document).ready(function() {
         });
         $(this).closest('tr').children('td.task_status').text('pending');
         $(this).closest('tr').removeClass();
+        $('div#' + this.id + '.btn-done').addClass('hidden');
+        $('div#' + this.id + '.btn-canceled').addClass('hidden');
+        $('div#' + this.id + '.btn-pending').removeClass('hidden');
     });
 });
 // cancel
@@ -44,6 +52,9 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('canceled');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('active');
+        $('div#' + this.id + '.btn-pending').addClass('hidden');
+        $('div#' + this.id + '.btn-hold').addClass('hidden');
+        $('div#' + this.id + '.btn-canceled').removeClass('hidden');
     });
 });
 // clone
@@ -74,6 +85,8 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('canceled');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('active');
+        $('div#' + this.id + '.btn-pending').addClass('hidden');
+        $('div#' + this.id + '.btn-canceled').removeClass('hidden');
     });
 });
 // task filter

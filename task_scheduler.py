@@ -1,3 +1,4 @@
+# task scheduller for handling pending tasks and makes test with trex client
 # work with DB
 from app import db, models
 # work with t-rex
@@ -16,6 +17,8 @@ import signal
 from sys import exit
 from exceptions import GracefulExit, signal_handler
 from trex.client.stf import trex_kill
+# task scheduller config
+from config import task_sched_interval, task_sched_safe
 
 
 def task_finder():
@@ -62,7 +65,7 @@ def task_queuer(interval=300, safe_int=600):
             for task in tasks['values']:
                 # adding task to queue
                 try:
-                    # getting timeout; in case selection timeout is summ of max attempt * duration
+                    # getting timeout; in case selection timeout is summ of max attempt * duration + safe value
                     timeout = (int(loads(task.tests.parameters)['trex']['duration']) * int(1 if task.tests.test_type != 'selection' else loads(task.tests.parameters)['rate']['max_test_count'])) + int(safe_int)
                     # adding task to queue
                     tasks_queue.enqueue_call(func=test_proc.test, kwargs={'task_id': task.id}, job_id=str(task.id), result_ttl=0, timeout=timeout)
@@ -77,25 +80,27 @@ def task_queuer(interval=300, safe_int=600):
                     err_handler(task, 'no duration parameters')
                 # commit DB changes
                 db.session.commit()
-        # time.sleep(interval)
 
 
+# creating task queue
 tasks_queue = Queue('tasks', connection=redis_connect, default_timeout=90)
-# statuses_queue = Queue('statuses', connection=redis_connect, default_timeout=30)
 
 
 def task_killer(task):
-    # kills task and active trex task; getting db item as task
+    # kills task and executing trex task; getting db item as task
     job = Job.fetch(str(task.id), connection=redis_connect)
-    # deleting current executing task
+    # deleting current task from queue
     if job.is_started or job.is_queued:
         cancel_job(str(job.get_id()), connection=redis_connect)
-    # kills active trex task
+    # kills executing trex task
     result = {'status': False, 'state': ''}
+    # trying soft kill
     soft_kill = trex_kill.soft(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
     force_kill = {'status': False}
+    # trying force kill
     if not soft_kill['status']:
         force_kill = trex_kill.force(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+    # if kill was succesful makes DB changes
     if soft_kill['status'] or force_kill['status']:
         result['status'] = True
         # making DB changes
@@ -105,26 +110,29 @@ def task_killer(task):
         if task.devices.status.lower() != 'idle':
             task.devices.status = 'idle'
         db.session.commit()
+    # if kill was not succesful returns error msg
     else:
         result['state'] = 'soft kill: {}, force kill: {}'.format(soft_kill['state'], force_kill['state'])
     return result
 
 
 if __name__ == '__main__':
+    # for correct stopping
     signal.signal(signal.SIGTERM, signal_handler)
     try:
-        task_queuer(interval=30)
+        task_queuer(interval=task_sched_interval, safe_int=task_sched_safe)
     except (KeyboardInterrupt, GracefulExit):
         print('Got stop signal')
         # finds all testing tasks and sets their status to pending
         working_task = models.Task.query.filter((models.Task.status == 'testing') | (models.Task.status == 'queued')).all()
+        # if tasks were found delete them from queue and kill executing trex
         if len(working_task) > 0:
             for task in working_task:
                 job = Job.fetch(str(task.id), connection=redis_connect)
-                # deleting current executing tasks
+                # deleting current queued task
                 if job.is_started or job.is_queued:
                     cancel_job(str(job.get_id()), connection=redis_connect)
-                # kills active trex task
+                # kills executing trex task
                 if not trex_kill.soft(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)['status']:
                     trex_kill.force(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
                 # making DB changes

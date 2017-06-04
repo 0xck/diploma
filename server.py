@@ -1,4 +1,5 @@
-# start server
+# web app
+# app
 from app import app
 from config import app_listen, app_port
 # for correct stop
@@ -12,7 +13,4 @@ if __name__ == "__main__":
         app.run(host=app_listen, port=app_port, debug=True)
     except (KeyboardInterrupt, GracefulExit):
         print('Got stop signal. Exiting')
-        '''
-        here something for DB done
-        '''
         exit()

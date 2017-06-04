@@ -1,14 +1,15 @@
-# initial app
+# initial flask app
 from flask import Flask
+# DB
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-# app config
+# app config from config.py
 app.config.from_object('config')
-# define db
+# defines db
 db = SQLAlchemy(app)
 
-# logging
+# logging func if app is not in debug mode
 if not app.debug:
     import logging
     from logging.handlers import RotatingFileHandler
@@ -19,5 +20,5 @@ if not app.debug:
     app.logger.addHandler(file_handler)
     app.logger.info('app startup')
 
-# index; trex instance; device unit
+# app pages
 from app import index, tasks, tests, trexes, devices

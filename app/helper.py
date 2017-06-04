@@ -1,12 +1,8 @@
-<<<<<<< .merge_file_a06804
-def humanize(data, units='si', end=''):
-=======
 # different repeating values on pages, notes, etc
 
 
 def humanize(data, units='si', end=''):
     # changed kilo/mega/giga/etc to K/M/G/etc; uses modulus, no "-"
->>>>>>> .merge_file_a03328
     types = ('', '', 'K', 'M', 'G', 'P', 'E')
     if units == 'si':
         base = 1000
@@ -27,10 +23,7 @@ general_notes = {
 
 test_types = ['common', 'selection']  # in future 'cyclic', 'bundle'
 
-<<<<<<< .merge_file_a06804
-=======
-# traffic patterns from cap2 directory on t-rex
->>>>>>> .merge_file_a03328
+# traffic patterns from cap2 directory on TRex
 stf_traffic_patterns = [
     'cap2/dns.yaml',
     'cap2/dns_one_server.yaml',
@@ -60,40 +53,32 @@ stf_notes = {
         '"Common" is simple test which executes one time',
         '"Selection" is test which is executed different number of time in order to reach result defined in parameters'
     ],
-    'pattern': ['Test pattern which is executed on T-rex (for some reason pattern must located on T-rex now)'],
+    'pattern': ['Test pattern which is executed on TRex (for some reason pattern must located on TRex now)'],
     'multiplier': ['Multiplier affects test pattern values (number of packets per second and packet flow gaps)'],
-<<<<<<< .merge_file_a06804
-    'sampler': ['Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart (for some reason number of sampler size limited to 100 entries now, be careful choosing appropriate value)'],
-=======
     'sampler': [
         'Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart (for some reason number of sampler size limited to 100 entries now, be careful choosing appropriate value)',
         'Set sampler to 0 for auto calculating sample value and solving situation with history size limit'
     ],
->>>>>>> .merge_file_a03328
-    'warm': ['Time for "warm" traffic which services for reasons like in case need to wait for some changes on network like tunnel upping, STP/dot1X timeouts, etc (migth not work on VM due some T-rex soft nuances in current releases)'],
+    'warm': ['Time for "warm" traffic which services for reasons like in case need to wait for some changes on network like tunnel upping, STP/dot1X timeouts, etc (migth not work on VM due some TRex soft nuances in current releases)'],
     'accuracy': ['Accuracy defines percent of per flow packet loss which can be accepted for passing test'],
     'rate_incr_step': ['Rate step value will be used for increasing/decreasing rate value in case test pass/not pass'],
     'selection_test_type': [
         'Defines which value will be used for checking test passing:',
-        '"Safe" considers computed losses and t-rex queue drop (strictest requirement for losses checking)',
+        '"Safe" considers computed losses and TRex queue drop (strictest requirement for losses checking)',
         '"Accuracy" considers computed losses only (strict requirement for losses checking)',
-        '"Drop" considers t-rex queue drop/overload only (less strict requirement for losses checking)'
+        '"Drop" considers TRex queue drop/overload only (less strict requirement for losses checking)'
     ]
 }
 
 stl_notes = {
     'test': stf_notes['test'],
-    'pattern': ['Test pattern which is executed on T-rex'],
+    'pattern': ['Test pattern which is executed on TRex'],
     'rate': ['Number of packets or bits per second'],
     'rate_type': ['Value for rate defines pps or bps rate will be used in test'],
-<<<<<<< .merge_file_a06804
-    'sampler': stf_notes['sampler'],
-=======
     'sampler': [
         'Sampler defines intervals for gathering and saving statistic during test. Every sampler interval statistic writes and in future one will be showed on chart.',
         'Set sampler to 0 for auto calculating sample value.'
     ],
->>>>>>> .merge_file_a03328
     'accuracy': stf_notes['accuracy'],
     'rate_incr_step': stf_notes['rate_incr_step'],
     'selection_test_type': stf_notes['selection_test_type'],
@@ -127,10 +112,7 @@ devices_statuses = {
     'gui': trexes_statuses['gui'],
 }
 
-<<<<<<< .merge_file_a06804
-=======
 # labels
->>>>>>> .merge_file_a03328
 messages = {
     'success': '''
         <div class="alert alert-success alert-dismissible" role="alert">
@@ -146,8 +128,6 @@ messages = {
     'succ_no_close_time': '<div class="alert alert-success" role="alert"><strong>Success!</strong> {0} Page is going to reload in <span id="timeout">{seconds}</span> seconds</div>',
     'no_succ_no_close': '<div class="alert alert-danger" role="alert"><strong>Fail!</strong> {}</div>',
     'warn_no_close': '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> {}</div>',
-<<<<<<< .merge_file_a06804
-=======
     'danger': '''
     <div class="alert alert-danger alert-dismissible" role="alert">
         <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -159,5 +139,297 @@ messages = {
         <strong>Warning!</strong> {}
     </div>''',
     'warn_no_close_time': '<div class="alert alert-warning" role="alert"><strong>Warning!</strong> {0} Need to wait for <span id="timeout">{seconds}</span> seconds</div>',
->>>>>>> .merge_file_a03328
+}
+
+tasks_buttons = {
+    'pending':
+        '''<div class="btn-group btn-pending" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/hold" class="hold" id="{0}">On hold</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/cancel" class="cancel" id="{0}">Cancel</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'pending_hid':
+        '''<div class="btn-group btn-pending hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/hold" class="hold" id="{0}">On hold</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/cancel" class="cancel" id="{0}">Cancel</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'hold':
+        '''<div class="btn-group btn-hold" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/queue" class="queue" id="{0}">To queue</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/cancel" class="cancel" id="{0}">Cancel</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'hold_hid':
+        '''<div class="btn-group btn-hold hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/queue" class="queue" id="{0}">To queue</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/cancel" class="cancel" id="{0}">Cancel</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'done':
+        '''<div class="btn-group btn-done" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/readd" class="readd" id="{0}">Re add</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'done_hid':
+        '''<div class="btn-group btn-done hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/readd" class="readd" id="{0}">Re add</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'canceled':
+        '''<div class="btn-group btn-canceled" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/readd" class="readd" id="{0}">Re add</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'canceled_hid':
+        '''<div class="btn-group btn-canceled hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/readd" class="readd" id="{0}">Re add</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'testing':
+        '''<div class="btn-group btn-testing" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/kill" class="kill" id="{0}"><span class="text-danger">Force kill task</span></a></li>
+            </ul>
+        </div>''',
+    'testing_hid':
+        '''<div class="btn-group btn-testing hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/task/{0}/clone" class="clone" id="{0}">Clone task</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/kill" class="kill" id="{0}"><span class="text-danger">Force kill task</span></a></li>
+            </ul>
+        </div>''',
+}
+
+trexes_buttons = {
+    'idle':
+        '''<div class="btn-group btn-idle" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/trex/{0}/down" class="down" id="{0}">Down TRex</a></li>
+                <li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/trex/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/trex/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'idle_hid':
+        '''<div class="btn-group btn-idle hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/trex/{0}/down" class="down" id="{0}">Down TRex</a></li>
+                <li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/trex/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/trex/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'down':
+        '''<div class="btn-group btn-down" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/trex/{0}/idle" class="idle" id="{0}">To idle</a></li>
+                <li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/trex/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/trex/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'down_hid':
+        '''<div class="btn-group btn-down hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/trex/{0}/idle" class="idle" id="{0}">To idle</a></li>
+                <li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/task/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'testing':
+        '''<div class="btn-group btn-testing" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+            </ul>
+        </div>''',
+    'testing_hid':
+        '''<div class="btn-group btn-testing hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/trex/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+            </ul>
+        </div>'''
+}
+
+devices_buttons = {
+    'idle':
+        '''<div class="btn-group btn-idle" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/device/{0}/down" class="down" id="{0}">Down device</a></li>
+                <li><a href="/device/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/device/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/device/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'idle_hid':
+        '''<div class="btn-group btn-idle hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/device/{0}/down" class="down" id="{0}">Down device</a></li>
+                <li><a href="/device/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/device/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/device/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'down':
+        '''<div class="btn-group btn-down" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/device/{0}/idle" class="idle" id="{0}">To idle</a></li>
+                <li><a href="/device/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/device/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/device/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'down_hid':
+        '''<div class="btn-group btn-down hidden" id="{0}">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/device/{0}/idle" class="idle" id="{0}">To idle</a></li>
+                <li><a href="/device/{0}/check" class="check" id="{0}"><span class="text-primary">Autoset status</span></a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/device/{0}/edit" class="edit" id="{0}">Edit</a></li>
+                <li role="separator" class="divider"></li>
+                <li><a href="/device/{0}/delete" class="delete" id="{0}">Delete</a></li>
+            </ul>
+        </div>''',
+    'testing':
+        '''<div class="btn-group btn-testing">
+            <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+        </div>''',
+    'testing_hid':
+        '''<div class="btn-group btn-testing hidden">
+            <button type="button" class="btn btn-default dropdown-toggle " data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled="disabled">Actions<span class="caret"></span>
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+        </div>'''
 }
