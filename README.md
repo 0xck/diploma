@@ -203,9 +203,11 @@ Click on link **restart** in **server** element in http console restarts web app
 #### Web interface
 Aftrer app was successfully launched go to _http://host address:app port_ _(e.g. http://localhost:5000)_. Now you have access to web interface and can setup TRexes/devices/tests/tasks.
 
-For making a test you should create task but befor task making it is necessary to create all task element:
+For making a test you should create task but before task making it is necessary to create task elements:
 - test
 - TRex
+
+And optional:
 - device
 
 Just go to menu item _New_ and in dropdown menu check approptiate item, fill the form and click _Add_ button.
@@ -250,6 +252,10 @@ Are not supported:
 - any management for TRexes or devices
 - notification
 - SSL/TSL
+- changing priority of managemet elements of TRexes and devices, now it is:
+    - 1st IPv4
+    - 2nd IPv6
+    - 3rd DNS name
 
 ###### TRex
 In whole app is not web interface for TRex, it uses TRex for making tests, gathering information and presenting test result. That means not all TRex features are supported. Are not supported:
