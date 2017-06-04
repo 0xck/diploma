@@ -85,7 +85,7 @@ $(document).ready(function() {
         $(this).closest('tr').children('td.task_status').text('canceled');
         $(this).closest('tr').removeClass();
         $(this).closest('tr').addClass('active');
-        $('div#' + this.id + '.btn-pending').addClass('hidden');
+        $('div#' + this.id + '.btn-testing').addClass('hidden');
         $('div#' + this.id + '.btn-canceled').removeClass('hidden');
     });
 });
