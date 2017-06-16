@@ -239,6 +239,9 @@ The following items are lacking from TRex in our view:
 
 Also one has [hardware](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_hardware_recommendations) and [software](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_hardware_recommendations) limits.
 
+###### Open issues
+You can acquaint them [here](https://trex-tgn.cisco.com/youtrack/issue/).
+
 #### App limits
 App has several limits, some of them will be fixed in future releases. All TRex limits affect app either.
 
