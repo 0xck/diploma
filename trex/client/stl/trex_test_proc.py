@@ -156,7 +156,9 @@ def test(
         # typical data from sample which is in third quarter of sampler's range
         'typical': pseudo_sampler[int((len(pseudo_sampler) * -0.25))],
         # sampled data from 2nd sampler and sampler before last
-        'sampler': pseudo_sampler
+        'sampler': pseudo_sampler,
+        # duration for correct task data info showing
+        'duration': duration
     }
     # closing connection
     client.disconnect()

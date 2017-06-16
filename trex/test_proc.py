@@ -1,11 +1,13 @@
 from app import db, models
+# test processing
+from . test_handler import test_handler
 # stateful tests
-from trex.client.stf import test_common as stf_common
+'''from trex.client.stf import test_common as stf_common
 from trex.client.stf import test_selection as stf_selection
 # statless tests
 from trex.client.stl import test_common as stl_common
 from trex.client.stl import test_selection as stl_selection
-from trex.client.stf import trex_kill
+from trex.client.stf import trex_kill'''
 from datetime import datetime
 import json
 # exception
@@ -38,7 +40,7 @@ def test(task_id=0, **kwargs):
     # trying to define parametrs
     try:
         # defines task mode
-        if task.tests.mode.lower() in {'stateful', 'stateless'}:
+        if task.tests.mode.lower() in {'stateful', 'stateless', 'bundle'}:
             test_attr['mode'] = task.tests.mode.lower()
         else:
             task.start_time = datetime.now().replace(microsecond=0)
@@ -46,7 +48,7 @@ def test(task_id=0, **kwargs):
             task_err(result)
             return result
         # defines test type
-        if task.tests.test_type.lower() in {'common', 'selection'}:
+        if task.tests.test_type.lower() in {'common', 'selection', 'bundle'}:
             test_attr['type'] = task.tests.test_type.lower()
         else:
             task.start_time = datetime.now().replace(microsecond=0)
@@ -96,9 +98,16 @@ def test(task_id=0, **kwargs):
         mng = task.trexes.ip6
     elif task.trexes.fqdn:
         mng = task.trexes.fqdn
-    test_attr['params']['trex']['trex_mng'] = mng
-    # sets port
-    test_attr['params']['trex']['daemon_port'] = task.trexes.port
+    # for single test writing trex mng and port into trex test params
+    if test_attr['mode'] != 'bundle':
+        test_attr['params']['trex']['trex_mng'] = mng
+        # sets port
+        test_attr['params']['trex']['daemon_port'] = task.trexes.port
+    # for bundle just adding trex mng and port
+    else:
+        test_attr['params']['trex_mng'] = mng
+        # sets port
+        test_attr['params']['daemon_port'] = task.trexes.port
 
     # change statuses before test
     task.trexes.status = 'testing'
@@ -108,8 +117,9 @@ def test(task_id=0, **kwargs):
     task.status = 'testing'
     db.session.commit()
 
+    result = test_handler(test_attr)
     # test processing
-    if test_attr['mode'] == 'stateful':
+    '''if test_attr['mode'] == 'stateful':
         if test_attr['type'] == 'common':
             result = stf_test_common(**test_attr['params']['trex'])
         elif test_attr['type'] == 'selection':
@@ -118,7 +128,7 @@ def test(task_id=0, **kwargs):
         if test_attr['type'] == 'common':
             result = stl_test_common(**test_attr['params']['trex'])
         elif test_attr['type'] == 'selection':
-            result = stl_test_selection(**test_attr['params'])
+            result = stl_test_selection(**test_attr['params'])'''
 
     # processing results
     # in case getting error
@@ -129,7 +139,9 @@ def test(task_id=0, **kwargs):
             'duration is wrong',
             'trex option is wrong',
             'rate is equal or less than 0',
-            'max count was exceeded'}
+            'max count was exceeded',
+            'unknown test mode',
+            'unknown test type'}
         kill_err = {
             'error force kill',
             'error kill rpc',
@@ -169,14 +181,16 @@ def test(task_id=0, **kwargs):
     # type of result data depends on test type
     if test_attr['type'] == 'common':
         task.data = json.dumps({'trex': result['values']})
-    else:
+    elif test_attr['type'] == 'selection':
         task.data = json.dumps({'trex': result['values'], 'rate': result['rate']})
+    else:
+        task.data = json.dumps({'trex': result['values']})
     db.session.commit()
     # will add later
     # result.pop('values')
     return result
 
-
+'''
 def stf_test_common(**kwargs):
     # starts statefull common test with args for trex as kwargs
     # getting results
@@ -217,3 +231,4 @@ def stl_test_selection(**kwargs):
     else:
         result['kill_status'] = False
     return result
+'''

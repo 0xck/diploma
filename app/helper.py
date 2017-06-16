@@ -17,11 +17,46 @@ def humanize(data, units='si', end=''):
         return str(abs(data)) + ' ' + end
 
 
+def list_to_seq_list(seq, output='num_list'):
+    """ with output='seq_list' making list of lists with the same items; e.g. [1, 1, 3, 4, 4] ==> [[1, 1], [3], [4, 4]]
+    with output='num_list' making list of lists with item and number of items in sequence; e.g. [1, 1, 3, 4, 4] ==> [[1, 2], [3, 1], [4, 2]]"""
+    # previous initial must exactly be not the same as 1st sequence item
+    previous = None if seq[0] is not None else 0
+    seq_list = []
+    # making list with items as sequence
+    if output == 'seq_list':
+        for item in seq:
+            # if item is the same as last adds one to its sequence list
+            if previous == item:
+                seq_list[-1] += [item]
+            # if item is not the same as last adds one to new sequence list
+            else:
+                seq_list.append([item])
+            previous = item
+    # making list with item and numder of current item in sequence
+    elif output == 'num_list':
+        counter = 0
+        for item in seq:
+            # if item is the same as last increased counter
+            if previous == item:
+                counter += 1
+            # if item is not the same as last adds one to new sequence list; if counter more than 0 adds number of items to previous sequence list
+            else:
+                if counter != 0:
+                    seq_list[-1] += [counter]
+                counter = 1
+                seq_list.append([item])
+            previous = item
+        # adding number of items to last sequence list
+        seq_list[-1] += [counter]
+    return seq_list
+
+
 general_notes = {
     'table_req': 'All fields above are required',
 }
 
-test_types = ['common', 'selection']  # in future 'cyclic', 'bundle'
+test_types = ['common', 'selection', 'bundle']  # in future 'cyclic', 'bundle'
 
 # traffic patterns from cap2 directory on TRex
 stf_traffic_patterns = [
@@ -82,6 +117,12 @@ stl_notes = {
     'accuracy': stf_notes['accuracy'],
     'rate_incr_step': stf_notes['rate_incr_step'],
     'selection_test_type': stf_notes['selection_test_type'],
+}
+
+bundle_notes = {
+    'test_list': ['Select test from list, if need specify number of selected test iteration. Iterations mean sequence from number of attempts for selected test. For some reason current number of test in bundle is limited (only 100 entries, 1 entry is 1 test iteration), in case total number of entries more than 100 only  100 will be used'],
+    'randomize': ['After test is created, sequence of tests will be randomized'],
+    'test_iter_random': ['Randomize number of iterations using "Number of iterations" value as random interval border. E.g. if value is 10, that means number of iterations will be from 1 to 10, if value is 25 then number will be from 1 to 25.']
 }
 
 stl_test_val = {

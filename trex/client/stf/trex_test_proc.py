@@ -89,7 +89,9 @@ def test(
             # typical data from sample which is in third quarter of sampler's range
             'typical': sampler_output[int(len(test_result.get_value_list('.')) * -0.25)],
             # sampled data from 2nd and slice before last
-            'sampler': sampler_output
+            'sampler': sampler_output,
+            # duration for correct task data info showing
+            'duration': duration
         }
     # "d" parameter inserted with wrong value one must be at least 30 seconds long
     except ValueError:

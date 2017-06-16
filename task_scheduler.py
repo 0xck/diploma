@@ -25,7 +25,7 @@ def task_finder():
     # searches appropriate tasks
     # dict of appropriate tasks
     appr_tasks = {}
-    result = {'status': True, 'values': ''}
+    result = {'status': True}
     # getting pending tasks
     tasks = models.Task.query.filter(models.Task.status == 'pending').order_by(models.Task.id).all()
     for task in tasks:
@@ -68,12 +68,23 @@ def task_queuer(interval=300, safe_int=600):
     while True:
         sleep(interval)
         tasks = task_finder()
+
+        print(tasks)
+
         if tasks['status']:
             for task in tasks['values']:
                 # adding task to queue
                 try:
                     # getting timeout; in case selection timeout is summ of max attempt * duration + safe value
-                    timeout = (int(loads(task.tests.parameters)['trex']['duration']) * int(1 if task.tests.test_type != 'selection' else loads(task.tests.parameters)['rate']['max_test_count'])) + int(safe_int)
+                    if task.tests.mode != 'bundle':
+                        timeout = (int(loads(task.tests.parameters)['trex']['duration']) * int(1 if task.tests.test_type != 'selection' else loads(task.tests.parameters)['rate']['max_test_count'])) + int(safe_int)
+                    else:
+                        timeout = int(safe_int)
+                        # making timeout as summ of all tests timeouts
+                        test_params = loads(task.tests.parameters)
+                        for test_entr in test_params['bundle']:
+                            test = models.Test.query.get(test_entr['test_id'])
+                            timeout += (int(loads(test.parameters)['trex']['duration']) * int(1 if test.test_type != 'selection' else loads(test.parameters)['rate']['max_test_count'])) * test_entr['iter']
                     # adding task to queue
                     tasks_queue.enqueue_call(func=test_proc.test, kwargs={'task_id': task.id}, job_id=str(task.id), result_ttl=0, timeout=timeout)
                     # updating task status
