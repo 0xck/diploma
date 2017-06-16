@@ -5,14 +5,16 @@ from flask import render_template, abort, redirect
 from app import app, db, models
 # forms
 from flask_wtf import FlaskForm
-from wtforms import SubmitField, SelectField, TextAreaField, BooleanField, StringField, IntegerField, FloatField
+from wtforms import SubmitField, SelectField, TextAreaField, BooleanField, StringField, IntegerField, FloatField, FieldList, FormField
 from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp, NoneOf, InputRequired
 # notes, etc
-from app.helper import stf_traffic_patterns, stf_notes, stl_notes, general_notes, validator_err, messages, test_types, stl_test_val, sel_test_types
+from app.helper import stf_traffic_patterns, stf_notes, stl_notes, general_notes, validator_err, messages, test_types, stl_test_val, sel_test_types, bundle_notes, list_to_seq_list
 # for handling trex params
 from json import loads, dumps
 # for pattern list
 from os import listdir, getcwd, path
+# shuffling tests
+from random import shuffle, randrange
 
 
 def autosampler(duration):
@@ -26,6 +28,31 @@ def autosampler(duration):
         history = int((duration / sampler) + 1)
         return(sampler, history)
     return(sampler)
+
+
+def bundle_maker(data, random=False):
+    # making bundle list from form
+    # generating of bundle list
+    bundle_list = [
+        {
+            'test_id': int(item['test_list']),
+            # in case iteration randomize iteration value is randomized
+            'iter': int(item['test_iter']) if not item['test_iter_random'] else randrange(1, int(item['test_iter']))
+        } for item in data]
+    # in case test must be randomized
+    if random:
+        # creating new list of lists of test expanding each test with its iteration so each test has only one iteration
+        bundle_list_expanded = [[{'test_id': item['test_id'], 'iter': 1}] * item['iter'] for item in bundle_list]
+        bundle_list_rand = []
+        # making list from lists
+        for test_item in bundle_list_expanded:
+            bundle_list_rand = bundle_list_rand + test_item
+        # randomizing list
+        shuffle(bundle_list_rand)
+        # limits number of test to 100
+        bundle_list_rand = bundle_list_rand[:100]
+        bundle_list = [{'test_id': item[0]['test_id'], 'iter': item[1]} for item in list_to_seq_list(bundle_list_rand)]
+    return bundle_list
 
 
 @app.route('/tests/')
@@ -58,8 +85,10 @@ def tests_table():
         # action button
         if entr.mode == 'stateful':
             table_items['act_button'] = act_button.format(entr.id, 'stf')
-        else:
+        elif entr.mode == 'stateless':
             table_items['act_button'] = act_button.format(entr.id, 'stl')
+        else:
+            table_items['act_button'] = act_button.format(entr.id, 'bundle')
         # link to details
         table_items['show'] = '<a href="/test/{0}">Show</a>'.format(entr.id)
         # link to associated tasks
@@ -283,16 +312,42 @@ def test_create_stf():
         form.wait.data = 1
         form.soft_test.data = True
         # showing form with success message
-        return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
+        return render_template(
+            'test_action.html',
+            form=form,
+            notes=notes,
+            note=note,
+            title=page_title,
+            script_file=script_file,
+            msg=msg,
+            test_type=test_type,
+            mode=mode)
     # if any error occured during validation process
     if len(form.errors) > 0:
         # showing error labels
         msg = ''
         for err in form.errors:
             msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
-        return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, msg=msg, test_type=test_type, mode=mode)
+        return render_template(
+            'test_action.html',
+            form=form,
+            notes=notes,
+            note=note,
+            title=page_title,
+            script_file=script_file,
+            msg=msg,
+            test_type=test_type,
+            mode=mode)
 
-    return render_template('test_action.html', form=form, notes=notes, note=note, title=page_title, script_file=script_file, test_type=test_type, mode=mode)
+    return render_template(
+        'test_action.html',
+        form=form,
+        notes=notes,
+        note=note,
+        title=page_title,
+        script_file=script_file,
+        test_type=test_type,
+        mode=mode)
 
 
 @app.route('/test/<int:test_id>/delete/', methods=['GET', 'POST'])
@@ -1030,13 +1085,6 @@ def test_show(test_id, page=True):
     else:
         if not test_entr or test_entr.hidden:
             abort(404)
-    # getting trex params
-    test_params_trex = loads(test_entr.parameters)['trex']
-    # getting rate params
-    try:
-        test_papams_rate = loads(test_entr.parameters)['rate']
-    except KeyError:
-        test_papams_rate = False
     # var for future filling
     table_data = '''
         <tr>
@@ -1057,90 +1105,131 @@ def test_show(test_id, page=True):
         </tr>
         </table></div></div>'''.format(**test_entr['ALL_DICT'])
     # gathering information for filling table
-    table_items = {}
-    # getting base params db info
-    table_items.update(test_params_trex)
-    # rate/multiplier switcher, multiplier for stateful and rate for stateless
-    if test_entr.mode == 'stateful':
-        table_items['rate_label'] = 'Multiplier'
-    else:
-        table_items['rate_label'] = 'Rate'
-    # rate/multiplier data, , multiplier for stateful and rate for stateless
-    if test_entr.mode == 'stateful':
-        table_items['rate'] = table_items['multiplier']
-    # making table row
-    table_data += '''<div class="panel panel-default">
-        <div class="panel-heading">Test details</div>
+    # for bundle only list of included tests
+    if test_entr.mode == 'bundle':
+        # getting test params
+        test_params = loads(test_entr.parameters)['bundle']
+        # table header
+        table_data += '''<div class="panel panel-default">
+        <div class="panel-heading">Test details (List of tests in bundle are sorted by execution order) [<em>total items in bundle</em>: {}]</div>
         <div class="table-responsive">
             <table class="table table-hover">
-            <tr>
-                <td>Duration</td>
-                <td>{duration}</td>
-            </tr>
-            <tr>
-                <td>Traffic pattern</td>
-                <td>{traffic_pattern}</td>
-            </tr>
-            <tr>
-                <td>{rate_label}</td>
-                <td>{rate}</td>
-            </tr>
-            <tr>
-                <td>Sampler</td>
-                <td>{sampler}</td>
-            </tr>'''.format(**table_items)
-    # table row entries if stateful
-    if test_entr.mode == 'stateful':
-        table_data += '''<tr>
-                        <td>Warm time</td>
-                        <td>{warm}</td>
-                    </tr>
-                    <tr>
-                        <td>NIC initial delay time</td>
-                        <td>{wait}</td>
-                    </tr>
-                    <tr>
-                        <td>TRex is software appliance</td>
-                        <td>{soft_test}</td>
-                    </tr>
-                    <tr>
-                        <td>TRex supports HW offloading</td>
-                        <td>{hw_chsum}</td>
-                    </tr>
-                    </table></div></div>'''.format(**test_params_trex)
+                <tr>
+                    <th>Test ID</th>
+                    <th>Test name</th>
+                    <th>Test description</th>
+                    <th>Test mode</th>
+                    <th>Test type</th>
+                    <th>Number of iterations</th>
+                    <th>Test details</th>
+                </tr>'''.format(len(test_params))
+        # gathering info about included test
+        for item in test_params:
+            item_data = models.Test.query.get(item['test_id'])
+            # writes each test info in table
+            table_data += '''<tr>
+                <td>{id}</td>
+                <td>{name}</td>
+                <td>{description}</td>
+                <td>{mode}</td>
+                <td>{test_type}</td>
+                <td>{}</td>
+                <td><a href="/test/{id}">Show</a></td>
+            </tr>'''.format(item['iter'], **item_data['ALL_DICT'])
+        table_data += '</table></div></div>'
+    # for single all parameters
     else:
-        table_data += '''<tr>
-                        <td>TRex supports HW offloading</td>
-                        <td>{hw_chsum}</td>
-                    </tr>
-                    </table></div></div>'''.format(**test_params_trex)
-    # in case rate params adding inro to table
-    if test_papams_rate:
-        test_papams_rate['accuracy'] = test_papams_rate['accuracy'] * 100
+        # getting trex params
+        test_params_trex = loads(test_entr.parameters)['trex']
+        # getting rate params
+        try:
+            test_papams_rate = loads(test_entr.parameters)['rate']
+        except KeyError:
+            test_papams_rate = False
+        table_items = {}
+        # getting base params db info
+        table_items.update(test_params_trex)
+        # rate/multiplier switcher, multiplier for stateful and rate for stateless
+        if test_entr.mode == 'stateful':
+            table_items['rate_label'] = 'Multiplier'
+        else:
+            table_items['rate_label'] = 'Rate'
+        # rate/multiplier data, , multiplier for stateful and rate for stateless
+        if test_entr.mode == 'stateful':
+            table_items['rate'] = table_items['multiplier']
+        # making table row
         table_data += '''<div class="panel panel-default">
-            <div class="panel-heading">Selection test details</div>
+            <div class="panel-heading">Test details</div>
             <div class="table-responsive">
                 <table class="table table-hover">
                 <tr>
-                    <td>Test accuracy</td>
-                    <td>{accuracy}%</td>
+                    <td>Duration</td>
+                    <td>{duration}</td>
                 </tr>
                 <tr>
-                    <td>Rate increase step</td>
-                    <td>{rate_incr_step}</td>
+                    <td>Traffic pattern</td>
+                    <td>{traffic_pattern}</td>
                 </tr>
                 <tr>
-                    <td>Maximum successfull attempts</td>
-                    <td>{max_succ_attempt}</td>
+                    <td>{rate_label}</td>
+                    <td>{rate}</td>
                 </tr>
                 <tr>
-                    <td>Maximum number of test iterations</td>
-                    <td>{max_test_count}</td>
-                </tr>
-                <tr>
-                    <td>Test type</td>
-                    <td>{test_type}</td>
-                </tr>'''.format(**test_papams_rate)
+                    <td>Sampler</td>
+                    <td>{sampler}</td>
+                </tr>'''.format(**table_items)
+        # table row entries if stateful
+        if test_entr.mode == 'stateful':
+            table_data += '''<tr>
+                            <td>Warm time</td>
+                            <td>{warm}</td>
+                        </tr>
+                        <tr>
+                            <td>NIC initial delay time</td>
+                            <td>{wait}</td>
+                        </tr>
+                        <tr>
+                            <td>TRex is software appliance</td>
+                            <td>{soft_test}</td>
+                        </tr>
+                        <tr>
+                            <td>TRex supports HW offloading</td>
+                            <td>{hw_chsum}</td>
+                        </tr>
+                        </table></div></div>'''.format(**test_params_trex)
+        else:
+            table_data += '''<tr>
+                            <td>TRex supports HW offloading</td>
+                            <td>{hw_chsum}</td>
+                        </tr>
+                        </table></div></div>'''.format(**test_params_trex)
+        # in case rate params adding inro to table
+        if test_papams_rate:
+            test_papams_rate['accuracy'] = test_papams_rate['accuracy'] * 100
+            table_data += '''<div class="panel panel-default">
+                <div class="panel-heading">Selection test details</div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                    <tr>
+                        <td>Test accuracy</td>
+                        <td>{accuracy}%</td>
+                    </tr>
+                    <tr>
+                        <td>Rate increase step</td>
+                        <td>{rate_incr_step}</td>
+                    </tr>
+                    <tr>
+                        <td>Maximum successfull attempts</td>
+                        <td>{max_succ_attempt}</td>
+                    </tr>
+                    <tr>
+                        <td>Maximum number of test iterations</td>
+                        <td>{max_test_count}</td>
+                    </tr>
+                    <tr>
+                        <td>Test type</td>
+                        <td>{test_type}</td>
+                    </tr>'''.format(**test_papams_rate)
     page_title = 'Details of test {}'.format(test_entr.name)
     if page:
         return render_template(
@@ -1149,3 +1238,261 @@ def test_show(test_id, page=True):
             content=table_data)
     else:
         return table_data
+
+
+@app.route('/test/new/bundle/', methods=['GET', 'POST'])
+def test_create_bundle():
+    # creates new bundle test
+    # defining mode
+    mode = 'bundle'
+    # getting test type list
+    test_type = 'bundle'
+    # gathering tests info
+    curr_tests = models.Test.query.order_by(models.Test.id.desc()).all()
+    if len(curr_tests) > 0:
+        # getting lists of current tests values
+        tests = [str(test.id) for test in curr_tests if test.mode != 'bundle']
+        # making select list
+        list_tests = [(str(test.id), '{} [{} ({})] ({})'.format(test.name, test.mode, test.test_type, test.description[:31])) for test in curr_tests if test.mode != 'bundle']
+        # current test names
+        curr_name = [curr.name for curr in curr_tests]
+    else:
+        list_tests = [(None, 'None')]
+        curr_name = []
+
+    class TestForm(FlaskForm):
+        # making template for generating select fields with test entries
+        test_list = SelectField(
+            'Test',
+            validators=[Required(), Length(min=1, max=128), AnyOf(tests)],
+            choices=list_tests,
+            default=list_tests[0])
+        test_iter = IntegerField(
+            label='Number of iterations',
+            validators=[Required(), NumberRange(min=1, max=100)],
+            default=1)
+        test_iter_random = BooleanField(
+            label='Randomize number of iterations',
+            default=False)
+
+    class BundleTestForm(FlaskForm):
+        # making form
+        # common test params
+        name = StringField(
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])])
+        description = TextAreaField(
+            validators=[Length(max=1024)])
+        randomize = BooleanField(
+            'Randomize test order after creation',
+            default=False)
+        # template field
+        test = FieldList(FormField(TestForm), min_entries=1, max_entries=100)
+        # submit
+        submit = SubmitField('Add new')
+    # form obj
+    form = BundleTestForm()
+    # variables
+    page_title = 'New bundle test'
+    script_file = 'test_bundle.js'
+    name = None
+    description = None
+    # require note
+    note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
+    notes = bundle_notes
+    # checking if submit or submit without errors
+    if form.validate_on_submit():
+        # defining variables value from submitted form
+        # common
+        name = form.name.data
+        description = form.description.data
+        # making bundle list for test params
+        bundle = {'bundle': bundle_maker(form.test.data, random=form.randomize.data)}
+        # creates new DB entry
+        new_test = models.Test(
+            name=name,
+            mode=mode,
+            test_type=test_type,
+            description=description,
+            hidden=False,
+            parameters=dumps(bundle))
+        # adding DB entry in DB
+        db.session.add(new_test)
+        db.session.commit()
+        # Success message
+        msg = messages['success'].format('New bundle test was added')
+        # cleaning form
+        # common
+        form.name.data = None
+        form.description.data = None
+        form.randomize.data = False
+        # showing form with success message
+        return render_template(
+            'test_bundle.html',
+            form=form,
+            note=note,
+            notes=notes,
+            title=page_title,
+            script_file=script_file,
+            msg=msg)
+    # if any error occured during validation process
+    if len(form.errors) > 0:
+        # showing error labels
+        msg = ''
+        for err in form.errors:
+            msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
+        return render_template(
+            'test_bundle.html',
+            form=form,
+            note=note,
+            notes=notes,
+            title=page_title,
+            script_file=script_file,
+            msg=msg)
+
+    return render_template(
+        'test_bundle.html',
+        form=form,
+        note=note,
+        notes=notes,
+        title=page_title,
+        script_file=script_file)
+
+
+@app.route('/test/<int:test_id>/edit/bundle/', methods=['GET', 'POST'])
+def test_edit_bundle(test_id):
+    # edits current bundle test
+
+    def bundle_view_maker(bundle, list_tests):
+        # making bundle list for selection list
+        bundle_view = [
+            {
+                'test_id': test['test_id'],
+                'iter': test['iter'],
+                # getting view for each test in bundle using list_tests; making search for each list_tests items in order to find view which value (test id) is the same as in bundle
+                'view': [item[1] for item in list_tests if int(item[0]) == test['test_id']]
+            } for test in bundle]
+        return bundle_view
+
+    # getting test
+    test_entr = models.Test.query.get(test_id)
+    # if no task id returns 404
+    if not test_entr or test_entr.hidden:
+        abort(404)
+    # gathering tests info
+    curr_tests = models.Test.query.order_by(models.Test.id.desc()).all()
+    if len(curr_tests) > 0:
+        # getting lists of current tests values
+        tests = [str(test.id) for test in curr_tests if test.mode != 'bundle']
+        # making select list
+        list_tests = [(str(test.id), '{} [{} ({})] ({})'.format(test.name, test.mode, test.test_type, test.description[:31])) for test in curr_tests if test.mode != 'bundle']
+        # current test names
+        curr_name = [curr.name for curr in curr_tests]
+        curr_name.remove(test_entr.name)
+    else:
+        list_tests = [(None, 'None')]
+        curr_name = []
+    # getting current list of tests
+    get_curr_bundle = loads(test_entr.parameters)['bundle']
+    bundle_view = bundle_view_maker(get_curr_bundle, list_tests)
+
+    class TestForm(FlaskForm):
+        # making template for generating select fields with test entries
+        test_list = SelectField(
+            'Test',
+            validators=[Required(), Length(min=1, max=128), AnyOf(tests)],
+            choices=list_tests)
+        test_iter = IntegerField(
+            label='Number of iterations',
+            validators=[Required(), NumberRange(min=1, max=100)],
+            default=1)
+        test_iter_random = BooleanField(
+            label='Randomize number of iterations',
+            default=False)
+
+    class BundleTestForm(FlaskForm):
+        # making form
+        # common test params
+        name = StringField(
+            validators=[Required(), Length(min=1, max=64), Regexp('^\w+$', message='Name must contain only letters numbers or underscore'), NoneOf(curr_name, message=validator_err['exist'])],
+            default=test_entr.name)
+        description = TextAreaField(
+            validators=[Length(max=1024)],
+            default=test_entr.description)
+        randomize = BooleanField(
+            'Randomize test order after creation',
+            default=False)
+        # template field
+        test = FieldList(FormField(TestForm), min_entries=1, max_entries=100)
+        # submit
+        submit = SubmitField('Save test')
+    # form obj
+    form = BundleTestForm()
+    csrf_value = str(form.csrf_token).split('value=')[1].strip('>').strip('"')
+    # variables
+    page_title = 'Edit bundle test'
+    script_file = 'test_bundle.js'
+    name = None
+    description = None
+    # require note
+    note = '<p class="help-block">Note. {}<p>'.format(general_notes['table_req'])
+    notes = bundle_notes
+    # checking if submit or submit without errors
+    if form.validate_on_submit():
+        # defining variables value from submitted form
+        # common
+        name = form.name.data
+        description = form.description.data
+        bundle = {'bundle': bundle_maker(form.test.data, random=form.randomize.data)}
+        # changes DB entry
+        test_entr.name = name
+        test_entr.description = description
+        test_entr.parameters = dumps(bundle)
+        db.session.commit()
+        # Success message
+        msg = messages['success'].format('New bundle test was added')
+        # cleaning form
+        # common
+        form.name.data = None
+        form.description.data = None
+        form.randomize.data = False
+        bundle_view = bundle_view_maker(bundle['bundle'], list_tests)
+        # showing form with success message
+        return render_template(
+            'test_bundle_edit.html',
+            form=form,
+            note=note,
+            notes=notes,
+            bundle=bundle_view,
+            test_list=list_tests,
+            csrf_value=csrf_value,
+            title=page_title,
+            script_file=script_file,
+            msg=msg)
+    # if any error occured during validation process
+    if len(form.errors) > 0:
+        # showing error labels
+        msg = ''
+        for err in form.errors:
+            msg += messages['warn_no_close'].format('<em>{}</em>: {}'.format(err.capitalize(), form.errors[err][0]))
+        return render_template(
+            'test_bundle_edit.html',
+            form=form,
+            note=note,
+            notes=notes,
+            bundle=bundle_view,
+            test_list=list_tests,
+            csrf_value=csrf_value,
+            title=page_title,
+            script_file=script_file,
+            msg=msg)
+
+    return render_template(
+        'test_bundle_edit.html',
+        form=form,
+        note=note,
+        notes=notes,
+        bundle=bundle_view,
+        test_list=list_tests,
+        csrf_value=csrf_value,
+        title=page_title,
+        script_file=script_file)

@@ -6,7 +6,7 @@ from app import app, db, models
 # forms
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField
-from wtforms.validators import Required, Length, AnyOf, Optional
+from wtforms.validators import Required, Length, AnyOf
 # json for getting params
 from json import loads
 # helper for notes, buttons, etc
@@ -93,6 +93,8 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
                 test_label = 'primary'
             elif entr.tests.mode == 'stateless':
                 test_label = 'info'
+            elif entr.tests.mode == 'bundle':
+                test_label = 'default'
         # gathering information for filling table
         table_items = {}
         # adding task db base info
@@ -158,21 +160,19 @@ def task_create():
     # geta tests list
     get_tests = models.Test.query.order_by(models.Test.id.desc()).all()
     tests = [test.name for test in get_tests]
-    list_tests = ([(test, test) for test in tests[1:]])
-    list_tests.insert(0, (tests[0], '{} (Default)'.format(tests[0])))
+    list_tests = ([(test.name, '{} [{}] ({})'.format(test.name, test.mode, test.description[:31])) for test in get_tests])
     # geta trexes list
     get_trexes = models.Trex.query.order_by(models.Trex.id.desc()).all()
     trexes = [trex.hostname for trex in get_trexes]
     list_trexes = [(trex, trex) for trex in trexes[1:]]
-    list_trexes.insert(0, (trexes[0], '{} (Default)'.format(trexes[0])))
+    list_trexes = ([(trex.hostname, '{} [{}] ({})'.format(trex.hostname, trex.status, trex.description[:31])) for trex in get_trexes])
     # geta devices list
     get_devices = models.Device.query.order_by(models.Device.id.desc()).all()
     devices = [device.name for device in get_devices]
+    list_devices = ([(device, '{} [{}] ({})'.format(device.name, device.status, device.description[:31])) for device in get_devices])
     # adding empty device
     devices.insert(0, 'no_device')
-    list_devices = [(device, device) for device in devices[1:]]
     # by default there is not any device for task
-    list_devices.pop(0)
     list_devices.insert(0, ('no_device', 'No device (Default)'))
     # geta statuses list
     statuses = tasks_statuses['gui_new']
@@ -315,15 +315,25 @@ def task_edit(task_id):
     # geta tests list
     get_tests = models.Test.query.order_by(models.Test.id.desc()).all()
     tests = [test.name for test in get_tests]
+    # making current test 1st
     tests.remove(task_entr.test)
     tests.insert(0, task_entr.test)
-    list_tests = ([(test, test) for test in tests])
+    list_tests = ([(test.name, '{} [{}] ({})'.format(test.name, test.mode, test.description[:31])) for test in get_tests])
+    # making current test 1st
+    curr_test = (task_entr.tests.name, '{} [{}] ({})'.format(task_entr.tests.name, task_entr.tests.mode, task_entr.tests.description[:31]))
+    list_tests.remove(curr_test)
+    list_tests.insert(0, curr_test)
     # geta trexes list
     get_trexes = models.Trex.query.order_by(models.Trex.id.desc()).all()
     trexes = [trex.hostname for trex in get_trexes]
+    # making current test 1st
     trexes.remove(task_entr.trex)
     trexes.insert(0, task_entr.trex)
-    list_trexes = [(trex, trex) for trex in trexes]
+    list_trexes = ([(trex.hostname, '{} [{}] ({})'.format(trex.hostname, trex.status, trex.description[:31])) for trex in get_trexes])
+    # making current test 1st
+    curr_trex = (task_entr.trexes.hostname, '{} [{}] ({})'.format(task_entr.trexes.hostname, task_entr.trexes.status, task_entr.trexes.description[:31]))
+    list_trexes.remove(curr_trex)
+    list_trexes.insert(0, curr_trex)
     # geta devices list
     get_devices = models.Device.query.order_by(models.Device.id.desc()).all()
     devices = [device.name for device in get_devices]
@@ -333,19 +343,20 @@ def task_edit(task_id):
     try:
         devices.remove(task_entr.device)
         devices.insert(0, task_entr.device)
+        curr_device = (task_entr.devices.name, '{} [{}] ({})'.format(task_entr.devices.name, task_entr.devices.status, task_entr.devices.description[:31]))
         empty_dev = False
     # if error that means empty device was choosen for task
     except ValueError:
         empty_dev = True
-    list_devices = [(device, device) for device in devices]
+    list_devices = ([(device.name, '{} [{}] ({})'.format(device.name, device.status, device.description[:31])) for device in get_devices])
     # changing empty device entry
     # in case empty device was choosen for task
     if empty_dev:
-        list_devices.pop(0)
         list_devices.insert(0, ('no_device', 'No device'))
     # if real device was choosen for task
     else:
-        list_devices.pop(1)
+        list_devices.remove(curr_device)
+        list_devices.insert(0, curr_device)
         list_devices.insert(1, ('no_device', 'No device'))
     # geta statuses list
     statuses = tasks_statuses['all']
@@ -515,37 +526,28 @@ def task_show(task_id):
     # no task id returns 404
     if not task_entr:
         abort(404)
-    page_title = 'Task ID {} data'.format(task_id)
-    # cheking if task has error result and shows error info
-    if task_entr.result == 'error':
-        content = '''<p class="lead">An error occured during test:</p>
-        <blockquote>
-            <p><em>"{}"</em></p>
-        </blockquote>'''.format(loads(task_entr.data)['error'])
-        return render_template(
-            'task.html',
-            content=content,
-            title=page_title,
-            no_data=True)
-    # if result is success gathering info for showing
-    elif task_entr.result == 'success':
-        # gets task data
-        task_data = loads(task_entr.data)['trex']
-        duration = loads(task_entr.tests.parameters)['trex']['duration']
-        sampler = len(task_data['sampler'])
+
+    def task_info_maker(test_data, test_id):
+        # making full info from task data
+        # list for gathering result info from all test in bundle
+        full_task_data = []
+        # forms tables with info about certain test result
+        test_entr = models.Test.query.get(test_id)
+        duration = test_data['trex']['duration']
+        sampler = len(test_data['sampler'])
         # gathering chart info
         graph_data = {}
         graph_data['intervals'] = [i * int(duration / sampler) for i in range(sampler + 1)]
-        graph_data['tx_pps'] = [0] + [task_data['sampler'][i]['tx_pps'] for i in range(sampler)]
-        graph_data['rx_pps'] = [0] + [task_data['sampler'][i]['rx_pps'] for i in range(sampler)]
-        graph_data['expected_pps'] = [task_data['global']['expected_pps'] for i in range(sampler + 1)]
-        graph_data['queue_drop'] = [0] + [task_data['sampler'][i]['queue_drop'] for i in range(sampler)]
-        graph_data['queue_full'] = [0] + [task_data['sampler'][i]['queue_full'] for i in range(sampler)]
-        graph_data['tx_bps'] = [0] + [task_data['sampler'][i]['tx_bps'] for i in range(sampler)]
-        graph_data['rx_bps'] = [0] + [task_data['sampler'][i]['rx_bps'] for i in range(sampler)]
-        graph_data['expected_bps'] = [task_data['global']['expected_bps'] for i in range(sampler + 1)]
-        graph_data['rx_drop_bps'] = [0] + [task_data['sampler'][i]['rx_drop_bps'] for i in range(sampler)]
-        # table head and bgin
+        graph_data['tx_pps'] = [0] + [test_data['sampler'][i]['tx_pps'] for i in range(sampler)]
+        graph_data['rx_pps'] = [0] + [test_data['sampler'][i]['rx_pps'] for i in range(sampler)]
+        graph_data['expected_pps'] = [test_data['global']['expected_pps'] for i in range(sampler + 1)]
+        graph_data['queue_drop'] = [0] + [test_data['sampler'][i]['queue_drop'] for i in range(sampler)]
+        graph_data['queue_full'] = [0] + [test_data['sampler'][i]['queue_full'] for i in range(sampler)]
+        graph_data['tx_bps'] = [0] + [test_data['sampler'][i]['tx_bps'] for i in range(sampler)]
+        graph_data['rx_bps'] = [0] + [test_data['sampler'][i]['rx_bps'] for i in range(sampler)]
+        graph_data['expected_bps'] = [test_data['global']['expected_bps'] for i in range(sampler + 1)]
+        graph_data['rx_drop_bps'] = [0] + [test_data['sampler'][i]['rx_drop_bps'] for i in range(sampler)]
+        # table head and begin
         table_data_head = '''<div class="panel panel-default">
             <div class="panel-heading">{}</div>'''
         table_data_begin = '''<div class="table-responsive">
@@ -561,20 +563,20 @@ def task_show(task_id):
                 <td>{1}</td>
             </tr>
         '''.format(
-            humanize(task_data['global']['expected_pps']),
-            humanize(task_data['global']['expected_bps'], units='nist'))
+            humanize(test_data['global']['expected_pps']),
+            humanize(test_data['global']['expected_bps'], units='nist'))
         # cheking for drops
         drop = False
-        for drop_count in task_data['sampler']:
+        for drop_count in test_data['sampler']:
             if int(drop_count['rx_drop_bps']) or int(drop_count['queue_full']) > 0:
                 drop = True
                 break
         # getting port counters
         ports_data = {}
-        for item in task_data['global']:
+        for item in test_data['global']:
             if item in {'expected_pps', 'expected_bps'}:
                 continue
-            ports_data.update(task_data['global'][item])
+            ports_data.update(test_data['global'][item])
         # calculating losses
         ports_data['losses-0'] = ports_data['ipackets-1'] - ports_data['opackets-0']
         ports_data['losses-1'] = ports_data['ipackets-0'] - ports_data['opackets-1']
@@ -629,11 +631,11 @@ def task_show(task_id):
             True if drop else None,
             **ports_data)
         # humanize typical output
-        for item in task_data['typical']:
+        for item in test_data['typical']:
             if 'bps' in item:
-                task_data['typical'][item] = humanize(task_data['typical'][item], units='nist')
+                test_data['typical'][item] = humanize(test_data['typical'][item], units='nist')
             elif 'pps' in item:
-                task_data['typical'][item] = humanize(task_data['typical'][item])
+                test_data['typical'][item] = humanize(test_data['typical'][item])
         # table with typical data
         table_data_typical = '''
             <tr>
@@ -654,7 +656,7 @@ def task_show(task_id):
                 <td>{queue_drop}</td>
                 <td>{queue_full}</td>
             </tr>
-        '''.format(**task_data['typical'])
+        '''.format(**test_data['typical'])
         table_end = '</table></div></div>'
         # collecting all data together
         content = '''
@@ -666,11 +668,56 @@ def task_show(task_id):
             table_data_head.format('Port counters') + table_data_begin + table_data_ports + table_end,
             table_data_head.format('Typical port counters') + table_data_begin + table_data_typical + table_end)
         # test data table
-        test_data = test_show(task_entr.tests.id, page=False)
-        # if test is deleted show message
         test_hidden_msg = False
-        if task_entr.tests.hidden:
+        # for single tests
+        if task_entr.tests.mode != 'bundle':
+            # getting info from task
+            test_data = test_show(test_id, page=False)
+            test_name = test_entr.name
+        # for bundle
+        else:
+            # getting info from bundle test
+            test_data = test_show(test_id, page=False)
+            test_name = test_entr.name
+        # if test is deleted show message
+        if test_entr.hidden:
             test_hidden_msg = 'This test was deleted and is not availaible'
+        # filling data list
+        full_task_data.append(dict(
+            graph=graph_data,
+            content=content,
+            test_data=test_data,
+            test_hidden=test_hidden_msg,
+            test_name=test_name,
+            test_num=test_num))
+        return full_task_data
+
+    page_title = 'Task ID {} data'.format(task_id)
+    # cheking if task has error result and shows error info
+    if task_entr.result == 'error':
+        content = '''<p class="lead">An error occured during test:</p>
+        <blockquote>
+            <p><em>"{}"</em></p>
+        </blockquote>'''.format(loads(task_entr.data)['error'])
+        return render_template(
+            'task.html',
+            content=content,
+            title=page_title,
+            no_data=True)
+    # if result is success gathering info for showing
+    elif task_entr.result == 'success':
+        # procesing test results to tables
+        # getting task data
+        task_data = loads(task_entr.data)['trex']
+        if task_entr.tests.mode != 'bundle':
+            full_task_data = task_info_maker(task_data[0], task_entr.tests.id)
+        # for bundle from bundle using current test index
+        else:
+            # creating new list of lists of test expanding each test with its iteration so each test has only one iteration
+            bundle_list_expanded = [[item['test_id']] * item['iter'] for item in loads(task_entr.tests.parameters)['bundle']]
+            full_task_data = []
+            for test_num, test_id in enumerate(bundle_list_expanded):
+                full_task_data.append(task_info_maker(task_data[test_num], test_id))
         # trex data table
         trex_data = '''
         <tr>
@@ -683,16 +730,22 @@ def task_show(task_id):
             <td>{0}</td>
             <td>{1}</td>
         </tr>'''.format(*(task_entr.device, task_entr.devices.description) if task_entr.device else ('No device', ''))
+        script_file = 'task.js'
+        # single or bundle test
+        if len(task_data) > 1:
+            single = False
+        else:
+            single = True
 
         return render_template(
             'task.html',
-            graph=graph_data,
-            content=content,
+            full_task_data=full_task_data,
             title=page_title,
-            test_data=test_data,
-            test_hidden=test_hidden_msg,
             trex_data=trex_data,
-            device_data=device_data)
+            device_data=device_data,
+            script_file=script_file,
+            no_data=False,
+            single=single)
     else:
         # shows no data if no data for this task
         content = '<p class="lead">Data for this task has not gathered yet.</p>'
