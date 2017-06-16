@@ -8,7 +8,7 @@ from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, BooleanField
 from wtforms.validators import Required, Length, AnyOf, Regexp, IPAddress, NoneOf, Optional
 # notes, statuses, etc
-from app.helper import general_notes, validator_err, messages, devices_statuses, devices_buttons
+from app.helper import general_notes, validator_err, messages, devices_statuses, devices_buttons, device_check_error
 # autoset status
 from checker import device_check
 
@@ -446,12 +446,15 @@ def device_autoset(device_id):
         elif result['state'] == 'unavailable':
             device.status = 'down'
             msg_status = 'down'
+        elif result['state'] in device_check_error:
+            msg_status = result['state']
+            msg = messages['no_succ'].format('The device {} status was not changed. Got error "<label>{}</label>"'.format(device.name, msg_status))
         # handles unknown value
         else:
             msg_status = 'unknown'
             msg = messages['no_succ'].format('The device {} status was not changed. Got unknown state'.format(device.name))
         # writes DB changes
-        if msg_status != 'unknown':
+        if msg_status in {'idle', 'down'}:
             db.session.commit()
             msg = messages['success'].format('The device {} was changed to <label>{}</label>'.format(device.name, msg_status))
     else:

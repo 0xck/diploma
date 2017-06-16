@@ -153,6 +153,8 @@ devices_statuses = {
     'gui': trexes_statuses['gui'],
 }
 
+device_check_error = {'ip error', 'ping util permission denied', 'DNS resolve error'}
+
 # labels
 messages = {
     'success': '''
