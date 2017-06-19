@@ -1,13 +1,6 @@
 from app import db, models
 # test processing
 from . test_handler import test_handler
-# stateful tests
-'''from trex.client.stf import test_common as stf_common
-from trex.client.stf import test_selection as stf_selection
-# statless tests
-from trex.client.stl import test_common as stl_common
-from trex.client.stl import test_selection as stl_selection
-from trex.client.stf import trex_kill'''
 from datetime import datetime
 import json
 # exception
@@ -36,20 +29,27 @@ def test(task_id=0, **kwargs):
         db.session.commit()
 
     # template for test attributes
-    test_attr = {'mode': '', 'type': '', 'params': ''}
+    test_attr = {}
+    # trying to get test data parametrs from JSON
+    try:
+        test_attr['test_data'] = json.loads(task.test_data)
+    except JSONDecodeError:
+        result['state'] = 'import test data parameters error'
+        task_err(result)
+        return result
     # trying to define parametrs
     try:
         # defines task mode
-        if task.tests.mode.lower() in {'stateful', 'stateless', 'bundle'}:
-            test_attr['mode'] = task.tests.mode.lower()
+        if test_attr['test_data'][0]['mode'] in {'stateful', 'stateless', 'bundle'}:
+            test_attr['mode'] = test_attr['test_data'][0]['mode']
         else:
             task.start_time = datetime.now().replace(microsecond=0)
             result['state'] = 'task mode error'
             task_err(result)
             return result
         # defines test type
-        if task.tests.test_type.lower() in {'common', 'selection', 'bundle'}:
-            test_attr['type'] = task.tests.test_type.lower()
+        if test_attr['test_data'][0]['test_type'] in {'common', 'selection', 'bundle'}:
+            test_attr['type'] = test_attr['test_data'][0]['test_type']
         else:
             task.start_time = datetime.now().replace(microsecond=0)
             result['state'] = 'test type error'
@@ -84,7 +84,7 @@ def test(task_id=0, **kwargs):
         return result
     # trying to get test parametrs from JSON
     try:
-        test_attr['params'] = json.loads(task.tests.parameters)
+        test_attr['params'] = json.loads(task.test_data)[0]['parameters']
     except JSONDecodeError:
         result['state'] = 'import test parameters error'
         task_err(result)
@@ -117,18 +117,8 @@ def test(task_id=0, **kwargs):
     task.status = 'testing'
     db.session.commit()
 
-    result = test_handler(test_attr)
     # test processing
-    '''if test_attr['mode'] == 'stateful':
-        if test_attr['type'] == 'common':
-            result = stf_test_common(**test_attr['params']['trex'])
-        elif test_attr['type'] == 'selection':
-            result = stf_test_selection(**test_attr['params'])
-    else:
-        if test_attr['type'] == 'common':
-            result = stl_test_common(**test_attr['params']['trex'])
-        elif test_attr['type'] == 'selection':
-            result = stl_test_selection(**test_attr['params'])'''
+    result = test_handler(test_attr)
 
     # processing results
     # in case getting error
@@ -189,46 +179,3 @@ def test(task_id=0, **kwargs):
     # will add later
     # result.pop('values')
     return result
-
-'''
-def stf_test_common(**kwargs):
-    # starts statefull common test with args for trex as kwargs
-    # getting results
-    result = stf_common.testing(**kwargs)
-    return result
-
-
-def stf_test_selection(**kwargs):
-    # starts statefull selection test with args for trex as kwargs['trex'] and rate attr for Criterion class as kwargs['rate']
-    # crating Criterion object for define test parametrs
-    task = stf_selection.Criterion(**kwargs['rate'])
-    # getting results
-    result = stf_selection.testing(task, **kwargs['trex'])
-    return result
-
-
-def stl_test_common(**kwargs):
-    # starts stateless common test with args for trex as kwargs
-    # getting results
-    result = stl_common.testing(**kwargs)
-    # killing stateless mode
-    if trex_kill.soft(**kwargs):
-        result['kill_status'] = True
-    else:
-        result['kill_status'] = False
-    return result
-
-
-def stl_test_selection(**kwargs):
-    # starts stateless selection test with args for trex as kwargs['trex'] and rate attr for Criterion class as kwargs['rate']
-    # crating Criterion object for define test parametrs
-    task = stl_selection.Criterion(**kwargs['rate'])
-    # getting results
-    result = stl_selection.testing(task, **kwargs['trex'])
-    # killing stateless mode
-    if trex_kill.soft(**kwargs):
-        result['kill_status'] = True
-    else:
-        result['kill_status'] = False
-    return result
-'''

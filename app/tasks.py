@@ -8,9 +8,9 @@ from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField
 from wtforms.validators import Required, Length, AnyOf
 # json for getting params
-from json import loads
+from json import loads, dumps, JSONDecodeError
 # helper for notes, buttons, etc
-from app.helper import general_notes, humanize, tasks_statuses, messages, tasks_buttons
+from app.helper import general_notes, humanize, tasks_statuses, messages, tasks_buttons, no_db_item
 # test show func for task view
 from app.tests import test_show
 # killer for killing task
@@ -54,7 +54,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         elif entr.status == 'canceled':
             act_button = tasks_buttons['pending_hid'] + tasks_buttons['hold_hid'] + tasks_buttons['done_hid'] + tasks_buttons['canceled'] + tasks_buttons['testing_hid']
             status_row += ' active canceled"'
-        elif entr.status == 'testing':
+        elif entr.status in {'testing', 'queued'}:
             act_button = tasks_buttons['pending_hid'] + tasks_buttons['hold_hid'] + tasks_buttons['done_hid'] + tasks_buttons['canceled_hid'] + tasks_buttons['testing']
             status_row += ' warning testing"'
         else:
@@ -87,14 +87,20 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
                 trex_label = 'warning'
             else:
                 trex_label = 'danger'
-        # cheking t-rex and device status and sets html params for mode labels
-        if entr.tests:
-            if entr.tests.mode == 'stateful':
-                test_label = 'primary'
-            elif entr.tests.mode == 'stateless':
-                test_label = 'info'
-            elif entr.tests.mode == 'bundle':
-                test_label = 'default'
+        # getting parameters from task test
+        try:
+            curr_test = loads(entr.test_data)[0]
+        except IndexError:
+            curr_test = False
+        if curr_test:
+            if curr_test['mode'] == 'stateful':
+                curr_test_label = 'primary'
+            elif curr_test['mode'] == 'stateless':
+                curr_test_label = 'info'
+            elif curr_test['mode'] == 'bundle':
+                curr_test_label = 'default'
+            else:
+                curr_test_label = 'danger'
         # gathering information for filling table
         table_items = {}
         # adding task db base info
@@ -112,13 +118,17 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
         else:
             table_items['trex'] = '<em>TRex was deleted</em>'
         # device
-
         if entr.device:
             table_items['device'] = '<a href="/device/{1}">{0}</a><br /><small class="text-{2}">{3}</small>'.format(entr.devices.name, entr.devices.id, dev_label, entr.devices.status)
         else:
             table_items['device'] = '<em>No device</em>'
-        # test
-        table_items['test'] = '<a href="/test/{1}">{0}</a><br /><span class="label label-{3}">{2}</span>'.format(entr.tests.name, entr.tests.id, entr.tests.mode, test_label)
+        # test source
+        if entr.tests:
+            table_items['test'] = '<a href="/test/{1}">{0}</a>'.format(entr.tests.name, entr.tests.id, entr.tests.mode)
+        else:
+            table_items['test'] = '<em><small>Source test was deleted</small></em>'
+        # task test parameters
+        table_items['curr_test'] = '<a href="/task/test/{1}">{0}</a><br /><span class="label label-{3}">{2}</span>'.format(curr_test['name'], entr.id, curr_test['mode'], curr_test_label)
         # actions button
         table_items['act_button'] = act_button.format(entr.id)
         # result link
@@ -134,6 +144,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
                 <td><small>{description}</small></td>
                 <td><small>{start_time}<br />{end_time}</small></td>
                 <td>{duration}</td>
+                <td>{curr_test}</td>
                 <td>{test}</td>
                 <td>{trex}</td>
                 <td>{device}</td>
@@ -142,7 +153,7 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
             </tr>
         '''.format(**table_items)
         # js script
-        script_file = 'tasks.js'
+    script_file = 'tasks.js'
 
     return render_template(
         'tasks.html',
@@ -156,15 +167,25 @@ def tasks_table(query=False, filtered_msg=False, filter_nav=True):
 @app.route('/task/new/', methods=['GET', 'POST'])
 def task_create():
     # making new task
+    page_title = 'New Task'
     # getting info for filling forms in especial order
     # geta tests list
     get_tests = models.Test.query.order_by(models.Test.id.desc()).all()
-    tests = [test.name for test in get_tests]
-    list_tests = ([(test.name, '{} [{}] ({})'.format(test.name, test.mode, test.description[:31])) for test in get_tests])
     # geta trexes list
     get_trexes = models.Trex.query.order_by(models.Trex.id.desc()).all()
+    # if no one test or trex
+    for item, item_type in ((get_tests, 'test'), (get_trexes, 'TRex')):
+        content = no_db_item(item, item_type)
+        if content:
+            return render_template(
+                'task.html',
+                content=content,
+                title=page_title,
+                no_data=True)
+    tests = [test.name for test in get_tests]
+    list_tests = [(test.name, '{} [{}] ({})'.format(test.name, test.mode, test.description[:31])) for test in get_tests]
+    # making trexes list
     trexes = [trex.hostname for trex in get_trexes]
-    list_trexes = [(trex, trex) for trex in trexes[1:]]
     list_trexes = ([(trex.hostname, '{} [{}] ({})'.format(trex.hostname, trex.status, trex.description[:31])) for trex in get_trexes])
     # geta devices list
     get_devices = models.Device.query.order_by(models.Device.id.desc()).all()
@@ -204,7 +225,6 @@ def task_create():
     # form obj
     form = TaskForm()
     # variables
-    page_title = 'New Task'
     test = None
     trex = None
     device = None
@@ -223,9 +243,23 @@ def task_create():
         # checking for empty device
         if device == 'no_device':
             device = None
+        # getting test parameters
+        test_entr = models.Test.query.filter(models.Test.name == test).first()
+        # for not bundle test
+        if test_entr.mode != 'bundle':
+            test_data = [test_entr['ALL_DICT_NO_JSON']]
+        # for bundle test
+        else:
+            uniq_tests = {test['test_id'] for test in loads(test_entr.parameters)['bundle']}
+            bundle_tests = [test_entr.id] + [test_item for test_item in uniq_tests]
+            test_data = []
+            for test_id in bundle_tests:
+                test_entr_item = models.Test.query.get(test_id)
+                test_data.append(test_entr_item['ALL_DICT_NO_JSON'])
         # creates DB entry
         new_task = models.Task(
             test=test,
+            test_data=dumps(test_data),
             trex=trex,
             device=device,
             description=description,
@@ -288,9 +322,6 @@ def task_delete(task_id):
         db.session.delete(task_entr)
         # cleans form fields
         form.checker.data = False
-        # if hidden test connected with current task exixts one needs to be deleted
-        if task_entr.tests.hidden:
-            db.session.delete(task_entr.tests)
         db.session.commit()
         del_msg = messages['succ_no_close'].format('The task ID {} was deleted'.format(task_id))
         return render_template(
@@ -311,9 +342,21 @@ def task_edit(task_id):
     # no task id returns 404
     if not task_entr:
         abort(404)
+    page_title = 'Edit Task ID {}'.format(task_id)
     # getting info for filling forms in especial order, fields will equal current task values
     # geta tests list
     get_tests = models.Test.query.order_by(models.Test.id.desc()).all()
+    # geta trexes list
+    get_trexes = models.Trex.query.order_by(models.Trex.id.desc()).all()
+    # if no one test or trex
+    for item, item_type in ((get_tests, 'test'), (get_trexes, 'trex')):
+        content = no_db_item(item, item_type)
+        if content:
+            return render_template(
+                'task.html',
+                content=content,
+                title=page_title,
+                no_data=True)
     tests = [test.name for test in get_tests]
     # making current test 1st
     tests.remove(task_entr.test)
@@ -321,10 +364,10 @@ def task_edit(task_id):
     list_tests = ([(test.name, '{} [{}] ({})'.format(test.name, test.mode, test.description[:31])) for test in get_tests])
     # making current test 1st
     curr_test = (task_entr.tests.name, '{} [{}] ({})'.format(task_entr.tests.name, task_entr.tests.mode, task_entr.tests.description[:31]))
+    curr_test_id = task_entr.tests.id
     list_tests.remove(curr_test)
     list_tests.insert(0, curr_test)
-    # geta trexes list
-    get_trexes = models.Trex.query.order_by(models.Trex.id.desc()).all()
+    # making trexes list
     trexes = [trex.hostname for trex in get_trexes]
     # making current test 1st
     trexes.remove(task_entr.trex)
@@ -421,6 +464,21 @@ def task_edit(task_id):
         task_entr.device = device
         task_entr.description = description
         task_entr.status = status
+        # checking if test was changed
+        test_entr = models.Test.query.filter(models.Test.name == test).first()
+        if curr_test_id != test_entr.id:
+            # for not bundle test
+            if test_entr.mode != 'bundle':
+                test_data = [test_entr['ALL_DICT_NO_JSON']]
+            # for bundle test
+            else:
+                uniq_tests = {test['test_id'] for test in loads(test_entr.parameters)['bundle']}
+                bundle_tests = [test_entr.id] + [test_item for test_item in uniq_tests]
+                test_data = []
+                for test_id in bundle_tests:
+                    test_entr_item = models.Test.query.get(test_id)
+                    test_data.append(test_entr_item['ALL_DICT_NO_JSON'])
+            task_entr.test_data = dumps(test_data)
         # save DB entry in DB
         db.session.commit()
         # success message
@@ -527,17 +585,17 @@ def task_show(task_id):
     if not task_entr:
         abort(404)
 
-    def task_info_maker(test_data, test_id):
+    def task_info_maker(test_data, test_params, test_num):
         # making full info from task data
         # list for gathering result info from all test in bundle
         full_task_data = []
         # forms tables with info about certain test result
-        test_entr = models.Test.query.get(test_id)
-        duration = test_data['trex']['duration']
+        duration = test_params['parameters']['trex']['duration']
         sampler = len(test_data['sampler'])
+        interval = 1 if int(duration / sampler) < 1 else int(duration / sampler)
         # gathering chart info
         graph_data = {}
-        graph_data['intervals'] = [i * int(duration / sampler) for i in range(sampler + 1)]
+        graph_data['intervals'] = [i * interval for i in range(sampler + 1)]
         graph_data['tx_pps'] = [0] + [test_data['sampler'][i]['tx_pps'] for i in range(sampler)]
         graph_data['rx_pps'] = [0] + [test_data['sampler'][i]['rx_pps'] for i in range(sampler)]
         graph_data['expected_pps'] = [test_data['global']['expected_pps'] for i in range(sampler + 1)]
@@ -668,26 +726,15 @@ def task_show(task_id):
             table_data_head.format('Port counters') + table_data_begin + table_data_ports + table_end,
             table_data_head.format('Typical port counters') + table_data_begin + table_data_typical + table_end)
         # test data table
-        test_hidden_msg = False
-        # for single tests
-        if task_entr.tests.mode != 'bundle':
-            # getting info from task
-            test_data = test_show(test_id, page=False)
-            test_name = test_entr.name
-        # for bundle
-        else:
-            # getting info from bundle test
-            test_data = test_show(test_id, page=False)
-            test_name = test_entr.name
+        # generating test details
+        test_data = test_show(page=False, test_data=test_params)
+        test_name = test_params['name']
         # if test is deleted show message
-        if test_entr.hidden:
-            test_hidden_msg = 'This test was deleted and is not availaible'
         # filling data list
         full_task_data.append(dict(
             graph=graph_data,
             content=content,
             test_data=test_data,
-            test_hidden=test_hidden_msg,
             test_name=test_name,
             test_num=test_num))
         return full_task_data
@@ -709,15 +756,18 @@ def task_show(task_id):
         # procesing test results to tables
         # getting task data
         task_data = loads(task_entr.data)['trex']
-        if task_entr.tests.mode != 'bundle':
-            full_task_data = task_info_maker(task_data[0], task_entr.tests.id)
+        # test settings
+        test_data = loads(task_entr.test_data)
+        # making test info
+        if test_data[0]['mode'] != 'bundle':
+            full_task_data = task_info_maker(task_data[0], test_data[0], 0)
         # for bundle from bundle using current test index
         else:
-            # creating new list of lists of test expanding each test with its iteration so each test has only one iteration
-            bundle_list_expanded = [[item['test_id']] * item['iter'] for item in loads(task_entr.tests.parameters)['bundle']]
+            # creating list of lists of test expanding each test with its iteration so each test has only one iteration
+            bundle_list_expanded = [[item['test_id']] * item['iter'] for item in test_data[0]['bundle']]
             full_task_data = []
             for test_num, test_id in enumerate(bundle_list_expanded):
-                full_task_data.append(task_info_maker(task_data[test_num], test_id))
+                full_task_data.append(task_info_maker(task_data[test_num], test_data[(test_num + 1)], test_num))
         # trex data table
         trex_data = '''
         <tr>
@@ -826,6 +876,7 @@ def clone_task(task_id):
         # creates new DB entry
         new_task = models.Task(
             test=task_entr.test,
+            test_data=task_entr.test_data,
             trex=task_entr.trex,
             device=task_entr.device,
             # gets description from origin task
@@ -866,3 +917,35 @@ def kill_trex_tasks(task_id):
         # if not task id returns 404
         abort(404)
     return msg
+
+
+@app.route('/task/test/<int:task_id>/')
+def task_test_show(task_id):
+    # shows test settings from task (task_data)
+    task_entr = models.Task.query.get(task_id)
+    if not task_entr:
+        abort(404)
+    # getting test parameters from DB
+    try:
+        test_params = loads(task_entr.test_data)[0]
+    except IndexError:
+        test_params = False
+        msg = '<label>No parameters item</label>'
+    except JSONDecodeError:
+        test_params = False
+        msg = '<label>Import test parameters error</label>'
+    page_title = 'Task ID {} test settings'.format(task_id)
+    # shows test parameters page
+    if test_params:
+        test_data = test_show(page=False, test_data=test_params)
+        return render_template(
+            'test.html',
+            title=page_title,
+            content=test_data)
+    # shows error
+    else:
+        return render_template(
+            'task.html',
+            title=page_title,
+            content=msg,
+            no_data=True)

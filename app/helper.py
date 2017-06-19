@@ -52,11 +52,21 @@ def list_to_seq_list(seq, output='num_list'):
     return seq_list
 
 
+def no_db_item(item, item_type):
+    # checking for DB entry returns False or error msg
+    content = False
+    # if no DB entry
+    if len(item) < 1:
+        # returns error msg for no item
+        content = '<p class="lead">There was not any {0}. You should create {0} first.</p>'.format(item_type)
+    return content
+
+
 general_notes = {
     'table_req': 'All fields above are required',
 }
 
-test_types = ['common', 'selection', 'bundle']  # in future 'cyclic', 'bundle'
+test_types = ['common', 'selection']
 
 # traffic patterns from cap2 directory on TRex
 stf_traffic_patterns = [
@@ -138,7 +148,7 @@ validator_err = {
 }
 
 tasks_statuses = {
-    'all': ['done', 'pending', 'hold', 'testing', 'canceled'],
+    'all': ['done', 'pending', 'hold', 'testing', 'canceled', 'queued'],
     'gui_new': ['pending', 'hold'],
     'gui_edit': ['pending', 'hold', 'canceled']
 }

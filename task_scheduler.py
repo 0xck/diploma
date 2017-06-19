@@ -68,23 +68,22 @@ def task_queuer(interval=300, safe_int=600):
     while True:
         sleep(interval)
         tasks = task_finder()
-
-        print(tasks)
-
         if tasks['status']:
             for task in tasks['values']:
+                test_data = loads(task.test_data)[0]
                 # adding task to queue
                 try:
                     # getting timeout; in case selection timeout is summ of max attempt * duration + safe value
-                    if task.tests.mode != 'bundle':
-                        timeout = (int(loads(task.tests.parameters)['trex']['duration']) * int(1 if task.tests.test_type != 'selection' else loads(task.tests.parameters)['rate']['max_test_count'])) + int(safe_int)
+                    if test_data['mode'] != 'bundle':
+                        timeout = (test_data['parameters']['trex']['duration'] * 1 if test_data['test_type'] != 'selection' else test_data['parameters']['rate']['max_test_count']) + safe_int
                     else:
-                        timeout = int(safe_int)
+                        timeout = safe_int
                         # making timeout as summ of all tests timeouts
-                        test_params = loads(task.tests.parameters)
-                        for test_entr in test_params['bundle']:
-                            test = models.Test.query.get(test_entr['test_id'])
-                            timeout += (int(loads(test.parameters)['trex']['duration']) * int(1 if test.test_type != 'selection' else loads(test.parameters)['rate']['max_test_count'])) * test_entr['iter']
+                        test_params = test_data['parameters']['bundle']
+                        for test_entr in test_params:
+                            # getting test params
+                            test = [test_data_item for test_data_item in test_data if test_data_item['id'] == test_entr['test_id']][0]
+                            timeout += (test['parameters']['trex']['duration'] * 1 if test['test_type'] != 'selection' else test['parameters']['rate']['max_test_count']) * test_entr['iter']
                     # adding task to queue
                     tasks_queue.enqueue_call(func=test_proc.test, kwargs={'task_id': task.id}, job_id=str(task.id), result_ttl=0, timeout=timeout)
                     # updating task status

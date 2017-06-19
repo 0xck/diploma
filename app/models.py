@@ -1,6 +1,7 @@
 # models for working with DB
 # DB
 from app import db
+from json import loads
 
 
 # db tables
@@ -218,6 +219,8 @@ class Task(db.Model):
     device = db.Column(db.Integer, db.ForeignKey('device.name'), nullable=True)
     # associated test
     test = db.Column(db.Integer, db.ForeignKey('test.name'))
+    # associated test data
+    test_data = db.Column(db.Text, nullable=True)
     # associated user
     user = db.Column(db.Integer, db.ForeignKey('user.id'))
 
@@ -308,8 +311,6 @@ class Test(db.Model):
     parameters = db.Column(db.Text)
     # test description
     description = db.Column(db.Text)
-    # hidden
-    hidden = db.Column(db.Boolean)
     # associated trex instance
     tasks = db.relationship('Task', backref='tests')
 
@@ -327,8 +328,7 @@ class Test(db.Model):
             self.mode,
             self.test_type,
             self.parameters,
-            self.description,
-            self.hidden)
+            self.description)
 
     def __getitem__(self, index):
         # different returns
@@ -340,7 +340,6 @@ class Test(db.Model):
                 self.mode,
                 self.test_type,
                 self.description,
-                self.hidden,
                 self.parameters]
         # return dict of args
         elif index == 'ALL_DICT':
@@ -350,8 +349,16 @@ class Test(db.Model):
                 mode=self.mode,
                 test_type=self.test_type,
                 description=self.description,
-                hidden=self.hidden,
                 parameters=self.parameters)
+        # return dict of args
+        elif index == 'ALL_DICT_NO_JSON':
+            return dict(
+                id=self.id,
+                name=self.name,
+                mode=self.mode,
+                test_type=self.test_type,
+                description=self.description,
+                parameters=loads(self.parameters))
         # return index of list of args
         else:
             return [
@@ -360,7 +367,6 @@ class Test(db.Model):
                 self.mode,
                 self.test_type,
                 self.description,
-                self.hidden,
                 self.parameters][index]
 
 

@@ -8,7 +8,7 @@ from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, BooleanField, StringField, IntegerField, FloatField, FieldList, FormField
 from wtforms.validators import Required, Length, AnyOf, NumberRange, Regexp, NoneOf, InputRequired
 # notes, etc
-from app.helper import stf_traffic_patterns, stf_notes, stl_notes, general_notes, validator_err, messages, test_types, stl_test_val, sel_test_types, bundle_notes, list_to_seq_list
+from app.helper import stf_traffic_patterns, stf_notes, stl_notes, general_notes, validator_err, messages, test_types, stl_test_val, sel_test_types, bundle_notes, list_to_seq_list, no_db_item
 # for handling trex params
 from json import loads, dumps
 # for pattern list
@@ -58,7 +58,7 @@ def bundle_maker(data, random=False):
 @app.route('/tests/')
 def tests_table():
     # shows tests table
-    tests_entr = models.Test.query.filter(models.Test.hidden == False).order_by(models.Test.id.desc()).all()
+    tests_entr = models.Test.query.order_by(models.Test.id.desc()).all()
     # action button template
     act_button_template = {
         'begin': '''<div class="btn-group">
@@ -250,8 +250,8 @@ def test_create_stf():
         wait = int(form.wait.data)
         soft_test = form.soft_test.data
         # calculating sampler
+        history = False
         if sampler == 0:
-            history = False
             if duration <= 1000:
                 sampler = autosampler(duration)
             else:
@@ -284,7 +284,6 @@ def test_create_stf():
             mode=mode,
             test_type=test_type,
             description=description,
-            hidden=False,
             parameters=dumps(dict(trex=trex_params) if test_type == 'common' else dict(trex=trex_params, rate=rate_params)))
         # adding DB entry in DB
         db.session.add(new_test)
@@ -355,7 +354,7 @@ def test_delete(test_id):
     # deletes test
     test_entr = models.Test.query.get(test_id)
     # if no task id returns 404
-    if not test_entr or test_entr.hidden:
+    if not test_entr:
         abort(404)
 
     class DeleteForm(FlaskForm):
@@ -367,12 +366,7 @@ def test_delete(test_id):
     page_title = 'Test {} deleting confirmation'.format(test_entr.name)
     # checking if checked
     if form.checker.data:
-        # even one task exists need to hide this test, in order to access test info from task view
-        if test_entr.tasks:
-            test_entr.hidden = True
-        # in case no tasks for test deletes test
-        else:
-            db.session.delete(test_entr)
+        db.session.delete(test_entr)
         db.session.commit()
         # cleans form
         form.checker.data = False
@@ -389,7 +383,7 @@ def test_edit_stf(test_id):
     # defining mode
     mode = 'stateful'
     # if no task id returns 404
-    if not test_entr or test_entr.hidden:
+    if not test_entr:
         abort(404)
     # redirects to stateless edit in case test mode is not stateful
     elif test_entr.mode != mode:
@@ -465,7 +459,7 @@ def test_edit_stf(test_id):
         accuracy = FloatField(
             label='Accuracy of test result in percents',
             validators=[Required(), NumberRange(min=0.0000000001, max=100)],
-            default=test_papams_rate['accuracy'])
+            default=test_papams_rate['accuracy'] * 100)
         rate_incr_step = FloatField(
             label='Rate step',
             validators=[Required(), NumberRange(min=0.0001, max=100000)],
@@ -543,8 +537,8 @@ def test_edit_stf(test_id):
         wait = int(form.wait.data)
         soft_test = form.soft_test.data
         # calculating sampler
+        history = False
         if sampler == 0:
-            history = False
             if duration <= 1000:
                 sampler = autosampler(duration)
             else:
@@ -781,7 +775,6 @@ def test_create_stl():
             mode=mode,
             test_type=test_type,
             description=description,
-            hidden=False,
             parameters=dumps(dict(trex=trex_params) if test_type == 'common' else dict(trex=trex_params, rate=rate_params)))
         # adding DB entry in DB
         db.session.add(new_test)
@@ -851,7 +844,7 @@ def test_edit_stl(test_id):
     mode = 'stateless'
     test_entr = models.Test.query.get(test_id)
     # if no task id returns 404
-    if not test_entr or test_entr.hidden:
+    if not test_entr:
         abort(404)
     # redirects to stateful edit in case test mode is not stateless
     elif test_entr.mode != mode:
@@ -941,7 +934,7 @@ def test_edit_stl(test_id):
         accuracy = FloatField(
             label='Accuracy of test result in percents',
             validators=[Required(), NumberRange(min=0.0000000001, max=100)],
-            default=test_papams_rate['accuracy'])
+            default=test_papams_rate['accuracy'] * 100)
         rate_incr_step = IntegerField(
             label='Rate step',
             validators=[Required(), NumberRange(min=1, max=100000)],
@@ -1074,16 +1067,24 @@ def test_edit_stl(test_id):
 
 
 @app.route('/test/<int:test_id>/')
-def test_show(test_id, page=True):
+def test_show(test_id=0, page=True, test_data=False):
     '''shows test detail
-    page means making page otherwise returns only certain test data for task view'''
-    test_entr = models.Test.query.get(test_id)
-    # no test or test is hidden id returns 404
+    page means making page otherwise returns only certain test data for task view
+    test_data is used in case info is not from DB, e.g. from other module etc'''
+    # if info is given from DB
+    if not test_data:
+        test_db_entr = models.Test.query.get(test_id)
+        test_entr = test_db_entr['ALL_DICT']
+        test_entr['parameters'] = loads(test_entr['parameters'])
+    # if info is not from DB, from task for example
+    else:
+        test_entr = test_data
+    # if there is not a test
     if not page:
         if not test_entr:
             abort(404)
     else:
-        if not test_entr or test_entr.hidden:
+        if not test_entr:
             abort(404)
     # var for future filling
     table_data = '''
@@ -1103,12 +1104,12 @@ def test_show(test_id, page=True):
             <td>Description</td>
             <td>{description}</td>
         </tr>
-        </table></div></div>'''.format(**test_entr['ALL_DICT'])
+        </table></div></div>'''.format(**test_entr)
     # gathering information for filling table
     # for bundle only list of included tests
-    if test_entr.mode == 'bundle':
+    if test_entr['mode'] == 'bundle':
         # getting test params
-        test_params = loads(test_entr.parameters)['bundle']
+        test_params = test_entr['parameters']['bundle']
         # table header
         table_data += '''<div class="panel panel-default">
         <div class="panel-heading">Test details (List of tests in bundle are sorted by execution order) [<em>total items in bundle</em>: {}]</div>
@@ -1140,22 +1141,22 @@ def test_show(test_id, page=True):
     # for single all parameters
     else:
         # getting trex params
-        test_params_trex = loads(test_entr.parameters)['trex']
+        test_params_trex = test_entr['parameters']['trex']
         # getting rate params
         try:
-            test_papams_rate = loads(test_entr.parameters)['rate']
+            test_papams_rate = test_entr['parameters']['rate']
         except KeyError:
             test_papams_rate = False
         table_items = {}
         # getting base params db info
         table_items.update(test_params_trex)
         # rate/multiplier switcher, multiplier for stateful and rate for stateless
-        if test_entr.mode == 'stateful':
+        if test_entr['mode'] == 'stateful':
             table_items['rate_label'] = 'Multiplier'
         else:
             table_items['rate_label'] = 'Rate'
         # rate/multiplier data, , multiplier for stateful and rate for stateless
-        if test_entr.mode == 'stateful':
+        if test_entr['mode'] == 'stateful':
             table_items['rate'] = table_items['multiplier']
         # making table row
         table_data += '''<div class="panel panel-default">
@@ -1179,7 +1180,7 @@ def test_show(test_id, page=True):
                     <td>{sampler}</td>
                 </tr>'''.format(**table_items)
         # table row entries if stateful
-        if test_entr.mode == 'stateful':
+        if test_entr['mode'] == 'stateful':
             table_data += '''<tr>
                             <td>Warm time</td>
                             <td>{warm}</td>
@@ -1230,7 +1231,7 @@ def test_show(test_id, page=True):
                         <td>Test type</td>
                         <td>{test_type}</td>
                     </tr>'''.format(**test_papams_rate)
-    page_title = 'Details of test {}'.format(test_entr.name)
+    page_title = 'Details of test {}'.format(test_entr['name'])
     if page:
         return render_template(
             'test.html',
@@ -1247,8 +1248,17 @@ def test_create_bundle():
     mode = 'bundle'
     # getting test type list
     test_type = 'bundle'
+    page_title = 'New bundle test'
     # gathering tests info
     curr_tests = models.Test.query.order_by(models.Test.id.desc()).all()
+    # checking for tests existing
+    content = no_db_item(curr_tests, 'test')
+    if content:
+        return render_template(
+            'test.html',
+            content=content,
+            title=page_title,
+            no_data=True)
     if len(curr_tests) > 0:
         # getting lists of current tests values
         tests = [str(test.id) for test in curr_tests if test.mode != 'bundle']
@@ -1292,7 +1302,6 @@ def test_create_bundle():
     # form obj
     form = BundleTestForm()
     # variables
-    page_title = 'New bundle test'
     script_file = 'test_bundle.js'
     name = None
     description = None
@@ -1313,7 +1322,6 @@ def test_create_bundle():
             mode=mode,
             test_type=test_type,
             description=description,
-            hidden=False,
             parameters=dumps(bundle))
         # adding DB entry in DB
         db.session.add(new_test)
@@ -1376,10 +1384,19 @@ def test_edit_bundle(test_id):
     # getting test
     test_entr = models.Test.query.get(test_id)
     # if no task id returns 404
-    if not test_entr or test_entr.hidden:
+    if not test_entr:
         abort(404)
+    page_title = 'Edit bundle test'
     # gathering tests info
     curr_tests = models.Test.query.order_by(models.Test.id.desc()).all()
+    # checking for tests existing
+    content = no_db_item(curr_tests, 'test')
+    if content:
+        return render_template(
+            'test.html',
+            content=content,
+            title=page_title,
+            no_data=True)
     if len(curr_tests) > 0:
         # getting lists of current tests values
         tests = [str(test.id) for test in curr_tests if test.mode != 'bundle']
@@ -1429,7 +1446,6 @@ def test_edit_bundle(test_id):
     form = BundleTestForm()
     csrf_value = str(form.csrf_token).split('value=')[1].strip('>').strip('"')
     # variables
-    page_title = 'Edit bundle test'
     script_file = 'test_bundle.js'
     name = None
     description = None

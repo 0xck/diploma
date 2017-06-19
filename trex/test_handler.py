@@ -8,8 +8,6 @@ from trex.client.stl import test_common as stl_common
 from trex.client.stl import test_selection as stl_selection
 # for killing statefull
 from trex.client.stf import trex_kill
-# json
-from json import loads
 
 
 def stf_test_common(**kwargs):
@@ -89,16 +87,18 @@ def test_handler(test):
         # making list with DB test entries
         test_list = [
             {
-                'test': models.Test.query.get(test['test_id']),
-                'iter': test['iter']
-            } for test in test['params']['bundle']]
+                # getting test entry from test data parameters of task
+                'test': [test_data_item for test_data_item in test['test_data'][1:] if test_data_item['id'] == test_item['test_id']][0],
+                # getting number of iteration
+                'iter': test_item['iter']
+            } for test_item in test['params']['bundle']]
         test_params = {}
         # for each test entry makes test
         for test_entr in test_list:
             # getting test params
-            test_params['params'] = loads(test_entr['test'].parameters)
-            test_params['mode'] = test_entr['test'].mode
-            test_params['type'] = test_entr['test'].test_type
+            test_params['params'] = test_entr['test']['parameters']
+            test_params['mode'] = test_entr['test']['mode']
+            test_params['type'] = test_entr['test']['test_type']
             # adding trex and port
             test_params['params']['trex']['trex_mng'] = test['params']['trex_mng']
             test_params['params']['trex']['daemon_port'] = test['params']['daemon_port']

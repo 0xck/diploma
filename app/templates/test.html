@@ -7,10 +7,14 @@
         {{title}}
     </h1>
 </div>
+{% if not no_data %}
 <div class="panel panel-default">
     <div class="panel-heading">General details</div>
     <div class="table-responsive">
         <table class="table table-hover">
         {{content|safe}}
 </div>
+{% else %}
+    {{content|safe}}
+{% endif %}
 {% endblock %}
