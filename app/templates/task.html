@@ -58,7 +58,7 @@
     {# charts #}
 
     <div class="container">
-        <h3>Test charts</h3>
+        <h4>Test charts</h4>
             <div class="panel panel-default">
                 <div class="panel-heading">Packet per second data</div>
                 <canvas id="graph_pps_{{test.test_num}}"></canvas>
@@ -73,11 +73,7 @@
     
     {% if test.test_data %}
         {# test info #}
-        <h3>Test detail
-        {% if test.test_hidden %}
-        <small>{{test.test_hidden|safe}}</small>
-        {% endif %}
-        </h3>
+        <h4>Test detail</h4>
         <div class="panel panel-default">
             <div class="panel-heading">General details</div>
             <div class="table-responsive">
