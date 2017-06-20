@@ -763,11 +763,16 @@ def task_show(task_id):
             full_task_data = task_info_maker(task_data[0], test_data[0], 0)
         # for bundle from bundle using current test index
         else:
-            # creating list of lists of test expanding each test with its iteration so each test has only one iteration
-            bundle_list_expanded = [[item['test_id']] * item['iter'] for item in test_data[0]['bundle']]
+            """ creating list of lists of test expanding each test with its iteration so each test has only one iteration
+            looks like [{'test_id': 1, 'iter': 3}, {'test_id': 2, 'iter': 1}, {'test_id': 3, 'iter': 2}] -->
+            [[{'test_id': 1}], [{'test_id': 1}], [{'test_id': 1}], [{'test_id': 2}], [{'test_id': 3}], [{'test_id': 3}]]
+            but instead id full test parametes will be used
+             """
+            bundle_list_expanded = [[item_data for item_data in test_data[1:] if item_data['id'] == item['test_id']] for item in test_data[0]['parameters']['bundle'] for item_iter in range(item['iter'])]
             full_task_data = []
-            for test_num, test_id in enumerate(bundle_list_expanded):
-                full_task_data.append(task_info_maker(task_data[test_num], test_data[(test_num + 1)], test_num))
+            for test_num, test_item in enumerate(bundle_list_expanded):
+                # test_mun index for defining results in task data, they are in the same order as in list
+                full_task_data.append(task_info_maker(task_data[test_num], test_item[0], test_num)[0])
         # trex data table
         trex_data = '''
         <tr>
