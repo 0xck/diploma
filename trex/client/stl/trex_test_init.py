@@ -7,11 +7,11 @@ from .. stf.trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseErro
 from jsonrpclib import ProtocolError
 
 
-def start_stateless(trex_mng='127.0.0.1', daemon_port=8090, hw_chsum=False, **kwargs):
+def start_stateless(trex_mng='127.0.0.1', daemon_port=8090, hw_chsum=False, timeout=5, **kwargs):
     # trying to enable stateless mode
     status = {'status': True, 'state': 'ready'}
     try:
-        stl_init = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
+        stl_init = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port, timeout=timeout)
         # stateless start fail
         if not stl_init.start_stateless(checksum_offload=hw_chsum):
             status['status'] = False

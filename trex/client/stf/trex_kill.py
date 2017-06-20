@@ -4,9 +4,9 @@ from .trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexIncompleteRunEr
 from jsonrpclib import ProtocolError
 
 
-def force(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
+def force(trex_mng='127.0.0.1', daemon_port=8090, timeout=5, **kwargs):
     status = {'status': True, 'state': 'killed'}
-    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
+    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port, timeout=timeout)
     try:
         if not trex_connection.force_kill(confirm=False):
             status['status'] = False
@@ -17,9 +17,9 @@ def force(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
     return status
 
 
-def soft(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
+def soft(trex_mng='127.0.0.1', daemon_port=8090, timeout=5, **kwargs):
     status = {'status': True, 'state': 'killed'}
-    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
+    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port, timeout=timeout)
     try:
         if not trex_connection.stop_trex():
             status['status'] = False

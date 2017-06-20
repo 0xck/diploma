@@ -36,7 +36,9 @@ def test(
     # max history size
     history_size=100,
     # history sampler
-    sampler=1
+    sampler=1,
+    # timeout
+    timeout=5
 ):
     # result of test trying
     result = {'status': True, 'values': ''}
@@ -59,7 +61,8 @@ def test(
             w=wait,
             ipv6=ipv6_enable,
             checksum_offload=hw_chsum,
-            lo=latency_enable)
+            lo=latency_enable,
+            timeout=timeout)
         # getting test result
         test_result = trex_connection.sample_to_run_finish(time_between_samples=sampler)
         # list for sampled data

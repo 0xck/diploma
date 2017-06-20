@@ -1,12 +1,13 @@
 from .trex_stf_lib.trex_client import CTRexClient
 # exceptions
 from jsonrpclib import ProtocolError
+from socket import timeout as sock_timeout
 
 
-def check(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
+def check(trex_mng='127.0.0.1', daemon_port=8090, timeout=5, **kwargs):
     # return information about trex server status and availability
     # making connection
-    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
+    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port, timeout=timeout)
     # trex daemon status info
     trex_status = {'status': True, 'state': 'idle'}
     # checking if trex demon is running
@@ -31,7 +32,7 @@ def check(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
                 if ' -i ' in item:
                     trex_status['state'] = 'stateless'
     # checking general connectivity
-    except ConnectionRefusedError:
+    except (ConnectionRefusedError, sock_timeout):
         trex_status['status'] = False
         trex_status['state'] = 'unavailable'
     # JSON-RPC erros, something is wrong with code or server
@@ -41,5 +42,7 @@ def check(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
     return trex_status
 
 
+"""
 if __name__ == "__main__":
     print(check())
+"""

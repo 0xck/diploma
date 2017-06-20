@@ -4,7 +4,6 @@ from . import trex_status, trex_reservation, trex_kill
 def initialize(**kwargs):
     # makes checking and trying to make reservation
     # checking trex daemon status
-    # ! does not work with just open daemon port see https://trex-tgn.cisco.com/youtrack/issue/trex-404
     status = trex_status.check(**kwargs)
     # return error if trex is not available
     if not status['status']:
