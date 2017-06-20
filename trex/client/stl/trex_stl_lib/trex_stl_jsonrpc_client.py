@@ -62,9 +62,9 @@ class BatchMessage(object):
 class JsonRpcClient(object):
 
     def __init__ (self, default_server, default_port, client):
-        self.client_api = client.api_h
-        self.logger = client.logger
-        self.connected = False
+        self.get_api_h   = client._get_api_h
+        self.logger      = client.logger
+        self.connected   = False
 
         # default values
         self.port   = default_port
@@ -121,7 +121,7 @@ class JsonRpcClient(object):
 
         # if this RPC has an API class - add it's handler
         if api_class:
-            msg["params"]["api_h"] = self.client_api[api_class]
+            msg["params"]["api_h"] = self.get_api_h()[api_class]
         
 
         if encode:
@@ -185,6 +185,15 @@ class JsonRpcClient(object):
 
     # low level send of string message
     def send_raw_msg (self, msg, retry = 0):
+        try:
+            return self._send_raw_msg_safe(msg, retry)
+        except KeyboardInterrupt as e:
+            # must restore the socket to a sane state
+            self.reconnect()
+            raise e
+            
+            
+    def _send_raw_msg_safe (self, msg, retry):
 
         retry_left = retry
         while True:
@@ -197,10 +206,6 @@ class JsonRpcClient(object):
                     self.disconnect()
                     return RC_ERR("*** [RPC] - Failed to send message to server")
 
-            except KeyboardInterrupt as e:
-                # must restore the socket to a sane state
-                self.reconnect()
-                raise e
 
         retry_left = retry
         while True:
@@ -212,11 +217,6 @@ class JsonRpcClient(object):
                 if retry_left < 0:
                     self.disconnect()
                     return RC_ERR("*** [RPC] - Failed to get server response from {0}".format(self.transport))
-
-            except KeyboardInterrupt as e:
-                # must restore the socket to a sane state
-                self.reconnect()
-                raise e
 
         return response
        

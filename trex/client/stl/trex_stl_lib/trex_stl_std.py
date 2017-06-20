@@ -19,7 +19,10 @@ def stl_map_ports (client, ports = None):
 
     PKTS_SENT = 5
     pgid_per_port = {}
-    active_pgids = client.get_active_pgids()['ids']
+    active_pgids_tmp = client.get_active_pgids()
+    active_pgids = []
+    for key in active_pgids_tmp.keys():
+        active_pgids += active_pgids_tmp[key]
     base_pkt = Ether()/IP()/UDP()/('x' * 18)
     test_pgid = 10000000
 
@@ -47,7 +50,7 @@ def stl_map_ports (client, ports = None):
     client.start(ports, mult = "5%")
     client.wait_on_traffic(ports)
 
-    stats = client.get_stats()['flow_stats']
+    stats = client.get_pgid_stats(list(pgid_per_port.values()))['flow_stats']
 
     # cleanup
     client.reset(ports)

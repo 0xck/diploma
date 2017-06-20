@@ -3,21 +3,28 @@
 # for API usage the path name must be full
 from .trex_stl_exceptions import *
 from .trex_stl_streams import *
+from .trex_stl_psv import *
 
-from .trex_stl_jsonrpc_client import JsonRpcClient, BatchMessage
+from .trex_stl_conn import Connection
+
 from . import trex_stl_stats
 
 from .trex_stl_port import Port
 from .trex_stl_types import *
-from .trex_stl_async_client import CTRexAsyncClient
+from .trex_stl_vlan import VLAN
+
+from .services.trex_stl_service_icmp import STLServiceICMP
+from .services.trex_stl_service_arp import STLServiceARP
 
 from .utils import parsing_opts, text_tables, common
 from .utils.common import *
 from .utils.text_tables import TRexTextTable
 from .utils.text_opts import *
+
 from functools import wraps
 from texttable import ansi_len
 
+from .services.trex_stl_service_int import STLServiceCtx
 from collections import namedtuple, defaultdict
 from yaml import YAMLError
 from contextlib import contextmanager
@@ -30,6 +37,7 @@ import traceback
 import tempfile
 import readline
 import os.path
+
 
 ############################     logger     #############################
 ############################                #############################
@@ -80,10 +88,18 @@ class LoggerApi(object):
         self.log(msg, level, newline)
 
 
+    # urgent async log - will log event under quiet
+    def urgent_async_log (self, msg, newline = True):
+        # log even on quiet mode
+        self.async_log(msg, level = LoggerApi.VERBOSE_QUIET, newline = newline)
+        self.flush()
+        
+        
     def pre_cmd (self, desc):
         self.log(format_text('\n{:<60}'.format(desc), 'bold'), newline = False)
         self.flush()
 
+        
     def post_cmd (self, rc):
         if rc:
             self.log(format_text("[SUCCESS]\n", 'green', 'bold'))
@@ -131,6 +147,7 @@ class DefaultLogger(LoggerApi):
         sys.stdout.flush()
 
 
+
 ############################     async event hander     #############################
 ############################                            #############################
 ############################                            #############################
@@ -154,14 +171,40 @@ class Event(object):
 
 # handles different async events given to the client
 class EventsHandler(object):
+    EVENT_PORT_STARTED   = 0
+    EVENT_PORT_STOPPED   = 1
+    EVENT_PORT_PAUSED    = 2
+    EVENT_PORT_RESUMED   = 3
+    EVENT_PORT_JOB_DONE  = 4
+    EVENT_PORT_ACQUIRED  = 5
+    EVENT_PORT_RELEASED  = 6
+    EVENT_PORT_ERROR     = 7
+    EVENT_PORT_ATTR_CHG  = 8
+    
+    EVENT_SERVER_STOPPED = 100
 
-
+    
     def __init__ (self, client):
         self.client = client
         self.logger = self.client.logger
 
         self.events = []
 
+        # events are disabled by default until explicitly enabled
+        self.enabled = False
+        
+        
+    # will start handling events
+    def enable (self):
+        self.enabled = True
+        
+    def disable (self):
+        self.enabled = False
+        
+    def is_enabled (self):
+        return self.enabled
+        
+        
     # public functions
 
     def get_events (self, ev_type_filter = None):
@@ -175,32 +218,53 @@ class EventsHandler(object):
         self.events = []
 
 
-    def log_warning (self, msg, show = True):
-        self.__add_event_log('local', 'warning', msg, show)
+    def log_warning (self, msg):
+        self.__add_event_log('local', 'warning', msg)
 
 
     # events called internally
 
-    def on_async_dead (self):
-        if self.client.connected:
-            msg = 'Lost connection to server'
-            self.client.connected = False
-            self.__add_event_log('local', 'info', msg, True)
+    def on_async_timeout (self, timeout_sec):
+        if self.client.conn.is_connected():
+            msg = 'Connection lost - Subscriber timeout: no data from TRex server for more than {0} seconds'.format(timeout_sec)
+            self.log_warning(msg)
+            
+            # we cannot simply disconnect the connection - we mark it for disconnection
+            # later on, the main thread will execute an ordered disconnection
+            self.client.conn.mark_for_disconnect(msg)
+            
+            
 
-
+    def on_async_crash (self):
+        msg = 'subscriber thread has crashed:\n\n{0}'.format(traceback.format_exc())
+        self.log_warning(msg)
+        
+        # if connected, mark as disconnected
+        if self.client.conn.is_connected():
+            self.client.conn.mark_for_disconnect(msg)
+        
+        
     def on_async_alive (self):
         pass
 
     
-
     def on_async_rx_stats_event (self, data, baseline):
+        if not self.is_enabled():
+            return
+            
         self.client.flow_stats.update(data, baseline)
 
     def on_async_latency_stats_event (self, data, baseline):
+        if not self.is_enabled():
+            return
+            
         self.client.latency_stats.update(data, baseline)
 
     # handles an async stats update from the subscriber
     def on_async_stats_update(self, dump_data, baseline):
+        if not self.is_enabled():
+            return
+            
         global_stats = {}
         port_stats = {}
 
@@ -231,18 +295,22 @@ class EventsHandler(object):
 
 
     # dispatcher for server async events (port started, port stopped and etc.)
-    def on_async_event (self, event_type, data):
-        # DP stopped
+    def on_async_event (self, event_id, data):
+        if not self.is_enabled():
+            return
+            
+        # default type info and do not show
+        ev_type = 'info'
         show_event = False
-
+        
         # port started
-        if (event_type == 0):
+        if (event_id == self.EVENT_PORT_STARTED):
             port_id = int(data['port_id'])
             ev = "Port {0} has started".format(port_id)
             self.__async_event_port_started(port_id)
 
         # port stopped
-        elif (event_type == 1):
+        elif (event_id == self.EVENT_PORT_STOPPED):
             port_id = int(data['port_id'])
             ev = "Port {0} has stopped".format(port_id)
 
@@ -251,32 +319,37 @@ class EventsHandler(object):
 
 
         # port paused
-        elif (event_type == 2):
+        elif (event_id == self.EVENT_PORT_PAUSED):
             port_id = int(data['port_id'])
             ev = "Port {0} has paused".format(port_id)
 
             # call the handler
             self.__async_event_port_paused(port_id)
 
+            
         # port resumed
-        elif (event_type == 3):
+        elif (event_id == self.EVENT_PORT_RESUMED):
             port_id = int(data['port_id'])
             ev = "Port {0} has resumed".format(port_id)
 
             # call the handler
             self.__async_event_port_resumed(port_id)
 
+            
         # port finished traffic
-        elif (event_type == 4):
+        elif (event_id == self.EVENT_PORT_JOB_DONE):
             port_id = int(data['port_id'])
             ev = "Port {0} job done".format(port_id)
 
             # call the handler
             self.__async_event_port_job_done(port_id)
+            
+            # mark the event for show
             show_event = True
 
+            
         # port was acquired - maybe stolen...
-        elif (event_type == 5):
+        elif (event_id == self.EVENT_PORT_ACQUIRED):
             session_id = data['session_id']
 
             port_id = int(data['port_id'])
@@ -285,7 +358,7 @@ class EventsHandler(object):
 
             # if we hold the port and it was not taken by this session - show it
             if port_id in self.client.get_acquired_ports() and session_id != self.client.session_id:
-                show_event = True
+                ev_type = 'warning'
 
             # format the thief/us...
             if session_id == self.client.session_id:
@@ -306,7 +379,7 @@ class EventsHandler(object):
 
 
         # port was released
-        elif (event_type == 6):
+        elif (event_id == self.EVENT_PORT_RELEASED):
             port_id     = int(data['port_id'])
             who         = data['who']
             session_id  = data['session_id']
@@ -324,13 +397,15 @@ class EventsHandler(object):
             if session_id != self.client.session_id:
                 self.__async_event_port_released(port_id)
 
-        elif (event_type == 7):
+                
+        elif (event_id == self.EVENT_PORT_ERROR):
             port_id = int(data['port_id'])
             ev = "port {0} job failed".format(port_id)
-            show_event = True
+            ev_type = 'warning'
+            
 
         # port attr changed
-        elif (event_type == 8):
+        elif (event_id == self.EVENT_PORT_ATTR_CHG):
 
             port_id = int(data['port_id'])
             
@@ -346,25 +421,24 @@ class EventsHandler(object):
                         old = old_val.lower() if type(old_val) is str else old_val,
                         new = new_val.lower() if type(new_val) is str else new_val)
                 
-            show_event = True
-            
+            ev_type = 'info'
+            show_event = False
+        
          
     
         # server stopped
-        elif (event_type == 100):
-            ev = "Server has stopped"
-            # to avoid any new messages on async
-            self.client.async_client.set_as_zombie()
-            self.__async_event_server_stopped()
-            show_event = True
+        elif (event_id == self.EVENT_SERVER_STOPPED):
+            ev = "Server has been shutdown - cause: '{0}'".format(data['cause'])
+            self.__async_event_server_stopped(ev)
+            ev_type = 'warning'
 
 
         else:
             # unknown event - ignore
             return
 
-
-        self.__add_event_log('server', 'info', ev, show_event)
+        # showed events (port job done, 
+        self.__add_event_log('server', ev_type, ev, show_event)
 
 
     # private functions
@@ -401,84 +475,26 @@ class EventsHandler(object):
         if port_id in self.client.ports:
             self.client.ports[port_id].async_event_released()
 
-    def __async_event_server_stopped (self):
-        self.client.connected = False
+    def __async_event_server_stopped (self, cause):
+        self.client.conn.mark_for_disconnect(cause)
 
     def __async_event_port_attr_changed (self, port_id, attr):
         if port_id in self.client.ports:
             return self.client.ports[port_id].async_event_port_attr_changed(attr)
 
     # add event to log
-    def __add_event_log (self, origin, ev_type, msg, show = False):
+    def __add_event_log (self, origin, ev_type, msg, show_event = False):
 
         event = Event(origin, ev_type, msg)
         self.events.append(event)
-        if show:
+        
+        if ev_type == 'info' and show_event:
             self.logger.async_log("\n\n{0}".format(str(event)))
+            
+        elif ev_type == 'warning':
+            self.logger.urgent_async_log("\n\n{0}".format(str(event)))
 
-
-  
-
-
-############################     RPC layer     #############################
-############################                   #############################
-############################                   #############################
-
-class CCommLink(object):
-    """Describes the connectivity of the stateless client method"""
-    def __init__(self, server="localhost", port=5050, virtual=False, client = None):
-        self.virtual = virtual
-        self.server = server
-        self.port = port
-        self.rpc_link = JsonRpcClient(self.server, self.port, client)
-
-    @property
-    def is_connected(self):
-        if not self.virtual:
-            return self.rpc_link.connected
-        else:
-            return True
-
-    def get_server (self):
-        return self.server
-
-    def get_port (self):
-        return self.port
-
-    def connect(self):
-        if not self.virtual:
-            return self.rpc_link.connect()
-
-    def disconnect(self):
-        if not self.virtual:
-            return self.rpc_link.disconnect()
-
-    def transmit(self, method_name, params = None, api_class = 'core', retry = 0):
-        if self.virtual:
-            self._prompt_virtual_tx_msg()
-            _, msg = self.rpc_link.create_jsonrpc_v2(method_name, params, api_class)
-            print(msg)
-            return
-        else:
-            return self.rpc_link.invoke_rpc_method(method_name, params, api_class, retry = retry)
-
-    def transmit_batch(self, batch_list, retry = 0):
-        if self.virtual:
-            self._prompt_virtual_tx_msg()
-            print([msg
-                   for _, msg in [self.rpc_link.create_jsonrpc_v2(command.method, command.params, command.api_class)
-                                  for command in batch_list]])
-        else:
-            batch = self.rpc_link.create_batch()
-            for command in batch_list:
-                batch.add(command.method, command.params, command.api_class)
-            # invoke the batch
-            return batch.invoke(retry = retry)
-
-    def _prompt_virtual_tx_msg(self):
-        print("Transmitting virtually over tcp://{server}:{port}".format(server=self.server,
-                                                                         port=self.port))
-
+     
 
 
 ############################     client     #############################
@@ -489,9 +505,11 @@ class STLClient(object):
     """TRex Stateless client object - gives operations per TRex/user"""
 
     # different modes for attaching traffic to ports
-    CORE_MASK_SPLIT = 1
-    CORE_MASK_PIN   = 2
+    CORE_MASK_SPLIT  = 1
+    CORE_MASK_PIN    = 2
+    CORE_MASK_SINGLE = 3
 
+    
     def __init__(self,
                  username = common.get_current_user(),
                  server = "localhost",
@@ -547,35 +565,17 @@ class STLClient(object):
         self.server_version = {}
         self.system_info = {}
         self.session_id = random.getrandbits(32)
-        self.connected = False
-
-        # API classes
-        self.api_vers = [ {'type': 'core', 'major': 3, 'minor': 1 } ]
-        self.api_h = {'core': None}
-
+     
         # logger
         self.logger = DefaultLogger() if not logger else logger
 
         # initial verbose
         self.logger.set_verbose(verbose_level)
 
-        # low level RPC layer
-        self.comm_link = CCommLink(server,
-                                   sync_port,
-                                   virtual,
-                                   self)
-
         # async event handler manager
         self.event_handler = EventsHandler(self)
 
-        # async subscriber level
-        self.async_client = CTRexAsyncClient(server,
-                                             async_port,
-                                             self)
-
-        
-      
-
+     
         # stats
         self.connection_info = {"username":   username,
                                 "server":     server,
@@ -584,6 +584,12 @@ class STLClient(object):
                                 "virtual":    virtual}
 
         
+
+        # connection state object
+        self.conn = Connection(self.connection_info, self.logger, self)
+
+
+
         self.global_stats = trex_stl_stats.CGlobalStats(self.connection_info,
                                                         self.server_version,
                                                         self.ports,
@@ -592,6 +598,8 @@ class STLClient(object):
         self.flow_stats = trex_stl_stats.CRxStats(self.ports)
 
         self.latency_stats = trex_stl_stats.CLatencyStats(self.ports)
+
+        self.pgid_stats = trex_stl_stats.CPgIdStats()
 
         self.util_stats = trex_stl_stats.CUtilStats(self)
 
@@ -603,7 +611,12 @@ class STLClient(object):
                                                                  self.latency_stats,
                                                                  self.util_stats,
                                                                  self.xstats,
-                                                                 self.async_client.monitor)
+                                                                 self.conn.async.monitor,
+                                                                 self.pgid_stats,
+                                                                 self)
+        
+        self.psv = PortStateValidator(self)
+        
         
     ############# private functions - used by the class itself ###########
 
@@ -675,7 +688,6 @@ class STLClient(object):
         return rc
 
 
-
     def __remove_streams(self, stream_id_list, port_id_list = None):
 
         port_id_list = self.__ports(port_id_list)
@@ -696,6 +708,8 @@ class STLClient(object):
 
         for port_id in port_id_list:
             rc.add(self.ports[port_id].remove_all_streams())
+
+        self.pgid_stats.reset()
 
         return rc
 
@@ -720,18 +734,21 @@ class STLClient(object):
                  duration,
                  port_id_list,
                  force,
-                 core_mask):
+                 core_mask,
+                 start_at_ts = 0):
 
         port_id_list = self.__ports(port_id_list)
 
         rc = RC()
-
+        if start_at_ts is None:
+            start_at_ts = 0
 
         for port_id in port_id_list:
             rc.add(self.ports[port_id].start(multiplier,
                                              duration,
                                              force,
-                                             core_mask[port_id]))
+                                             core_mask[port_id],
+                                             start_at_ts))
 
         return rc
 
@@ -812,17 +829,6 @@ class STLClient(object):
         return rc
 
 
-    def __resolve (self, port_id_list = None, retries = 0):
-        port_id_list = self.__ports(port_id_list)
-
-        rc = RC()
-
-        for port_id in port_id_list:
-            rc.add(self.ports[port_id].arp_resolve(retries))
-
-        return rc
-
-
     def __scan6(self, port_id_list = None, timeout = 5):
         port_id_list = self.__ports(port_id_list)
 
@@ -844,6 +850,18 @@ class STLClient(object):
 
         return rc
         
+        
+    def __set_vlan (self, port_id_list, vlan):
+
+        port_id_list = self.__ports(port_id_list)
+        rc = RC()
+
+        for port_id in port_id_list:
+            rc.add(self.ports[port_id].set_vlan(vlan))
+
+        return rc
+    
+       
     def __set_rx_queue (self, port_id_list, size):
         port_id_list = self.__ports(port_id_list)
         rc = RC()
@@ -884,37 +902,19 @@ class STLClient(object):
     # connect to server
     def __connect(self):
 
-        # first disconnect if already connected
-        if self.is_connected():
-            self.__disconnect()
-
-        # clear this flag
-        self.connected = False
-
-        # connect sync channel
-        self.logger.pre_cmd("Connecting to RPC server on {0}:{1}".format(self.connection_info['server'], self.connection_info['sync_port']))
-        rc = self.comm_link.connect()
-        self.logger.post_cmd(rc)
-
-        if not rc:
-            return rc
-
+        # before we connect to the server - reject any async updates until fully init
+        self.event_handler.disable()
         
-        # API sync
-        rc = self._transmit("api_sync", params = {'api_vers': self.api_vers}, api_class = None)
+        # connect to the server
+        rc = self.conn.connect()
         if not rc:
             return rc
-
-        # decode
-        for api in rc.data()['api_vers']:
-            self.api_h[ api['type'] ] = api['api_h']
-
-
+ 
         # version
         rc = self._transmit("get_version")
         if not rc:
             return rc
-
+            
         self.server_version = rc.data()
         self.global_stats.server_version = rc.data()
         
@@ -940,10 +940,9 @@ class STLClient(object):
 
             self.ports[port_id] = Port(port_id,
                                        self.username,
-                                       self.comm_link,
+                                       self.conn.rpc,
                                        self.session_id,
                                        info)
-
 
         # sync the ports
         rc = self.__sync_ports()
@@ -951,38 +950,38 @@ class STLClient(object):
             return rc
 
         
-        # connect async channel
-        self.logger.pre_cmd("Connecting to publisher server on {0}:{1}".format(self.connection_info['server'], self.connection_info['async_port']))
-        rc = self.async_client.connect()
-        self.logger.post_cmd(rc)
-
+        # mark the event handler as ready to process async updates
+        self.event_handler.enable()
+        
+        # after we are done with configuring the client
+        # sync all the data from the server (baseline)
+        rc = self.conn.sync()
         if not rc:
             return rc
 
-        self.connected = True
-
+        self.get_pgid_stats()
+        self.pgid_stats.clear_stats()
+        
         return RC_OK()
 
 
     # disconenct from server
     def __disconnect(self, release_ports = True):
         # release any previous acquired ports
-        if self.is_connected() and release_ports:
+        if self.conn.is_connected() and release_ports:
             self.__release(self.get_acquired_ports())
 
-        self.comm_link.disconnect()
-        self.async_client.disconnect()
-
-        self.connected = False
+        # disconnect the link to the server
+        self.conn.disconnect()
 
         return RC_OK()
 
 
     # clear stats
-    def __clear_stats(self, port_id_list, clear_global, clear_flow_stats, clear_latency_stats, clear_xstats):
+    def __clear_stats(self, port_id_list, clear_global, clear_flow_stats, clear_latency_stats, clear_xstats, clear_pgid_stats):
 
         # we must be sync with the server
-        self.async_client.barrier()
+        self.conn.barrier()
 
         for port_id in port_id_list:
             self.ports[port_id].clear_stats()
@@ -990,6 +989,7 @@ class STLClient(object):
         if clear_global:
             self.global_stats.clear_stats()
 
+            # ??? remove
         if clear_flow_stats:
             self.flow_stats.clear_stats()
 
@@ -999,6 +999,10 @@ class STLClient(object):
         if clear_xstats:
             self.xstats.clear_stats()
 
+        if clear_pgid_stats:
+            self.pgid_stats.clear_stats()
+            self.stats_generator.clear_stats()
+
         self.logger.log_cmd("Clearing stats on port(s) {0}:".format(port_id_list))
 
         return RC
@@ -1006,6 +1010,10 @@ class STLClient(object):
 
     # get stats
     def __get_stats (self, port_id_list):
+        pgid_stats = self.get_pgid_stats()
+        if not pgid_stats:
+            raise STLError(pgid_stats)
+
         stats = {}
 
         stats['global'] = self.global_stats.get_stats()
@@ -1023,18 +1031,25 @@ class STLClient(object):
 
         stats['total'] = total
 
-        stats['flow_stats'] = self.flow_stats.get_stats()
-        stats['latency'] = self.latency_stats.get_stats()
+        if 'flow_stats' in pgid_stats:
+            stats['flow_stats'] = pgid_stats['flow_stats']
+        else:
+            stats['flow_stats'] = {}
+        if 'latency' in pgid_stats:
+            stats['latency'] = pgid_stats['latency']
+        else:
+            stats['latency'] = {}
 
         return stats
 
 
     def __decode_core_mask (self, ports, core_mask):
+        available_modes = [self.CORE_MASK_PIN, self.CORE_MASK_SPLIT, self.CORE_MASK_SINGLE]
 
         # predefined modes
         if isinstance(core_mask, int):
-            if core_mask not in [self.CORE_MASK_PIN, self.CORE_MASK_SPLIT]:
-                raise STLError("'core_mask' can be either CORE_MASK_PIN, CORE_MASK_SPLIT or a list of masks")
+            if core_mask not in available_modes:
+                raise STLError("'core_mask' can be either %s or a list of masks" % ', '.join(available_modes))
 
             decoded_mask = {}
             for port in ports:
@@ -1042,6 +1057,8 @@ class STLClient(object):
                 # the second port from the group in the start list
                 if (core_mask == self.CORE_MASK_PIN) and ( (port ^ 0x1) in ports ):
                     decoded_mask[port] = 0x55555555 if( port % 2) == 0 else 0xAAAAAAAA
+                elif core_mask == self.CORE_MASK_SINGLE:
+                    decoded_mask[port] = 0x1
                 else:
                     decoded_mask[port] = None
 
@@ -1062,6 +1079,11 @@ class STLClient(object):
 
     ############ functions used by other classes but not users ##############
 
+    # fetch the API Handlers from the connection object
+    def _get_api_h (self):
+        return self.conn.get_api_h()
+
+        
     def _validate_port_list (self, port_id_list, allow_empty = False):
         # listfiy single int
         if isinstance(port_id_list, int):
@@ -1084,11 +1106,11 @@ class STLClient(object):
 
     # transmit request on the RPC link
     def _transmit(self, method_name, params = None, api_class = 'core'):
-        return self.comm_link.transmit(method_name, params, api_class)
+        return self.conn.rpc.transmit(method_name, params, api_class)
 
     # transmit batch request on the RPC link
     def _transmit_batch(self, batch_list):
-        return self.comm_link.transmit_batch(batch_list)
+        return self.conn.rpc.transmit_batch(batch_list)
 
     # stats
     def _get_formatted_stats(self, port_id_list, stats_mask = trex_stl_stats.COMPACT):
@@ -1164,15 +1186,36 @@ class STLClient(object):
 
                 func_name = f.__name__
 
-                # check connection
-                if connected and not client.is_connected():
-                    raise STLStateError(func_name, 'disconnected')
-
+                
                 try:
-                    ret = f(*args, **kwargs)
-                except KeyboardInterrupt as e:
-                    raise STLError("Interrupted by a keyboard signal (probably ctrl + c)")
+                    # before we enter the API, set the async thread to signal in case of connection lost
+                    client.conn.sigint_on_conn_lost_enable()
+                    
+                    # check connection
+                    if connected and not client.is_connected():
+                    
+                        if client.conn.is_marked_for_disconnect():
+                            # connection state is marked for disconnect - something went wrong
+                            raise STLError("'{0}' - connection to the server had been lost: '{1}'".format(func_name, client.conn.get_disconnection_cause()))
+                        else:
+                            # simply was called while disconnected
+                            raise STLError("'{0}' - is not valid while disconnected".format(func_name))
 
+                    # call the API
+                    ret = f(*args, **kwargs)
+                    
+                except KeyboardInterrupt as e:
+                    # SIGINT can be either from ctrl + c or from the async thread to interrupt the main thread
+                    if client.conn.is_marked_for_disconnect():
+                        raise STLError("'{0}' - connection to the server had been lost: '{1}'".format(func_name, client.conn.get_disconnection_cause()))
+                    else:
+                        raise STLError("'{0}' - interrupted by a keyboard signal (probably ctrl + c)".format(func_name))
+
+                finally:
+                    # when we exit API context - disable SIGINT from the async thread
+                    client.conn.sigint_on_conn_lost_disable()
+                    
+                    
                 return ret
             return wrap2
 
@@ -1240,17 +1283,17 @@ class STLClient(object):
         """ 
 
         :parameters:
-          None
+            None
 
         :return:
-            is_connected
+            True if the connection is established to the server
+            o.w False
 
         :raises:
           None
 
         """
-
-        return self.connected and self.comm_link.is_connected
+        return self.conn.is_connected()
 
 
     # get connection info
@@ -1279,7 +1322,7 @@ class STLClient(object):
           None
 
         :return:
-            Connection dict 
+            List of commands supported by server RPC
 
         :raises:
           None
@@ -1330,7 +1373,7 @@ class STLClient(object):
           None
 
         :return:
-            Connection dict 
+            Number of ports
 
         :raises:
           None
@@ -1357,7 +1400,7 @@ class STLClient(object):
           None
 
         :return:
-            Connection dict 
+            List of all ports
 
         :raises:
           None
@@ -1444,17 +1487,21 @@ class STLClient(object):
           sync_now - Boolean - If true, create a call to the server to get latest stats, and wait for result to arrive. Otherwise, return last stats saved in client cache.
                             Downside of putting True is a slight delay (few 10th msecs) in getting the result. For practical uses, value should be True.
         :return:
-            Statistics dictionary of dictionaries with the following format:
+            Statistics dictionary of dictionaries with the below format.
 
-            ===============================  ===============
+            **Note** that for getting latency and flow_stats statistics there is now a newer and more efficient API
+            :ref:`get_pgid_stats<get_pgid_stats>`. In the future, flow stats and latency info might be removed
+            from the results of this function, so it is advisable to use the above mentioned API.
+
+            ================================  ===============
             key                               Meaning
-            ===============================  ===============
-            :ref:`numbers (0,1,..<total>`    Statistcs per port number
-            :ref:`total <total>`             Sum of port statistics
-            :ref:`flow_stats <flow_stats>`   Per flow statistics
-            :ref:`global <global>`           Global statistics
-            :ref:`latency <latency>`         Per flow statistics regarding flow latency
-            ===============================  ===============
+            ================================  ===============
+            :ref:`numbers (0,1,..<total>`     Statistcs per port number
+            :ref:`total <total>`              Sum of port statistics
+            :ref:`flow_stats <flow_stats_o>`  Per flow statistics
+            :ref:`global <global>`            Global statistics
+            :ref:`latency <latency_o>`        Per flow statistics regarding flow latency
+            ================================  ===============
 
             Below is description of each of the inner dictionaries.
 
@@ -1473,34 +1520,34 @@ class STLClient(object):
             obytes                           Number of output bytes  
             oerrors                          Number of output errors
             opackets                         Number of output packets
-            rx_bps                           Receive bytes per second rate (L2 layer)
+            rx_bps                           Receive bits per second rate (L2 layer)
             rx_pps                           Receive packet per second rate
-            tx_bps                           Transmit bytes per second rate (L2 layer)
+            tx_bps                           Transmit bits per second rate (L2 layer)
             tx_pps                           Transmit packet per second rate
             ===============================  ===============
 
-            .. _flow_stats:
+            .. _flow_stats_o:
 
-            **flow_stats** contains :ref:`global dictionary <flow_stats_global>`, and dictionaries per packet group id (pg id). See structures below.
+            **flow_stats** contains :ref:`global dictionary <flow_stats_global_o>`, and dictionaries per packet group id (pg id). See structures below.
 
             **per pg_id flow stat** dictionaries have following structure:
 
             =================   ===============
             key                 Meaning
             =================   ===============
-            rx_bps              Received bytes per second rate
-            rx_bps_l1           Received bytes per second rate, including layer one
+            rx_bps              Received bits per second rate
+            rx_bps_l1           Received bits per second rate, including layer one
             rx_bytes            Total number of received bytes
             rx_pkts             Total number of received packets
             rx_pps              Received packets per second
-            tx_bps              Transmit bytes per second rate
-            tx_bps_l1           Transmit bytes per second rate, including layer one
-            tx_bytes            Total number of sent bytes
+            tx_bps              Transmit bits per second rate
+            tx_bps_l1           Transmit bits per second rate, including layer one
+            tx_bytes            Total number of sent bits
             tx_pkts             Total number of sent packets
             tx_pps              Transmit packets per second rate
             =================   ===============
 
-            .. _flow_stats_global:
+            .. _flow_stats_global_o:
 
             **global flow stats** dictionary has the following structure:
 
@@ -1518,33 +1565,33 @@ class STLClient(object):
             =================   ===============
             key                 Meaning
             =================   ===============
-            bw_per_core         Estimated byte rate Trex can support per core. This is calculated by extrapolation of current rate and load on transmitting cores.
+            bw_per_core         Estimated bit rate Trex can support per core. This is calculated by extrapolation of current rate and load on transmitting cores.
             cpu_util            Estimate of the average utilization percentage of the transimitting cores
             queue_full          Total number of packets transmitted while the NIC TX queue was full. The packets will be transmitted, eventually, but will create high CPU%due to polling the queue.  This usually indicates that the rate we trying to transmit is too high for this port. 
             rx_cpu_util         Estimate of the utilization percentage of the core handling RX traffic. Too high value of this CPU utilization could cause drop of latency streams. 
-            rx_drop_bps         Received bytes per second drop rate
-            rx_bps              Received bytes per second rate
+            rx_drop_bps         Received bits per second drop rate
+            rx_bps              Received bits per second rate
             rx_pps              Received packets per second rate
-            tx_bps              Transmit bytes per second rate
+            tx_bps              Transmit bits per second rate
             tx_pps              Transmit packets per second rate
             =================   ===============
 
-            .. _latency:
+            .. _latency_o:
 
-            **latency** contains :ref:`global dictionary <lat_stats_global>`, and dictionaries per packet group id (pg id). Each one with the following structure.
+            **latency** contains :ref:`global dictionary <lat_stats_global_o>`, and dictionaries per packet group id (pg id). Each one with the following structure.
 
             **per pg_id latency stat** dictionaries have following structure:
 
-            ===========================          ===============
-            key                                  Meaning
-            ===========================          ===============
-            :ref:`err_cntrs<err-cntrs>`          Counters describing errors that occured with this pg id
-            :ref:`latency<lat_inner>`            Information regarding packet latency
-            ===========================          ===============
+            =============================          ===============
+            key                                    Meaning
+            =============================          ===============
+            :ref:`err_cntrs<err-cntrs_o>`          Counters describing errors that occured with this pg id
+            :ref:`latency<lat_inner_o>`            Information regarding packet latency
+            =============================          ===============
 
             Following are the inner dictionaries of latency
 
-            .. _err-cntrs:
+            .. _err-cntrs_o:
 
             **err-cntrs**
 
@@ -1572,7 +1619,7 @@ class STLClient(object):
             (We assume here that one of the packets we considered as dropped before, actually arrived out of order).
 
 
-            .. _lat_inner:
+            .. _lat_inner_o:
 
             **latency**
 
@@ -1587,7 +1634,7 @@ class STLClient(object):
             total_min           Minimum latency measured over the stream lifetime (in usec).
             =================   ===============
 
-            .. _lat_stats_global:
+            .. _lat_stats_global_o:
 
             **global latency stats** dictionary has the following structure:
 
@@ -1610,10 +1657,9 @@ class STLClient(object):
         if not type(sync_now) is bool:
             raise STLArgumentError('sync_now', sync_now)
 
-
         # if the user requested a barrier - use it
         if sync_now:
-            rc = self.async_client.barrier()
+            rc = self.conn.barrier()
             if not rc:
                 raise STLError(rc)
 
@@ -1721,8 +1767,13 @@ class STLClient(object):
                 + :exc:`STLError`
 
         """
+        
+        # cleanup from previous connection
+        self.__disconnect()
+        
         rc = self.__connect()
         if not rc:
+            self.__disconnect()
             raise STLError(rc)
         
 
@@ -1830,11 +1881,14 @@ class STLClient(object):
             :parameters:
                  None
 
+            :return:
+                 Timestamp of server
+
             :raises:
                 + :exc:`STLError`
 
         """
-        
+
         self.logger.pre_cmd("Pinging the server on '{0}' port '{1}': ".format(self.connection_info['server'],
                                                                               self.connection_info['sync_port']))
         rc = self._transmit("ping", api_class = None)
@@ -1843,6 +1897,8 @@ class STLClient(object):
 
         if not rc:
             raise STLError(rc)
+
+        return rc.data()
         
 
     @__api_check(True)
@@ -1863,6 +1919,7 @@ class STLClient(object):
             
         if not is_valid_mac(dst_mac):
             raise STLError("dest_mac is not a valid MAC address: '{0}'".format(dst_mac))
+        
             
         self.logger.pre_cmd("Setting port {0} in L2 mode: ".format(port))
         rc = self.ports[port].set_l2_mode(dst_mac)
@@ -1873,7 +1930,7 @@ class STLClient(object):
             
             
     @__api_check(True)
-    def set_l3_mode (self, port, src_ipv4, dst_ipv4):
+    def set_l3_mode (self, port, src_ipv4, dst_ipv4, vlan = None):
         """
             Sets the port mode to L3
 
@@ -1881,19 +1938,22 @@ class STLClient(object):
                  port      - the port to set the source address
                  src_ipv4  - IPv4 source address for the port
                  dst_ipv4  - IPv4 destination address
+                 vlan      - VLAN configuration - can be an int or a list up to two ints
             :raises:
                 + :exc:`STLError`
         """
+    
+        self.psv.validate('Layer 3 Config', port, (PSV_ACQUIRED, PSV_SERVICE))
         
-        validate_type('port', port, int)
-        if port not in self.get_all_ports():
-            raise STLError("port {0} is not a valid port id".format(port))
-            
         if not is_valid_ipv4(src_ipv4):
             raise STLError("src_ipv4 is not a valid IPv4 address: '{0}'".format(src_ipv4))
             
         if not is_valid_ipv4(dst_ipv4):
             raise STLError("dst_ipv4 is not a valid IPv4 address: '{0}'".format(dst_ipv4))
+    
+        # if VLAN was given - set it
+        if vlan is not None:
+            self.set_vlan(ports = port, vlan = vlan)
             
         self.logger.pre_cmd("Setting port {0} in L3 mode: ".format(port))
         rc = self.ports[port].set_l3_mode(src_ipv4, dst_ipv4)
@@ -1902,17 +1962,69 @@ class STLClient(object):
         if not rc:
             raise STLError(rc)
     
-        # try to resolve
-        with self.logger.supress(level = LoggerApi.VERBOSE_REGULAR_SYNC):
-            self.logger.pre_cmd("ARP resolving address '{0}': ".format(dst_ipv4))
-            rc = self.ports[port].arp_resolve(0)
-            self.logger.post_cmd(rc)
-            if not rc:
-                raise STLError(rc)
-            
+        # resolve the port
+        self.resolve(ports = port)
 
+       
     @__api_check(True)
-    def ping_ip (self, src_port, dst_ip, pkt_size = 64, count = 5, interval_sec = 1):
+    def set_vlan (self, ports = None, vlan = None):
+        """
+            Sets the port VLAN.
+            VLAN tagging will be applied to control traffic
+            such as ARP resolution of the port
+            and periodic gratidious ARP
+
+            :parameters:
+                 ports     - the port(s) to set the source address
+            
+                 vlan      - can be either None, int or a list of up to two ints
+                             each value representing a VLAN tag
+                             when two are supplied, provide QinQ tagging.
+                             The first TAG is outer and the second is inner
+                             
+                 
+            :raises:
+                + :exc:`STLError`
+        """
+    
+        # validate ports and state
+        ports = ports if ports is not None else self.get_acquired_ports()
+        ports = self.psv.validate('VLAN', ports, (PSV_ACQUIRED, PSV_SERVICE, PSV_IDLE))
+        
+        vlan = VLAN(vlan)
+    
+        if vlan:
+            self.logger.pre_cmd("Setting port(s) {0} with {1}: ".format(ports, vlan.get_desc()))
+        else:
+            self.logger.pre_cmd("Clearing port(s) {0} VLAN configuration: ".format(ports))
+        
+                
+        rc = self.__set_vlan(ports, vlan)
+        self.logger.post_cmd(rc)
+        
+        if not rc:
+            raise STLError(rc)
+            
+       
+            
+    @__api_check(True)
+    def clear_vlan (self, ports = None):
+        """
+            Clear any VLAN configuration on the port
+
+            :parameters:
+                 ports - on which ports to clear VLAN config
+                 
+            :raises:
+                + :exc:`STLError`
+        """
+    
+        # validate ports and state
+        self.set_vlan(ports = ports, vlan = [])
+        
+         
+    @__api_check(True)
+    def ping_ip (self, src_port, dst_ip, pkt_size = 64, count = 5, interval_sec = 1, vlan = None):
         """
             Pings an IP address through a port
 
@@ -1922,6 +2034,7 @@ class STLClient(object):
                  pkt_size     - packet size to use
                  count        - how many times to ping
                  interval_sec - how much time to wait between pings
+                 vlan         - one or two VLAN tags o.w it will be taken from the src port configuration
 
             :returns:
                 List of replies per 'count'
@@ -1943,38 +2056,82 @@ class STLClient(object):
                 + :exc:`STLError`
 
         """
-        # validate src port
-        validate_type('src_port', src_port, int)
-        if src_port not in self.get_all_ports():
-            raise STLError("src port is not a valid port id")
         
         if not (is_valid_ipv4(dst_ip) or is_valid_ipv6(dst_ip)):
-            raise STLError("dst_ip is not a valid IPv4/6 address: '{0}'".format(dst_ip))
+            raise STLError("PING - dst_ip is not a valid IPv4/6 address: '{0}'".format(dst_ip))
             
         if (pkt_size < 64) or (pkt_size > 9216):
-            raise STLError("pkt_size should be a value between 64 and 9216: '{0}'".format(pkt_size))
-            
+            raise STLError("PING - pkt_size should be a value between 64 and 9216: '{0}'".format(pkt_size))
+        
         validate_type('count', count, int)
         validate_type('interval_sec', interval_sec, (int, float))
         
-        self.logger.pre_cmd("Pinging {0} from port {1} with {2} bytes of data:".format(dst_ip,
-                                                                                       src_port,
-                                                                                       pkt_size))
+        # validate src port
+        if is_valid_ipv4(dst_ip):
+            self.psv.validate('PING IPv4', src_port, (PSV_ACQUIRED, PSV_SERVICE, PSV_L3))
+        else:
+            self.psv.validate('PING IPv6', src_port, (PSV_ACQUIRED, PSV_SERVICE))
+        
+        # if vlan was given use it, otherwise generate it from the port
+        vlan = VLAN(self.ports[src_port].get_vlan_cfg() if vlan is None else vlan)
+        
+        if vlan:
+            self.logger.pre_cmd("Pinging {0} from port {1} over {2} with {3} bytes of data:".format(dst_ip,
+                                                                                                    src_port,
+                                                                                                    vlan.get_desc(),
+                                                                                                    pkt_size))
+        else:
+            self.logger.pre_cmd("Pinging {0} from port {1} with {2} bytes of data:".format(dst_ip,
+                                                                                           src_port,
+                                                                                           pkt_size))
+        
+        
+        if is_valid_ipv4(dst_ip):
+            return self._ping_ipv4(src_port, vlan, dst_ip, pkt_size, count, interval_sec)
+        else:
+            return self._ping_ipv6(src_port, vlan, dst_ip, pkt_size, count, interval_sec)
+        
+            
+         
+    # IPv4 ping           
+    def _ping_ipv4 (self, src_port, vlan, dst_ip, pkt_size, count, interval_sec):
+        
+        ctx = self.create_service_ctx(port = src_port)
+        ping = STLServiceICMP(ctx, dst_ip = dst_ip, pkt_size = pkt_size, vlan = vlan)
+        
+        records = []
+        
+        self.logger.log('')
+        for i in range(count):
+            ctx.run(ping)
+            
+            records.append(ping.get_record())
+            self.logger.log(ping.get_record())
+            
+            if i != (count - 1):
+                time.sleep(interval_sec)
+            
+        return records
+        
+        
+    # IPv6 ping 
+    def _ping_ipv6 (self, src_port, vlan, dst_ip, pkt_size, count, interval_sec):
         
         responses_arr = []
         # no async messages
         with self.logger.supress(level = LoggerApi.VERBOSE_REGULAR_SYNC):
             self.logger.log('')
             dst_mac = None
-            if ':' in dst_ip: # ipv6
-                rc = self.ports[src_port].scan6(dst_ip = dst_ip)
-                if not rc:
-                    raise STLError(rc)
-                replies = rc.data()
-                if len(replies) == 1:
-                    dst_mac = replies[0]['mac']
+        
+            rc = self.ports[src_port].scan6(dst_ip = dst_ip)
+            if not rc:
+                raise STLError(rc)
+            replies = rc.data()
+            if len(replies) == 1:
+                dst_mac = replies[0]['mac']
+                
             for i in range(count):
-                rc = self.ports[src_port].ping(ping_ip = dst_ip, pkt_size = pkt_size, dst_mac = dst_mac)
+                rc = self.ports[src_port].ping_ipv6(ping_ip = dst_ip, pkt_size = pkt_size, dst_mac = dst_mac)
                 if not rc:
                     raise STLError(rc)
                     
@@ -2015,27 +2172,303 @@ class STLClient(object):
     @__api_check(True)
     def get_active_pgids(self):
         """
-            Get active group IDs
+            Get active packet group IDs
 
-            :parameters:
+            :Parameters:
                 None
 
+            :returns:
+                Dict with entries 'latency' and 'flow_stats'. Each entry contains list of used packet group IDs
+                of the given type.
+
+            :Raises:
+                + :exc:`STLError`
+
+        """
+        rc = self._transmit("get_active_pgids")
+
+        if not rc:
+            raise STLError(rc)
+
+        return rc.data()["ids"]
+
+    @__api_check(True)
+    def get_pgid_stats (self, pgid_list = []):
+        """
+            .. _get_pgid_stats:
+
+            Get flow statistics for give list of pgids
+
+        :parameters:
+            pgid_list: list
+                pgids to get statistics on. If empty list, get statistics for all pgids.
+                Allows to get statistics for 1024 flows in one call (will return error if asking for more).
+        :return:
+            Return dictionary containing packet group id statistics information gathered from the server.
+
+            ===============================  ===============
+            key                               Meaning
+            ===============================  ===============
+            :ref:`flow_stats <flow_stats>`   Per flow statistics
+            :ref:`latency <latency>`         Per flow statistics regarding flow latency
+            ===============================  ===============
+
+            Below is description of each of the inner dictionaries.
+
+            .. _flow_stats:
+
+            **flow_stats** contains :ref:`global dictionary <flow_stats_global>`, and dictionaries per packet group id (pg id). See structures below.
+
+            **per pg_id flow stat** dictionaries have following structure:
+
+            =================   ===============
+            key                 Meaning
+            =================   ===============
+            rx_bps              Received bits per second rate
+            rx_bps_l1           Received bits per second rate, including layer one
+            rx_bytes            Total number of received bytes
+            rx_pkts             Total number of received packets
+            rx_pps              Received packets per second
+            tx_bps              Transmit bits per second rate
+            tx_bps_l1           Transmit bits per second rate, including layer one
+            tx_bytes            Total number of sent bits
+            tx_pkts             Total number of sent packets
+            tx_pps              Transmit packets per second rate
+            =================   ===============
+
+            .. _flow_stats_global:
+
+            **global flow stats** dictionary has the following structure:
+
+            =================   ===============
+            key                 Meaning
+            =================   ===============
+            rx_err              Number of flow statistics packets received that we could not associate to any pg_id. This can happen if latency on the used setup is large. See :ref:`wait_on_traffic <wait_on_traffic>` rx_delay_ms parameter for details.
+            tx_err              Number of flow statistics packets transmitted that we could not associate to any pg_id. This is never expected. If you see this different than 0, please report.
+            =================   ===============
+
+            .. _latency:
+
+            **latency** contains :ref:`global dictionary <lat_stats_global>`, and dictionaries per packet group id (pg id). Each one with the following structure.
+
+            **per pg_id latency stat** dictionaries have following structure:
+
+            ===========================          ===============
+            key                                  Meaning
+            ===========================          ===============
+            :ref:`err_cntrs<err-cntrs>`          Counters describing errors that occured with this pg id
+            :ref:`latency<lat_inner>`            Information regarding packet latency
+            ===========================          ===============
+
+            Following are the inner dictionaries of latency
+
+            .. _err-cntrs:
+
+            **err-cntrs**
+
+            =================   ===============
+            key                 Meaning (see better explanation below the table)
+            =================   ===============
+            dropped             How many packets were dropped (estimation)
+            dup                 How many packets were duplicated.
+            out_of_order        How many packets we received out of order.
+            seq_too_high        How many events of packet with sequence number too high we saw.
+            seq_too_low         How many events of packet with sequence number too low we saw.
+            =================   ===============
+
+            For calculating packet error events, we add sequence number to each packet's payload. We decide what went wrong only according to sequence number
+            of last packet received and that of the previous packet. 'seq_too_low' and 'seq_too_high' count events we see. 'dup', 'out_of_order' and 'dropped'
+            are heuristics we apply to try and understand what happened. They will be accurate in common error scenarios.
+            We describe few scenarios below to help understand this.
+
+            Scenario 1: Received packet with seq num 10, and another one with seq num 10. We increment 'dup' and 'seq_too_low' by 1.
+
+            Scenario 2: Received pacekt with seq num 10 and then packet with seq num 15. We assume 4 packets were dropped, and increment 'dropped' by 4, and 'seq_too_high' by 1.
+            We expect next packet to arrive with sequence number 16.
+
+            Scenario 2 continue: Received packet with seq num 11. We increment 'seq_too_low' by 1. We increment 'out_of_order' by 1. We *decrement* 'dropped' by 1.
+            (We assume here that one of the packets we considered as dropped before, actually arrived out of order).
+
+
+            .. _lat_inner:
+
+            **latency**
+
+            =================   ===============
+            key                 Meaning
+            =================   ===============
+            average             Average latency over the stream lifetime (usec).Low pass filter is applied to the last window average.It is computed each sampling period by following formula: <average> = <prev average>/2 + <last sampling period average>/2
+            histogram           Dictionary describing logarithmic distribution histogram of packet latencies. Keys in the dictionary represent range of latencies (in usec). Values are the total number of packets received in this latency range. For example, an entry {100:13} would mean that we saw 13 packets with latency in the range between 100 and 200 usec.
+            jitter              Jitter of latency samples, computed as described in :rfc:`3550#appendix-A.8`
+            last_max            Maximum latency measured between last two data reads from server (0.5 sec window).
+            total_max           Maximum latency measured over the stream lifetime (in usec).
+            total_min           Minimum latency measured over the stream lifetime (in usec).
+            =================   ===============
+
+            .. _lat_stats_global:
+
+            **global latency stats** dictionary has the following structure:
+
+            =================   ===============
+            key                 Meaning
+            =================   ===============
+            old_flow            Number of latency statistics packets received that we could not associate to any pg_id. This can happen if latency on the used setup is large. See :ref:`wait_on_traffic <wait_on_traffic>` rx_delay_ms parameter for details.
+            bad_hdr             Number of latency packets received with bad latency data. This can happen becuase of garbage packets in the network, or if the DUT causes packet corruption.
+            =================   ===============
 
             :raises:
                 + :exc:`STLError`
 
         """
 
-        self.logger.pre_cmd( "Getting active packet group ids")
+        # transform single stream
+        if not isinstance(pgid_list, list):
+            pgid_list = [pgid_list]
 
-        rc = self._transmit("get_active_pgids")
+        if pgid_list == []:
+            active_pgids = self.get_active_pgids()
+            pgid_list = active_pgids['latency'] + active_pgids['flow_stats']
 
-        self.logger.post_cmd(rc)
+        # Should not exceed MAX_ALLOWED_PGID_LIST_LEN from flow_stat.cpp
+        max_pgid_in_query = 1024 + 128
+        pgid_list_len = len(pgid_list)
+        index = 0
+        ans_dict = {}
 
-        if not rc:
-            raise STLError(rc)
+        while index <= pgid_list_len:
+            curr_pgid_list = pgid_list[index : index + max_pgid_in_query]
+            index += max_pgid_in_query
+            rc = self._transmit("get_pgid_stats", params = {'pgids': curr_pgid_list})
 
-        return rc.data()
+            if not rc:
+                raise STLError(rc)
+
+            for key in rc.data().keys():
+                if key in ans_dict:
+                    try:
+                        ans_dict[key].update(rc.data()[key])
+                    except:
+                        pass
+                else:
+                    ans_dict[key] = rc.data()[key]
+
+        # translation from json values to python API names
+        j_to_p_lat = {'jit': 'jitter', 'average':'average', 'total_max': 'total_max', 'last_max':'last_max'}
+        j_to_p_err = {'drp':'dropped', 'ooo':'out_of_order', 'dup':'dup', 'sth':'seq_too_high', 'stl':'seq_too_low'}
+        j_to_p_global = {'old_flow':'old_flow', 'bad_hdr':'bad_hdr'}
+        j_to_p_f_stat = {'rp': 'rx_pkts', 'rb': 'rx_bytes', 'tp': 'tx_pkts', 'tb': 'tx_bytes'
+                         , 'rbs': 'rx_bps', 'rps': 'rx_pps', 'tbs': 'tx_bps', 'tps': 'tx_pps'}
+        j_to_p_g_f_err = {'rx_err': 'rx_err', 'tx_err': 'tx_err'}
+
+        # translate json 'latency' to python API 'latency'
+        new = {}
+        if 'ver_id' in ans_dict and ans_dict['ver_id'] is not None:
+            new['ver_id'] = ans_dict['ver_id']
+        else:
+            new['ver_id'] = {}
+
+        if 'latency' in ans_dict.keys() and ans_dict['latency'] is not None:
+            new['latency'] = {}
+            new['latency']['global'] = {}
+            for key in j_to_p_global.keys():
+                new['latency']['global'][j_to_p_global[key]] = 0
+            for pg_id in ans_dict['latency']:
+                # 'g' value is not a number
+                try:
+                    int_pg_id = int(pg_id)
+                except:
+                    continue
+                new['latency'][int_pg_id] = {}
+                new['latency'][int_pg_id]['err_cntrs'] = {}
+                if 'er' in ans_dict['latency'][pg_id]:
+                    for key in j_to_p_err.keys():
+                        if key in ans_dict['latency'][pg_id]['er']:
+                            new['latency'][int_pg_id]['err_cntrs'][j_to_p_err[key]] = ans_dict['latency'][pg_id]['er'][key]
+                        else:
+                            new['latency'][int_pg_id]['err_cntrs'][j_to_p_err[key]] = 0
+                else:
+                    for key in j_to_p_err.keys():
+                        new['latency'][int_pg_id]['err_cntrs'][j_to_p_err[key]] = 0
+
+                new['latency'][int_pg_id]['latency'] = {}
+                for field in j_to_p_lat.keys():
+                    if field in ans_dict['latency'][pg_id]['lat']:
+                        new['latency'][int_pg_id]['latency'][j_to_p_lat[field]] = ans_dict['latency'][pg_id]['lat'][field]
+                    else:
+                        new['latency'][int_pg_id]['latency'][j_to_p_lat[field]] = StatNotAvailable(field)
+
+                if 'histogram' in ans_dict['latency'][pg_id]['lat']:
+                    #translate histogram numbers from string to integers
+                    new['latency'][int_pg_id]['latency']['histogram'] = {
+                                        int(elem): ans_dict['latency'][pg_id]['lat']['histogram'][elem]
+                                         for elem in ans_dict['latency'][pg_id]['lat']['histogram']
+                    }
+                    min_val = min(new['latency'][int_pg_id]['latency']['histogram'])
+                    if min_val == 0:
+                        min_val = 2
+                    new['latency'][int_pg_id]['latency']['total_min'] = min_val
+                else:
+                    new['latency'][int_pg_id]['latency']['total_min'] = StatNotAvailable('total_min')
+                    new['latency'][int_pg_id]['latency']['histogram'] = {}
+
+        # translate json 'flow_stats' to python API 'flow_stats'
+        if 'flow_stats' in ans_dict.keys() and ans_dict['flow_stats'] is not None:
+            new['flow_stats'] = {}
+            new['flow_stats']['global'] = {}
+
+            all_ports = []
+            for pg_id in ans_dict['flow_stats']:
+                # 'g' value is not a number
+                try:
+                    int_pg_id = int(pg_id)
+                except:
+                    continue
+
+                # do this only once
+                if all_ports == []:
+                    # if field does not exist, we don't know which ports we have. We assume 'tp' will always exist
+                    for port in ans_dict['flow_stats'][pg_id]['tp']:
+                        all_ports.append(int(port))
+
+                new['flow_stats'][int_pg_id] = {}
+                for field in j_to_p_f_stat.keys():
+                    new['flow_stats'][int_pg_id][j_to_p_f_stat[field]] = {}
+                    #translate ports to integers
+                    total = 0
+                    if field in ans_dict['flow_stats'][pg_id]:
+                        for port in ans_dict['flow_stats'][pg_id][field]:
+                            new['flow_stats'][int_pg_id][j_to_p_f_stat[field]][int(port)] = ans_dict['flow_stats'][pg_id][field][port]
+                            total += new['flow_stats'][int_pg_id][j_to_p_f_stat[field]][int(port)]
+                        new['flow_stats'][int_pg_id][j_to_p_f_stat[field]]['total'] = total
+                    else:
+                        for port in all_ports:
+                            new['flow_stats'][int_pg_id][j_to_p_f_stat[field]][int(port)] = StatNotAvailable(j_to_p_f_stat[field])
+                        new['flow_stats'][int_pg_id][j_to_p_f_stat[field]]['total'] = StatNotAvailable('total')
+                new['flow_stats'][int_pg_id]['rx_bps_l1'] = {}
+                new['flow_stats'][int_pg_id]['tx_bps_l1'] = {}
+                for port in new['flow_stats'][int_pg_id]['rx_pkts']:
+                    # L1 overhead is 20 bytes per packet
+                    new['flow_stats'][int_pg_id]['rx_bps_l1'][port] = float(new['flow_stats'][int_pg_id]['rx_bps'][port]) + float(new['flow_stats'][int_pg_id]['rx_pps'][port]) * 20 * 8
+                    new['flow_stats'][int_pg_id]['tx_bps_l1'][port] = float(new['flow_stats'][int_pg_id]['tx_bps'][port]) + float(new['flow_stats'][int_pg_id]['tx_pps'][port]) * 20 * 8
+
+            if 'g' in ans_dict['flow_stats']:
+                for field in j_to_p_g_f_err.keys():
+                    if field in ans_dict['flow_stats']['g']:
+                        new['flow_stats']['global'][j_to_p_g_f_err[field]] = ans_dict['flow_stats']['g'][field]
+                    else:
+                        new['flow_stats']['global'][j_to_p_g_f_err[field]] = {}
+                        for port in all_ports:
+                            new['flow_stats']['global'][j_to_p_g_f_err[field]][int(port)] = 0
+            else:
+                for field in j_to_p_g_f_err.keys():
+                    new['flow_stats']['global'][j_to_p_g_f_err[field]] = {}
+                    for port in all_ports:
+                        new['flow_stats']['global'][j_to_p_g_f_err[field]][int(port)] = 0
+
+
+        self.pgid_stats.save_stats(new)
+
+        return self.pgid_stats.get_stats()
 
     @__api_check(True)
     def get_util_stats(self):
@@ -2261,25 +2694,16 @@ class STLClient(object):
 
 
     # common checks for start API
-    def __pre_start_check (self, ports, force):
-        
-        # verify link status
-        ports_link_down = [port_id for port_id in ports if not self.ports[port_id].is_up()]
-        if ports_link_down and not force:
-            raise STLError("Port(s) %s - link DOWN - check the connection or specify 'force'" % ports_link_down)
-        
-        # verify ports are stopped or force stop them
-        active_ports = [port_id for port_id in ports if self.ports[port_id].is_active()]
-        if active_ports and not force:
-            raise STLError("Port(s) {0} are active - please stop them or specify 'force'".format(active_ports))
+    def __pre_start_check (self, cmd_name, ports, force):
+        if force:
+            return self.psv.validate(cmd_name, ports)
             
-        # warn if ports are not resolved
-        unresolved_ports = [port_id for port_id in ports if not self.ports[port_id].is_resolved()]
-        if unresolved_ports and not force:
-            raise STLError("Port(s) {0} have unresolved destination addresses - please resolve them or specify 'force'".format(unresolved_ports))
-     
-        if self.get_service_enabled_ports() and not force:
-            raise STLError("Port(s) {0} are under service mode - please disable service mode or specify 'force'".format(self.get_service_enabled_ports()))
+        states = {PSV_UP:           "check the connection or specify 'force'",
+                  PSV_IDLE:         "please stop them or specify 'force'",
+                  PSV_RESOLVED:     "please resolve them or specify 'force'",
+                  PSV_NON_SERVICE:  "please disable service mode or specify 'force'"}
+        
+        return self.psv.validate(cmd_name, ports, states)     
             
         
     @__api_check(True)
@@ -2289,7 +2713,8 @@ class STLClient(object):
                force = False,
                duration = -1,
                total = False,
-               core_mask = CORE_MASK_SPLIT):
+               core_mask = None,
+               synchronized = False):
         """
             Start traffic on port(s)
 
@@ -2315,12 +2740,18 @@ class STLClient(object):
                     True: Divide bandwidth among the ports
                     False: Duplicate
 
-                core_mask: CORE_MASK_SPLIT, CORE_MASK_PIN or a list of masks (one per port)
+                core_mask: CORE_MASK_SPLIT, CORE_MASK_PIN, CORE_MASK_SINGLE or a list of masks (one per port)
                     Determine the allocation of cores per port
                     In CORE_MASK_SPLIT all the traffic will be divided equally between all the cores
                     associated with each port
                     In CORE_MASK_PIN, for each dual ports (a group that shares the same cores)
                     the cores will be divided half pinned for each port
+
+                synchronized: bool
+                    In case of several ports, ensure their transmitting time is syncronized.
+                    Must use adjacent ports (belong to same set of cores).
+                    Will set default core_mask to 0x1.
+                    Recommended ipg 1ms and more.
 
             :raises:
                 + :exc:`STLError`
@@ -2328,20 +2759,19 @@ class STLClient(object):
         """
 
         ports = ports if ports is not None else self.get_acquired_ports()
-        ports = self._validate_port_list(ports)
+        ports = self.__pre_start_check('START', ports, force)
 
         validate_type('mult', mult, basestring)
         validate_type('force', force, bool)
         validate_type('duration', duration, (int, float))
         validate_type('total', total, bool)
-        validate_type('core_mask', core_mask, (int, list))
+        validate_type('core_mask', core_mask, (type(None), int, list))
 
-      
-        # some sanity checks before attempting start
-        self.__pre_start_check(ports, force)
         
         #########################
         # decode core mask argument
+        if core_mask is None:
+            core_mask = self.CORE_MASK_SINGLE if synchronized else self.CORE_MASK_SPLIT
         decoded_mask = self.__decode_core_mask(ports, core_mask)
         #######################
 
@@ -2358,15 +2788,33 @@ class STLClient(object):
         if active_ports and force:
             self.stop(active_ports)
 
-        
+        if synchronized:
+            # start synchronized (per pair of ports) traffic
+            if len(ports) % 2:
+                raise STLError('Must use even number of ports in synchronized mode')
+            for port in ports:
+                if port ^ 1 not in ports:
+                    raise STLError('Must use adjacent ports in synchronized mode. Port "%s" has not pair.' % port)
+
+            start_time = time.time()
+            with self.logger.supress():
+                ping_data = self.ping_rpc_server()
+            start_at_ts = ping_data['ts'] + max((time.time() - start_time), 0.5) * len(ports)
+            synchronized_str = 'synchronized '
+        else:
+            start_at_ts = None
+            synchronized_str = ''
+
         # start traffic
-        self.logger.pre_cmd("Starting traffic on port(s) {0}:".format(ports))
-        rc = self.__start(mult_obj, duration, ports, force, decoded_mask)
+        self.logger.pre_cmd("Starting {}traffic on port(s) {}:".format(synchronized_str, ports))
+        rc = self.__start(mult_obj, duration, ports, force, decoded_mask, start_at_ts)
         self.logger.post_cmd(rc)
 
         if not rc:
             raise STLError(rc)
 
+        return rc
+        
 
     @__api_check(True)
     def stop (self, ports = None, rx_delay_ms = None):
@@ -2394,7 +2842,7 @@ class STLClient(object):
             if not ports:
                 return
 
-        ports = self._validate_port_list(ports)
+        ports = self.psv.validate('STOP', ports, PSV_ACQUIRED)
         
         self.logger.pre_cmd("Stopping traffic on port(s) {0}:".format(ports))
         rc = self.__stop(ports)
@@ -2532,7 +2980,8 @@ class STLClient(object):
                      count = 1,
                      duration = -1,
                      is_dual = False,
-                     min_ipg_usec = None):
+                     min_ipg_usec = None,
+                     force  = False):
         """
             Push a remote server-reachable PCAP file
             the path must be fullpath accessible to the server
@@ -2567,12 +3016,16 @@ class STLClient(object):
                     Minimum inter-packet gap in microseconds to guard from too small ipg.
                     Exclusive with ipg_usec
 
+                force : bool
+                    Ignore if port is active
+ 
+                
             :raises:
                 + :exc:`STLError`
 
         """
         ports = ports if ports is not None else self.get_acquired_ports()
-        ports = self._validate_port_list(ports)
+        ports = self.__pre_start_check('PUSH', ports, force)
 
         validate_type('pcap_filename', pcap_filename, basestring)
         validate_type('ipg_usec', ipg_usec, (float, int, type(None)))
@@ -2582,6 +3035,12 @@ class STLClient(object):
         validate_type('is_dual', is_dual, bool)
         validate_type('min_ipg_usec', min_ipg_usec, (float, int, type(None)))
 
+        # if force - stop any active ports
+        if force:
+            active_ports = list(set(self.get_active_ports()).intersection(ports))
+            if active_ports:
+                self.stop(active_ports)
+                
         # for dual mode check that all are masters
         if is_dual:
             if not pcap_filename.endswith('erf'):
@@ -2648,7 +3107,8 @@ class STLClient(object):
 
                 force: bool
                     Ignore file size limit - push any file size to the server
-
+                    also ignore if port is active
+                    
                 vm: list of VM instructions
                     VM instructions to apply for every packet
 
@@ -2670,8 +3130,8 @@ class STLClient(object):
 
         """
         ports = ports if ports is not None else self.get_acquired_ports()
-        ports = self._validate_port_list(ports)
-
+        ports = self.__pre_start_check('PUSH', ports, force)
+        
         validate_type('pcap_filename', pcap_filename, basestring)
         validate_type('ipg_usec', ipg_usec, (float, int, type(None)))
         validate_type('speedup',  speedup, (float, int))
@@ -2683,10 +3143,13 @@ class STLClient(object):
         if all([ipg_usec, min_ipg_usec]):
             raise STLError('Please specify either ipg or minimal ipg, not both.')
 
+        # if force - stop any active ports
+        if force:
+            active_ports = list(set(self.get_active_ports()).intersection(ports))
+            if active_ports:
+                self.stop(active_ports)
 
-        # this action requires starting traffic
-        self.__pre_start_check(ports, force)
-        
+
         # no support for > 1MB PCAP - use push remote
         if not force and os.path.getsize(pcap_filename) > (1024 * 1024):
             raise STLError("PCAP size of {:} is too big for local push - consider using remote push or provide 'force'".format(format_num(os.path.getsize(pcap_filename), suffix = 'B')))
@@ -2715,7 +3178,7 @@ class STLClient(object):
                                                vm = vm,
                                                packet_hook = packet_hook,
                                                min_ipg_usec = min_ipg_usec)
-                self.logger.post_cmd(RC_OK)
+                self.logger.post_cmd(RC_OK())
             except STLError as e:
                 self.logger.post_cmd(RC_ERR(e))
                 raise
@@ -2730,6 +3193,8 @@ class STLClient(object):
 
             # create a dual profile
             split_mode = 'MAC'
+            if (ipg_usec and ipg_usec < 1000 * speedup) or (min_ipg_usec and min_ipg_usec < 1000):
+                self.event_handler.log_warning('In order to get synchronized traffic, ensure that effective ipg is at least 1000 usec ')
             
             try:
                 self.logger.pre_cmd("Analyzing '{0}' for dual ports based on {1}:".format(pcap_filename, split_mode))
@@ -2760,7 +3225,7 @@ class STLClient(object):
                 if profile_b:
                     self.add_streams(profile_b.get_streams(), slave)
 
-            return self.start(ports = all_ports, duration = duration, force = force)
+            return self.start(ports = all_ports, duration = duration, force = force, synchronized = True)
 
 
 
@@ -2813,12 +3278,18 @@ class STLClient(object):
         
         # validate ports
         ports = ports if ports is not None else self.get_acquired_ports()
-        ports = self._validate_port_list(ports)
+        ports = self.__pre_start_check('PUSH', ports, force)
         
         validate_type('count',  count, int)
         validate_type('duration', duration, (float, int))
         validate_type('vm', vm, (list, type(None)))
         
+        # if force - stop any active ports
+        if force:
+            active_ports = list(set(self.get_active_ports()).intersection(ports))
+            if active_ports:
+                self.stop(active_ports)
+                
         # pkts should be scapy, bytes, str or a list of them
         pkts = listify(pkts)
         for pkt in pkts:
@@ -2829,9 +3300,6 @@ class STLClient(object):
         validate_type('ipg_usec', ipg_usec, (float, int, type(None)))
         if ipg_usec < 0:
             raise STLError("'ipg_usec' should not be negative")
-        
-        # this action requires starting traffic
-        self.__pre_start_check(ports, force)
         
         # init the stream list
         streams = []
@@ -2864,7 +3332,7 @@ class STLClient(object):
         self.remove_all_streams(ports = ports)
         id_list = self.add_streams(streams, ports)
             
-        self.start(ports = ports, duration = duration, force = force)
+        return self.start(ports = ports, duration = duration, force = force)
 
     
 
@@ -2923,7 +3391,7 @@ class STLClient(object):
 
 
     @__api_check(False)
-    def clear_stats (self, ports = None, clear_global = True, clear_flow_stats = True, clear_latency_stats = True, clear_xstats = True):
+    def clear_stats (self, ports = None, clear_global = True, clear_flow_stats = True, clear_latency_stats = True, clear_xstats = True, clear_pgid_stats = True):
         """
             Clear stats on port(s)
 
@@ -2955,7 +3423,7 @@ class STLClient(object):
         if not type(clear_global) is bool:
             raise STLArgumentError('clear_global', clear_global)
 
-        rc = self.__clear_stats(ports, clear_global, clear_flow_stats, clear_latency_stats, clear_xstats)
+        rc = self.__clear_stats(ports, clear_global, clear_flow_stats, clear_latency_stats, clear_xstats, clear_pgid_stats)
         if not rc:
             raise STLError(rc)
 
@@ -2987,7 +3455,7 @@ class STLClient(object):
     @__api_check(True)
     def wait_on_traffic (self, ports = None, timeout = None, rx_delay_ms = None):
         """
-            .. _wait_on_traffic:
+             .. _wait_on_traffic:
 
             Block until traffic on specified port(s) has ended
 
@@ -3020,10 +3488,6 @@ class STLClient(object):
 
         # wait while any of the required ports are active
         while set(self.get_active_ports()).intersection(ports):
-
-            # make sure ASYNC thread is still alive - otherwise we will be stuck forever
-            if not self.async_client.is_active():
-                raise STLError("subscriber thread is dead")
 
             time.sleep(0.01)
             if timer.has_expired():
@@ -3102,7 +3566,7 @@ class STLClient(object):
             get the port attributes currently set
             
             :parameters:
-                ports          - for which ports to configure service mode on/off
+                port - for which port to return port attributes
            
                      
             :raises:
@@ -3144,7 +3608,8 @@ class STLClient(object):
         
         if not rc:
             raise STLError(rc)
-            
+          
+              
     @contextmanager
     def service_mode (self, ports):
         self.set_service_mode(ports = ports)
@@ -3155,7 +3620,7 @@ class STLClient(object):
         
         
     @__api_check(True)
-    def resolve (self, ports = None, retries = 0, verbose = True):
+    def resolve (self, ports = None, retries = 0, verbose = True, vlan = None):
         """
             Resolves ports (ARP resolution)
 
@@ -3163,27 +3628,57 @@ class STLClient(object):
                 ports          - which ports to resolve
                 retries        - how many times to retry on each port (intervals of 100 milliseconds)
                 verbose        - log for each request the response
+                vlan           - one or two VLAN tags o.w it will be taken from the src port configuration
             :raises:
                 + :exe:'STLError'
 
         """
         # by default - resolve all the ports that are configured with IPv4 dest
         ports = ports if ports is not None else self.get_resolvable_ports()
-        ports = self._validate_port_list(ports)
-            
-        self.logger.pre_cmd('Resolving destination on port(s) {0}:'.format(ports))
+        ports = self.psv.validate('ARP', ports, (PSV_ACQUIRED, PSV_SERVICE, PSV_L3))
         
-        with self.logger.supress(level = LoggerApi.VERBOSE_REGULAR_SYNC):
-            rc = self.__resolve(ports, retries)
-            
-        self.logger.post_cmd(rc)
+        # create a VLAN object - might throw exception on error
+        vlan = VLAN(vlan)
+        
+        if vlan:
+            self.logger.pre_cmd('Resolving destination over {0} on port(s) {1}:'.format(vlan.get_desc(), ports))
+        else:
+            self.logger.pre_cmd('Resolving destination on port(s) {0}:'.format(ports))
+        
+        # generate the context
+        arps = []
+        for port in ports:
 
-        if verbose:
-            for x in filter(bool, listify(rc.data())):
-                self.logger.log(format_text("{0}".format(x), 'bold'))
-                
-        if not rc:
-            raise STLError(rc)
+            self.ports[port].invalidate_arp()
+            
+            src_ipv4 = self.ports[port].get_layer_cfg()['ipv4']['src']
+            dst_ipv4 = self.ports[port].get_layer_cfg()['ipv4']['dst']
+            
+            port_vlan = self.ports[port].get_vlan_cfg() if vlan.is_default() else vlan
+            
+            ctx = self.create_service_ctx(port)
+            
+            # retries
+            for i in range(retries + 1):
+                arp = STLServiceARP(ctx, dst_ip = dst_ipv4, src_ip = src_ipv4, vlan = port_vlan)
+                ctx.run(arp)
+                if arp.get_record():
+                    self.ports[port].set_l3_mode(src_ipv4, dst_ipv4, arp.get_record().dst_mac)
+                    break
+            
+            arps.append(arp)
+            
+        
+        self.logger.post_cmd(all([arp.get_record() for arp in arps]))
+        
+        for port, arp in zip(ports, arps):
+            if arp.get_record():
+                self.logger.log(format_text("Port {0} - {1}".format(port, arp.get_record()), 'bold'))
+            else:
+                self.logger.log(format_text("Port {0} - *** {1}".format(port, arp.get_record()), 'bold'))
+        
+        self.logger.log('')
+     
 
     # alias
     arp = resolve
@@ -3385,7 +3880,7 @@ class STLClient(object):
         
         # fetch packets
         if output is not None:
-            self.__fetch_capture_packets(capture_id, output, pkt_count)
+            self.fetch_capture_packets(capture_id, output, pkt_count)
         
         # remove
         self.logger.pre_cmd("Removing PCAP capture {0} from server".format(capture_id))
@@ -3395,13 +3890,39 @@ class STLClient(object):
             raise STLError(rc)
         
 
-            
-    # fetch packets from the server and save them to a file
-    def __fetch_capture_packets (self, capture_id, output, pkt_count):
+    @__api_check(True)
+    def fetch_capture_packets (self, capture_id, output, pkt_count = 1000):
+        """
+            Fetch packets from existing active capture
+
+            :parameters:
+                capture_id: int
+                    an active capture ID
+
+                pkt_count: int
+                    maximum packets to fetch
+                    
+                output: str / list
+                    if output is a 'str' - it will be interpeted as output filename
+                    if it is a list, the API will populate the list with packet objects
+
+                    in case 'output' is a list, each element in the list is an object
+                    containing:
+                    'binary' - binary bytes of the packet
+                    'origin' - RX or TX origin
+                    'ts'     - timestamp relative to the start of the capture
+                    'index'  - order index in the capture
+                    'port'   - on which port did the packet arrive or was transmitted from
+
+            :raises:
+                + :exe:'STLError'
+
+        """
+
         write_to_file = isinstance(output, basestring)
         
         self.logger.pre_cmd("Writing {0} packets to '{1}'".format(pkt_count, output if write_to_file else 'list'))
-        
+
         # create a PCAP file
         if write_to_file:
             writer = RawPcapWriter(output, linktype = 1)
@@ -3410,19 +3931,17 @@ class STLClient(object):
             # clear the list
             del output[:]
 
+        # assumes the server has 'count' packets
         pending = pkt_count
         rc = RC_OK()
         
         # fetch with iteratios - each iteration up to 50 packets
         while pending > 0:
-            rc = self._transmit("capture", params = {'command': 'fetch', 'capture_id': capture_id, 'pkt_limit': 50})
+            rc = self._transmit("capture", params = {'command': 'fetch', 'capture_id': capture_id, 'pkt_limit': min(50, pending)})
             if not rc:
                 self.logger.post_cmd(rc)
                 raise STLError(rc)
 
-            # make sure we are getting some progress
-            assert(rc.data()['pending'] < pending)
-            
             pkts      = rc.data()['pkts']
             pending   = rc.data()['pending']
             start_ts  = rc.data()['start_ts']
@@ -3438,8 +3957,6 @@ class STLClient(object):
                     writer._write_packet(pkt['binary'], sec = ts_sec, usec = ts_usec)
                 else:
                     output.append(pkt)
-
-
 
 
         self.logger.post_cmd(rc)
@@ -3577,6 +4094,15 @@ class STLClient(object):
         self.event_handler.clear_events()
 
 
+    def create_service_ctx (self, port):
+        """
+            Generates a service context.
+            Services can be added to the context,
+            and then executed
+        """
+        
+        return STLServiceCtx(self, port)
+        
     ############################   Line       #############################
     ############################   Commands   #############################
     ############################              #############################
@@ -3620,6 +4146,7 @@ class STLClient(object):
                                          parsing_opts.SINGLE_PORT,
                                          parsing_opts.PING_IP,
                                          parsing_opts.PKT_SIZE,
+                                         parsing_opts.VLAN_TAGS,
                                          parsing_opts.PING_COUNT)
 
         opts = parser.parse_args(line.split())
@@ -3628,8 +4155,8 @@ class STLClient(object):
             
         # IP ping
         # source ports maps to ports as a single port
-        self.ping_ip(opts.ports[0], opts.ping_ip, opts.pkt_size, opts.count)
-
+        self.ping_ip(opts.ports[0], opts.ping_ip, opts.pkt_size, opts.count, vlan = opts.vlan)
+        
         
     @__console
     def shutdown_line (self, line):
@@ -3693,7 +4220,6 @@ class STLClient(object):
         return RC_OK()
 
 
-    #
     @__console
     def release_line (self, line):
         '''Release ports\n'''
@@ -3787,7 +4313,8 @@ class STLClient(object):
                                          parsing_opts.TUNABLES,
                                          parsing_opts.MULTIPLIER_STRICT,
                                          parsing_opts.DRY_RUN,
-                                         parsing_opts.CORE_MASK_GROUP)
+                                         parsing_opts.CORE_MASK_GROUP,
+                                         parsing_opts.SYNCHRONIZED)
 
         opts = parser.parse_args(line.split(), default_ports = self.get_acquired_ports(), verify_acquired = True)
         if not opts:
@@ -3803,14 +4330,8 @@ class STLClient(object):
         self.__decode_core_mask(opts.ports, core_mask)
 
         # for better use experience - check this first
-        try:
-            self.__pre_start_check(opts.ports, opts.force)
-        except STLError as e:
-            msg = e.brief()
-            self.logger.log(format_text(msg, 'bold'))
-            return RC_ERR(msg)
-            
-                
+        self.__pre_start_check('START', opts.ports, opts.force)
+                 
         # stop ports if needed
         active_ports = list_intersect(self.get_active_ports(), opts.ports)
         if active_ports and opts.force:
@@ -3857,7 +4378,8 @@ class STLClient(object):
                        opts.force,
                        opts.duration,
                        opts.total,
-                       core_mask)
+                       core_mask,
+                       opts.sync)
 
         return RC_OK()
 
@@ -4115,17 +4637,7 @@ class STLClient(object):
         if not opts:
             return opts
 
-        active_ports = list(set(self.get_active_ports()).intersection(opts.ports))
-
-        if active_ports:
-            if not opts.force:
-                msg = "Port(s) {0} are active - please stop them or add '--force'\n".format(active_ports)
-                self.logger.log(format_text(msg, 'bold'))
-                return RC_ERR(msg)
-            else:
-                self.stop(active_ports)
-
-
+            
         if opts.remote:
             self.push_remote(opts.file[0],
                              ports          = opts.ports,
@@ -4134,6 +4646,7 @@ class STLClient(object):
                              speedup        = opts.speedup,
                              count          = opts.count,
                              duration       = opts.duration,
+                             force          = opts.force,
                              is_dual        = opts.dual)
 
         else:
@@ -4234,6 +4747,7 @@ class STLClient(object):
                                          "resolve",
                                          self.resolve_line.__doc__,
                                          parsing_opts.PORT_LIST_WITH_ALL,
+                                         parsing_opts.VLAN_TAGS,
                                          parsing_opts.RETRIES)
 
         opts = parser.parse_args(line.split(), default_ports = self.get_resolvable_ports(), verify_acquired = True)
@@ -4241,7 +4755,7 @@ class STLClient(object):
             return opts
 
         
-        self.resolve(ports = opts.ports, retries = opts.retries)
+        self.resolve(ports = opts.ports, retries = opts.retries, vlan = opts.vlan)
 
         return RC_OK()
         
@@ -4275,8 +4789,7 @@ class STLClient(object):
                                          "port",
                                          self.set_l2_mode_line.__doc__,
                                          parsing_opts.SINGLE_PORT,
-                                         parsing_opts.DST_MAC,
-                                         )
+                                         parsing_opts.DST_MAC)
 
         opts = parser.parse_args(line.split())
         if not opts:
@@ -4299,6 +4812,7 @@ class STLClient(object):
                                          parsing_opts.SINGLE_PORT,
                                          parsing_opts.SRC_IPV4,
                                          parsing_opts.DST_IPV4,
+                                         parsing_opts.VLAN_TAGS,
                                          )
 
         opts = parser.parse_args(line.split())
@@ -4307,7 +4821,30 @@ class STLClient(object):
 
 
         # source ports maps to ports as a single port
-        self.set_l3_mode(opts.ports[0], src_ipv4 = opts.src_ipv4, dst_ipv4 = opts.dst_ipv4)
+        self.set_l3_mode(opts.ports[0], src_ipv4 = opts.src_ipv4, dst_ipv4 = opts.dst_ipv4, vlan = opts.vlan)
+
+        return RC_OK()
+        
+        
+    @__console
+    def set_vlan_line (self, line):
+        '''Configures VLAN tagging for a port. control generated traffic such as ARP will be tagged'''
+
+        parser = parsing_opts.gen_parser(self,
+                                         "vlan",
+                                         self.set_vlan_line.__doc__,
+                                         parsing_opts.PORT_LIST_WITH_ALL,
+                                         parsing_opts.VLAN_CFG,
+                                         )
+
+        opts = parser.parse_args(line.split())
+        if not opts:
+            return opts
+
+        if opts.clear_vlan:
+            self.clear_vlan(ports = opts.ports)
+        else:
+            self.set_vlan(ports = opts.ports, vlan = opts.vlan)
 
         return RC_OK()
         
@@ -4444,6 +4981,8 @@ class STLClient(object):
             
         self.set_service_mode(ports = opts.ports, enabled = opts.enabled)
         
+        return RC_OK()
+        
 
     @__console
     def pkt_line (self, line):
@@ -4457,7 +4996,8 @@ class STLClient(object):
                                          parsing_opts.PORT_LIST_WITH_ALL,
                                          parsing_opts.COUNT,
                                          parsing_opts.DRY_RUN,
-                                         parsing_opts.SCAPY_PKT_CMD)
+                                         parsing_opts.SCAPY_PKT_CMD,
+                                         parsing_opts.FORCE)
 
         opts = parser.parse_args(line.split())
         if not opts:
@@ -4475,21 +5015,13 @@ class STLClient(object):
             opts.scapy_pkt.show2()
             self.logger.log(format_text('\n*** DRY RUN - no traffic was injected ***\n', 'bold'))
             return
-            
-            
-        # verify ports are stopped or force stop them
-        active_ports = [port_id for port_id in opts.ports if self.ports[port_id].is_active()]
-        if active_ports:
-            self.logger.log(format_text("Port(s) {0} are active - please stop them before pushing packets".format(active_ports), 'bold'))
-            return
-            
+   
             
         self.logger.pre_cmd("Pushing {0} packet(s) (size: {1}) on port(s) {2}:".format(opts.count if opts.count else 'infinite',
                                                                                        len(opts.scapy_pkt), opts.ports))
-        
         try:
             with self.logger.supress():
-                self.push_packets(pkts = opts.scapy_pkt, ports = opts.ports, force = True, count = opts.count)
+                self.push_packets(pkts = opts.scapy_pkt, ports = opts.ports, force = opts.force, count = opts.count)
                 
         except STLError as e:
             self.logger.post_cmd(False)
@@ -4497,6 +5029,7 @@ class STLClient(object):
         else:
             self.logger.post_cmd(RC_OK())
         
+            
     # save current history to a temp file
     def __push_history (self):
         tmp_file = tempfile.mktemp()
@@ -4528,7 +5061,10 @@ class STLClient(object):
             
         
         try:
-            import IPython
+            from IPython.terminal.ipapp import load_default_config
+            from IPython.terminal.embed import InteractiveShellEmbed
+            from IPython import embed
+            
         except ImportError:
             self.logger.log(format_text("\n*** 'IPython' is required for interactive debugging ***\n", 'bold'))
             return
@@ -4545,21 +5081,21 @@ class STLClient(object):
         client = self
         auto_completer = readline.get_completer()
         
-        h_file = self.__push_history()
+        console_h = self.__push_history()
         
         try:
-            from IPython.terminal.ipapp import load_default_config
-            cfg = load_default_config()
-            cfg['TerminalInteractiveShell']['confirm_exit']    = False
             
-            x = IPython.terminal.embed.InteractiveShellEmbed(cfg, display_banner = False)
-            x.mainloop()
+            cfg = load_default_config()
+            cfg['TerminalInteractiveShell']['confirm_exit'] = False
+            
+            embed(config = cfg, display_banner = False)
+            #InteractiveShellEmbed.clear_instance()
             
         finally:
             readline.set_completer(auto_completer)
-            self.__pop_history(h_file)
+            self.__pop_history(console_h)
             try:
-                os.unlink(h_file)
+                os.unlink(console_h)
             except OSError:
                 pass
         
@@ -4567,4 +5103,4 @@ class STLClient(object):
         
         return
 
-     
+

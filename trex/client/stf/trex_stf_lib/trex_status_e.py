@@ -4,8 +4,8 @@ try:
     from . import outer_packages
 except:
     import outer_packages
-from enum import Enum
+from simple_enum import SimpleEnum
 
 
 # define the states in which a TRex can hold during its lifetime
-TRexStatus = Enum('TRexStatus', 'Idle Starting Running')
+TRexStatus = SimpleEnum('TRexStatus', 'Idle Starting Running')
