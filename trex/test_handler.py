@@ -1,5 +1,4 @@
-# DB
-from app import models
+# takes tests, makes tests and returns result
 # stateful tests
 from trex.client.stf import test_common as stf_common
 from trex.client.stf import test_selection as stf_selection
@@ -31,10 +30,10 @@ def stl_test_common(**kwargs):
     # getting results
     result = stl_common.testing(**kwargs)
     # killing stateless mode
-    if trex_kill.soft(**kwargs):
-        result['kill_status'] = True
-    else:
-        result['kill_status'] = False
+    #if trex_kill.soft(**kwargs):
+    result['kill_status'] = True
+    #else:
+    #    result['kill_status'] = False
     return result
 
 
@@ -45,10 +44,10 @@ def stl_test_selection(**kwargs):
     # getting results
     result = stl_selection.testing(task, **kwargs['trex'])
     # killing stateless mode
-    if trex_kill.soft(**kwargs):
-        result['kill_status'] = True
-    else:
-        result['kill_status'] = False
+    #if trex_kill.soft(**kwargs):
+    result['kill_status'] = True
+    #else:
+    #    result['kill_status'] = False
     return result
 
 
