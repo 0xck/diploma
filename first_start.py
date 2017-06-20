@@ -39,7 +39,7 @@ def main_cfg_gen():
     app_port = 5000
     csrf_key = ''.join(SystemRandom().choice(ascii_letters + digits) for item in range(16))
     app_log_file = os.path.join(curr_dir, './app/logs/app.log')
-    # task scheduller
+    # task scheduler
     task_sched_interval = 300
     task_sched_safe = 600
 
@@ -111,7 +111,7 @@ SQLite DB file {bold}{}{end} already exists, should {red}replace{end} it?
 Welcome to {blue}wrex first start{end} config generator.
     If you would like create config with default settings just type "y" otherwise interactive setup will be started.
     {grey}Note. Use default settings only in case you exactly know what you are doing.
-    By default SQLite is used as DB, app listens all host addresses on {} port and redis URL is {}. Web app listens all addresses and uses {} port. Task scheduller checks for new tasks every {} seconds.{end}
+    By default SQLite is used as DB, app listens all host addresses on {} port and redis URL is {}. Web app listens all addresses and uses {} port. Task scheduler checks for new tasks every {} seconds.{end}
         '''.format(app_port, redis_url, app_port, task_sched_interval, **term))
     # generating using default values
     generate = input('Generate with default settings y/n ')
@@ -243,9 +243,9 @@ Select web application port''')
                 continue
         else:
             sw = False
-    # task scheduller time interval
+    # task scheduler time interval
     print('''
-Select time interval which will be used by task scheduller for checking new tasks.
+Select time interval which will be used by task scheduler for checking new tasks.
 '{grey}Note. Do not set too low interval, task sheduller uses DB for checking new tasks, if interval is small it may affect DB performance.{end}'''.format(**term))
     sw = True
     while sw is True:

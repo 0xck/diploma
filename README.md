@@ -127,7 +127,7 @@ TRex config for _2x10G interfaces L2:_
 
 Item `port_info ` must be changed on your values.
 ###### Daemon operations
-After TRex setup was complited go to TRex directory and start a daemon `trex_daemon_server start` with sudo/root privileges. Also you can check status `trex_daemon_server show`, restat `trex_daemon_server restart` and stop daemon `trex_daemon_server stop`, use sudo/root privileges for all of them.
+After TRex setup was completed, go to TRex directory and start a daemon `trex_daemon_server start` with sudo/root privileges. Also you can check status `trex_daemon_server show`, restat `trex_daemon_server restart` and stop daemon `trex_daemon_server stop`, use sudo/root privileges for all of them.
 
 ---
 **Note.** By default daemon listens _TCP port 8090_ make sure this port is available for wrex host. Also for stateless TRex mode _TCP ports 4500 and 4501_ have to be available for wrex host. More about stateful/stateless modes see at [documentation](https://trex-tgn.cisco.com/trex/doc/trex_stateless.html#_stateful_vs_stateless).
@@ -161,8 +161,8 @@ App has several components service for different tasks.
 ###### Web app (server.py)
 This is web interface for app. One allows you to manage elements on test task.
 
-###### Task scheduller (task_scheduller.py)
-Task scheduller tracks new test task in DB and when found appropriate task launch test process.
+###### Task scheduler (task_scheduler.py)
+Task scheduler tracks new test task in DB and when found appropriate task launch test process.
 
 ###### Worker (worker.py)
 Worker is queue manager one provides background task execution.
@@ -198,7 +198,7 @@ You can start/restart/stop any app components. For this use **start/restart/stop
 
 Click on link **restart** in **server** element in http console restarts web app component.
 
-`stop wrex:task_scheduller` in `supervisorctl` stop task scheduller component.
+`stop wrex:task_scheduler` in `supervisorctl` stop task scheduler component.
 
 #### Web interface
 Aftrer app was successfully launched go to _http://host address:app port_ _(e.g. http://localhost:5000)_. Now you have access to web interface and can setup TRexes/devices/tests/tasks.
@@ -210,9 +210,9 @@ For making a test you should create task but before task making it is necessary 
 And optional:
 - device
 
-Just go to menu item _New_ and in dropdown menu check approptiate item, fill the form and click _Add_ button.
+Just go to menu item _New_ and in dropdown menu check appropriate item, fill the form and click _Add_ button.
 
-After task was created task scheduller track one and start test proccess. After test completed you can look at the result (or error in case one failed) using link _Show_ of task on _Tasks_ page.
+After task was created task scheduler track one and start test process. After test completed you can look at the result (or error in case one failed) using link _Show_ of task on _Tasks_ page.
 
 ## Limits
 >There are some limits for using app in whole. They are described below.
@@ -255,7 +255,7 @@ Are not supported:
 - any management for TRexes or devices
 - notification
 - SSL/TSL
-- changing priority of managemet elements of TRexes and devices, now it is:
+- changing priority of management elements of TRexes and devices, now it is:
     - 1st IPv4
     - 2nd IPv6
     - 3rd DNS name
@@ -274,8 +274,7 @@ In whole app is not web interface for TRex, it uses TRex for making tests, gathe
 - test duration more than 86400 seconds
 - any traffic pattern constructors
 - more than 1 test per TRex instance
-- connection to TRex via IPv6 and DNS
-- all TRex port statistic
+- full TRex port statistic
 - work with traffic capture
 - changing parameters during test for stateless
 - pushing config/pattern/pcap on TRex

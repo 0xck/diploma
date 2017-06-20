@@ -1,4 +1,4 @@
-# task scheduller for handling pending tasks and makes test with trex client
+# task scheduler for handling pending tasks and makes test with trex client
 # work with DB
 from app import db, models
 # work with TRex
@@ -17,7 +17,7 @@ import signal
 from sys import exit
 from exceptions import GracefulExit, signal_handler
 from trex.client.stf import trex_kill
-# task scheduller config
+# task scheduler config
 from config import task_sched_interval, task_sched_safe
 from socket import timeout as sock_timeout
 
