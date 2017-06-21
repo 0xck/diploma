@@ -11,7 +11,22 @@
     {% if not no_data %}
     {# trex and device info #}
     <div>
-        <h3>TRex & Device</h3>
+        {% if print_page %}
+            <p class="text-right" >{{ print_page|safe }}</p>
+        {% endif %}
+        <h2>Test information</h2>
+        <div class="panel panel-default">
+            <div class="panel-heading">Test details</div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <tr>
+                        <th>Description</th>
+                        <th>Source test</th>
+                    </tr>
+                    {{test_info|safe}}
+                </table>
+            </div>
+        </div>
         <div class="panel panel-default">
             <div class="panel-heading">TRex details</div>
             <div class="table-responsive">
@@ -38,65 +53,70 @@
             </div>
         </div>
     </div>
+    <h2>Test content</h2>
+    <hr />
     {% if not single %}
     <div class="not_single">
         <button type="button" class="btn btn-default expand_all">Expand all</button>
         <button type="button" class="btn btn-default hide_all">Hide all</button>
     </div>
     {% endif %}
-    </div>
-    {% for test in full_task_data %}
+</div>
+{% for test in full_task_data %}
     <div class="container">
-        <h3>Test name: {{test.test_name}}
-            <button type="button" class="btn btn-link spoiler_title">Show/Hide data</button>
-        </h3>
+            <h3>Test: {{test.test_name}}
+                {% if not single %}
+                    <button type="button" class="btn btn-link spoiler_title">Show/Hide data</button>
+                {% endif %}
+            </h3>
+    </div>
     {# spoiled data #}
     <div class="spoiler">
-    <div>
-        {{ test.content | safe}}
-    </div>
-    {# charts #}
-
-    <div class="container">
-        <h4>Test charts</h4>
-            <div class="panel panel-default">
-                <div class="panel-heading">Packet per second data</div>
-                <canvas id="graph_pps_{{test.test_num}}"></canvas>
-            </div>
-
-
-            <div class="panel panel-default">
-                <div class="panel-heading">Bit per second data</div>
-                <canvas id="graph_bps_{{test.test_num}}"></canvas>
-            </div>
-    </div>
-    
-    {% if test.test_data %}
-        {# test info #}
-        <h4>Test detail</h4>
-        <div class="panel panel-default">
-            <div class="panel-heading">General details</div>
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    {{test.test_data|safe}}
-                </table>
+        <div class="container">
+            <div>
+                {{ test.content | safe}}
             </div>
         </div>
+        {# charts #}
+        <div class="container">
+            <h4>Test charts</h4>
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">Packet per second data</div>
+                    <canvas id="graph_pps_{{test.test_num}}"></canvas>
+                </div>
+                <div class="panel panel-default">
+                    <div class="panel-heading">Bit per second data</div>
+                    <canvas id="graph_bps_{{test.test_num}}"></canvas>
+                </div>
+        </div>  
+        {% if test.test_data %}
+            <div class="container">
+                {# test info #}
+                <h4>Test details</h4>
+                <div class="panel panel-default">
+                    <div class="panel-heading">General details</div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            {{test.test_data|safe}}
+                        </table>
+                    </div>
+                </div>
+            </div>
         {% endif %}
     </div>
+{% endfor %}
+{% if not single %}
+<div class="container not_single">
+    <button type="button" class="btn btn-default expand_all">Expand all</button>
+    <button type="button" class="btn btn-default hide_all">Hide all</button>
+    <hr />
+</div>
+{% endif %}
+{% else %}
+    <div class="container">
+        {{content|safe}}
     </div>
-    {% endfor %}
-    {% if not single %}
-    <div class="container not_single">
-        <button type="button" class="btn btn-default expand_all">Expand all</button>
-        <button type="button" class="btn btn-default hide_all">Hide all</button>
-    </div>
-    <div></div>
-    {% endif %}
-    {% else %}
-        <div class="container">
-            {{content|safe}}
-        </div>
 {% endif %}
 
 {% endblock %}
@@ -241,6 +261,11 @@
                             interval = tooltipItem[0].xLabel + ' sec';
                             return interval;
                         },
+                    }
+                },
+                animation: {
+                    onComplete: function () {                
+                        window.JSREPORT_READY_TO_START = true
                     }
                 }
             }

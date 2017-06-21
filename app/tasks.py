@@ -578,7 +578,7 @@ def task_readd(task_id):
 
 
 @app.route('/task/<int:task_id>/')
-def task_show(task_id):
+def task_show(task_id, print=False):
     # showing task details
     task_entr = models.Task.query.get(task_id)
     # no task id returns 404
@@ -746,11 +746,18 @@ def task_show(task_id):
         <blockquote>
             <p><em>"{}"</em></p>
         </blockquote>'''.format(loads(task_entr.data)['error'])
-        return render_template(
-            'task.html',
-            content=content,
-            title=page_title,
-            no_data=True)
+        if not print:
+            return render_template(
+                'task.html',
+                content=content,
+                title=page_title,
+                no_data=True)
+        else:
+            print_data = dict(
+                content=content,
+                title=page_title,
+                no_data=True)
+            return print_data
     # if result is success gathering info for showing
     elif task_entr.result == 'success':
         # procesing test results to tables
@@ -773,6 +780,12 @@ def task_show(task_id):
             for test_num, test_item in enumerate(bundle_list_expanded):
                 # test_mun index for defining results in task data, they are in the same order as in list
                 full_task_data.append(task_info_maker(task_data[test_num], test_item[0], test_num)[0])
+        # test info table
+        test_info = '''
+        <tr>
+            <td>{0}</td>
+            <td>{1}</td>
+        </tr>'''.format(test_data[0]['description'], '<a href="/test/{0}">{1}</a>'.format(task_entr.tests.id, task_entr.tests.name) if task_entr.tests else '<em>Test was deleted</em>')
         # trex data table
         trex_data = '''
         <tr>
@@ -785,30 +798,51 @@ def task_show(task_id):
             <td>{0}</td>
             <td>{1}</td>
         </tr>'''.format(*(task_entr.device, task_entr.devices.description) if task_entr.device else ('No device', ''))
-        script_file = 'task.js'
         # single or bundle test
         if len(task_data) > 1:
             single = False
         else:
             single = True
-
-        return render_template(
-            'task.html',
-            full_task_data=full_task_data,
-            title=page_title,
-            trex_data=trex_data,
-            device_data=device_data,
-            script_file=script_file,
-            no_data=False,
-            single=single)
+        if not print:
+            script_file = 'task.js'
+            print_page = '<a href="/task/{0}/print">Print version</a>'.format(task_id)
+            return render_template(
+                'task.html',
+                full_task_data=full_task_data,
+                title=page_title,
+                test_info=test_info,
+                trex_data=trex_data,
+                device_data=device_data,
+                script_file=script_file,
+                print_page=print_page,
+                no_data=False,
+                single=single)
+        else:
+            print_data = dict(
+                full_task_data=full_task_data,
+                title=page_title,
+                test_info=test_info,
+                trex_data=trex_data,
+                device_data=device_data,
+                print_page=False,
+                no_data=False,
+                single=single)
+            return print_data
     else:
         # shows no data if no data for this task
         content = '<p class="lead">Data for this task has not gathered yet.</p>'
-        return render_template(
-            'task.html',
-            content=content,
-            title=page_title,
-            no_data=True)
+        if not print:
+            return render_template(
+                'task.html',
+                content=content,
+                title=page_title,
+                no_data=True)
+        else:
+            print_data = dict(
+                content=content,
+                title=page_title,
+                no_data=True)
+        return print_data
 
 
 @app.route('/tasks/<query_item>/<int:item_id>/')
@@ -954,3 +988,16 @@ def task_test_show(task_id):
             title=page_title,
             content=msg,
             no_data=True)
+
+
+@app.route('/task/<int:task_id>/print/')
+def task_show_print(task_id):
+    # showing task details
+    task_entr = models.Task.query.get(task_id)
+    # no task id returns 404
+    if not task_entr:
+        abort(404)
+    result = task_show(task_id, print=True)
+    return render_template(
+        'task_print.html',
+        **result)
