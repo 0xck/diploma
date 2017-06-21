@@ -68,6 +68,8 @@ def tests_table():
                         <ul class="dropdown-menu">''',
         'end': '''<li><a href="/test/{0}/edit/{1}" class="edit" id="{0}">Edit</a></li>
                 <li role="separator" class="divider"></li>
+                <li><a href="/test/{0}/clone" class="clone" id="{0}">Clone</a></li>
+                <li role="separator" class="divider"></li>
                 <li><a href="/test/{0}/delete" class="delete" id="{0}">Delete</a></li>
                 </ul>
             </div>'''
@@ -106,11 +108,13 @@ def tests_table():
                 <td>{tasks}</td>
             </tr>
         '''.format(**table_items)
+    script_file = 'tests.js'
 
     return render_template(
         'tests.html',
         title='List of tests',
-        content=table_data)
+        content=table_data,
+        script_file=script_file)
 
 
 @app.route('/test/new/stf/', methods=['GET', 'POST'])
@@ -1512,3 +1516,26 @@ def test_edit_bundle(test_id):
         csrf_value=csrf_value,
         title=page_title,
         script_file=script_file)
+
+
+@app.route('/test/<int:test_id>/clone/')
+def clone_test(test_id):
+    # clones test
+    test_entr = models.Test.query.get(test_id)
+    if test_entr:
+        # creates new DB entry
+        new_test = models.Test(
+            name='Cloned_{}'.format(test_entr.name),
+            mode=test_entr.mode,
+            test_type=test_entr.test_type,
+            parameters=test_entr.parameters,
+            # gets description from origin test
+            description='Cloned test {}: "{}"'.format(test_entr.name, test_entr.description[:987]),)
+        # adding DB entry in DB
+        db.session.add(new_test)
+        db.session.commit()
+        msg = messages['succ_no_close_time'].format('The test {} was cloned.'.format(test_entr.name), seconds='5')
+    else:
+        msg = messages['no_succ'].format('The test ID was not cloned. No test ID {}'.format(test_id))
+
+    return msg
