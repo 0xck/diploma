@@ -926,7 +926,7 @@ def clone_task(task_id):
         db.session.commit()
         msg = messages['succ_no_close_time'].format('The task ID {} was cloned.'.format(task_entr.id), seconds='5')
     else:
-        msg = messages['no_succ'].format('The task ID {} was not cloned. No task ID {}'.format(task_entr.id))
+        msg = messages['no_succ'].format('The task ID {} was not cloned. No task ID {}'.format(task_id))
 
     return msg
 
