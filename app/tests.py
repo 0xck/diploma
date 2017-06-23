@@ -56,7 +56,7 @@ def bundle_maker(data, random=False):
 
 
 @app.route('/tests/')
-def tests_table():
+def tests_table(filter_nav=True):
     # shows tests table
     tests_entr = models.Test.query.order_by(models.Test.id.desc()).all()
     # action button template
@@ -78,6 +78,7 @@ def tests_table():
     table_data = ''
     # processing tests
     for entr in tests_entr:
+        status_row = 'tr class="condition'
         # action button
         act_button = act_button_template['begin'] + act_button_template['end']
         # gathering information for filling table
@@ -87,17 +88,21 @@ def tests_table():
         # action button
         if entr.mode == 'stateful':
             table_items['act_button'] = act_button.format(entr.id, 'stf')
+            status_row += ' stateful"'
         elif entr.mode == 'stateless':
             table_items['act_button'] = act_button.format(entr.id, 'stl')
+            status_row += ' stateless"'
         else:
             table_items['act_button'] = act_button.format(entr.id, 'bundle')
+            status_row += ' bundle"'
         # link to details
         table_items['show'] = '<a href="/test/{0}">Show</a>'.format(entr.id)
         # link to associated tasks
         table_items['tasks'] = '<a href="/tasks/test/{0}">Show tasks</a>'.format(entr.id)
+        table_items['status_row'] = status_row
         # making table row
         table_data += '''
-            <tr>
+            <{status_row}>
                 <td>{id}</td>
                 <td>{name}</td>
                 <td>{mode}</td>
@@ -114,7 +119,8 @@ def tests_table():
         'tests.html',
         title='List of tests',
         content=table_data,
-        script_file=script_file)
+        script_file=script_file,
+        filter_nav=filter_nav)
 
 
 @app.route('/test/new/stf/', methods=['GET', 'POST'])
