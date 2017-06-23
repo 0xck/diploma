@@ -368,3 +368,31 @@ class Test(db.Model):
                 self.test_type,
                 self.description,
                 self.parameters][index]
+
+
+# User table for future features
+class User(db.Model):
+    # user table
+    __tablename__ = 'user'
+    # user id
+    id = db.Column(db.Integer, primary_key=True)
+    # user login as email
+    email = db.Column(db.String(128), unique=True)
+    # login password
+    password = db.Column(db.String(64))
+    # user type (common)
+    user_type = db.Column(db.String(64))
+    # associated tasks
+    tasks = db.relationship('Task', backref='users')
+
+    def __repr__(self):
+        return '''
+        id: {0},
+        email: {1}
+        password: {2},
+        user_type: {3},
+        '''.format(
+            self.id,
+            self.email,
+            self.password,
+            self.user_type)
