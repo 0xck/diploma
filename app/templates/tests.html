@@ -5,6 +5,18 @@
 <div class="page-header">
     <h1 class="tests">Tests</h1>
 </div>
+{% if filter_nav %}
+{# filter for tasks #}
+<div>
+    <ul class="nav nav-tabs">
+        <li role="presentation" class="active" id="filter_all"><a href="#" data-toggle="tooltip" title="Show all tests">All</a></li>
+        {% for item in ['stateful', 'stateless', 'bundle']%}
+        {# generates filters #}
+            <li role="presentation" id="filter_{{ item }}"><a href="#" data-toggle="tooltip" title="Show test filtered by {{ item }} mode">{{ item }}</a></li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
 <div class="panel panel-default">
     <div class="panel-heading">{{title}}</div>
         <table class="table table-hover">

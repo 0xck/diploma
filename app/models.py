@@ -221,8 +221,6 @@ class Task(db.Model):
     test = db.Column(db.Integer, db.ForeignKey('test.name'))
     # associated test data
     test_data = db.Column(db.Text, nullable=True)
-    # associated user
-    user = db.Column(db.Integer, db.ForeignKey('user.id'))
 
     def __repr__(self):
         return '''
@@ -235,7 +233,6 @@ class Task(db.Model):
         trex: {},
         device: {},
         test: {},
-        user: {},
         data: {}
         '''.format(
             self.id,
@@ -247,7 +244,6 @@ class Task(db.Model):
             self.trex,
             self.device,
             self.test,
-            self.user,
             self.data)
 
     def __getitem__(self, index):
@@ -264,7 +260,6 @@ class Task(db.Model):
                 self.trex,
                 self.device,
                 self.test,
-                self.user,
                 self.data]
         # return dict of args
         elif index == 'ALL_DICT':
@@ -278,7 +273,6 @@ class Task(db.Model):
                 trex=self.trex,
                 device=self.device,
                 test=self.test,
-                user=self.user,
                 data=self.data)
         # return index of list of args
         else:
@@ -292,7 +286,6 @@ class Task(db.Model):
                 self.trex,
                 self.device,
                 self.test,
-                self.user,
                 self.data][index]
 
 
