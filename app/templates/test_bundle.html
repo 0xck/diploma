@@ -1,0 +1,82 @@
+{# template for test create, edit #}
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+<div class="page-header">
+    <h1>
+        {{title}}
+    </h1>
+</div>
+    {% if msg %}
+        {{msg|safe}}
+    {% endif %}
+    <form class="form-horizontal" name="new_bundle_test" method="post" >
+        {{form.hidden_tag()}}
+        <div class="form-group">
+        {{form.name.label}} {{form.name(class="form-control", placeholder="Test_name", required="required")}}
+        </div>
+        <div class="form-group">
+        {{form.description.label}} {{form.description(class="form-control", placeholder="Short description...")}}
+        </div>
+        {# place for template #}
+        <div class="form-group">
+        <h3>Test section</h3>
+        <hr />
+         {% if notes.test_list %}
+            {% for item in notes.test_list %}
+                <p class="help-block">{{item}}<p>
+            {% endfor %}
+        {% endif %}
+        </div>
+        {% for entry in form.test %}
+        <div class="generator">
+        <div>
+            <div class="entr">
+                <div class="form-group">
+                    {{ entry.test_list.label }} {{ entry.test_list(class="form-control") }}
+                </div>
+                <div class="form-group">
+                    {{ entry.test_iter.label }} {{ entry.test_iter(class="form-control", placeholder="Number of iterations. Minimum 1, maximum 100.") }}
+                </div>
+                <div class="form-group">
+                    <div class="checkbox">
+                        {{ entry.test_iter_random }}
+                        {{ entry.test_iter_random.label }}
+                    </div>
+                    {% if notes.test_iter_random %}
+                        {% for item in notes.test_iter_random %}
+                            <p class="help-block">{{item}}<p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                {{ entry.csrf_token}}
+                <div class="form-group">
+                    <button class="btn btn-success add_btn" type="button">Add one more</button>
+                </div>
+                <hr />
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+       
+        <div class="form-group">
+            <div class="checkbox">
+                {{form.randomize}}
+                {{form.randomize.label}}
+            </div>
+            {% if notes.randomize %}
+                {% for item in notes.randomize %}
+                    <p class="help-block">{{item}}<p>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div class="form-group">
+        {{form.submit(class="btn btn-primary")}}
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block script %}
+<script src="/static/js/{{script_file}}"></script>
+{% endblock %}

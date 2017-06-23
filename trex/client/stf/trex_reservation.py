@@ -4,10 +4,10 @@ from .trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseError
 from jsonrpclib import ProtocolError
 
 
-def take(trex_mng='127.0.0.1', daemon_port=8090, user=None, **kwargs):
+def take(trex_mng='127.0.0.1', daemon_port=8090, user=None, timeout=5, **kwargs):
     # takes reservation
     # making connection
-    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
+    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port, timeout=timeout)
     # trex taking reservation status info
     reservation_status = {'status': True, 'state': 'reserved'}
     # trying to take reservation
@@ -30,10 +30,10 @@ def take(trex_mng='127.0.0.1', daemon_port=8090, user=None, **kwargs):
     return reservation_status
 
 
-def check(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
+def check(trex_mng='127.0.0.1', daemon_port=8090, timeout=5, **kwargs):
     # chakes reservation
     # making connection
-    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
+    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port, timeout=timeout)
     # trex reservation status info
     reservation_status = {'status': True, 'state': 'reserved'}
     # trying to get status
@@ -50,10 +50,10 @@ def check(trex_mng='127.0.0.1', daemon_port=8090, **kwargs):
     return reservation_status
 
 
-def cancel(trex_mng='127.0.0.1', daemon_port=8090, user=None, **kwargs):
+def cancel(trex_mng='127.0.0.1', daemon_port=8090, user=None, timeout=5, **kwargs):
     # cancels reservation
     # making connection
-    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port)
+    trex_connection = CTRexClient(trex_host=trex_mng, trex_daemon_port=daemon_port, timeout=timeout)
     # trex canceling reservation status info
     reservation_status = {'status': True, 'state': 'canceled'}
     # trying to cancel

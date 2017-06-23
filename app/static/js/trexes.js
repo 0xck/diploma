@@ -40,6 +40,7 @@ $(document).ready(function() {
                 row.closest('tr').children('td.trex_status').text('idle');
                 row.closest('tr').removeClass();
                 $('div#' + btn_id + '.btn-down').addClass('hidden');
+                $('div#' + btn_id + '.btn-testing').addClass('hidden');
                 $('div#' + btn_id + '.btn-idle').removeClass('hidden');
             } else if (data['status'] == 'down') {
                 row.closest('tr').children('td.trex_status').text('down');

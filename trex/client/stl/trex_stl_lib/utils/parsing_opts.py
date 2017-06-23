@@ -2,6 +2,7 @@ import argparse
 from collections import namedtuple, OrderedDict
 from .common import list_intersect, list_difference, is_valid_ipv4, is_valid_ipv6, is_valid_mac, list_remove_dup
 from .text_opts import format_text
+from ..trex_stl_vlan import VLAN
 from ..trex_stl_types import *
 from .constants import ON_OFF_DICT, UP_DOWN_DICT, FLOW_CTRL_DICT
 
@@ -32,6 +33,7 @@ TIMEOUT
 FORCE
 READONLY
 DRY_RUN
+SYNCHRONIZED
 XTERM
 TOTAL
 FULL_OUTPUT
@@ -98,7 +100,9 @@ MONITOR_TYPE_VERBOSE
 MONITOR_TYPE_PIPE
 MONITOR_TYPE
 
-
+VLAN_TAGS
+CLEAR_VLAN
+VLAN_CFG
 
 # ALL_STREAMS
 # STREAM_LIST_WITH_ALL
@@ -260,7 +264,23 @@ def hex_int (val):
         raise argparse.ArgumentTypeError("{0} is not a valid positive HEX formatted number".format(val))
     
     return int(val, 16)
+    
 
+def action_check_vlan():
+    class VLANCheck(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            try:
+                vlan = VLAN(values)
+            except STLError as e:
+                parser.error(e.brief())
+            
+            setattr(args, self.dest, vlan.get_tags())
+            
+            return
+       
+            
+    return VLANCheck
+      
 
 def is_valid_file(filename):
     if not os.path.isfile(filename):
@@ -611,6 +631,12 @@ OPTIONS_DB = {MULTIPLIER: ArgumentPack(['-m', '--multiplier'],
                                      'default': False,
                                      'help': "Dry run - no traffic will be injected"}),
 
+              SYNCHRONIZED: ArgumentPack(['--sync'],
+                                    {'action': 'store_true',
+                                     'dest': 'sync',
+                                     'default': False,
+                                     'help': 'Run the traffic with syncronized time at adjacent ports. Need to ensure effective ipg is at least 1000 usec.'}),
+
               XTERM: ArgumentPack(['-x', '--xterm'],
                                   {'action': 'store_true',
                                    'dest': 'xterm',
@@ -740,6 +766,21 @@ OPTIONS_DB = {MULTIPLIER: ArgumentPack(['-m', '--multiplier'],
                                          'help': "Show all registered layers / inspect a specific layer"}),
               
               
+              VLAN_TAGS: ArgumentPack(['--vlan', '-v'],
+                                      {'dest':'vlan',
+                                       'action': action_check_vlan(),
+                                       'type': int,
+                                       'nargs': '*',
+                                       'metavar': 'VLAN',
+                                       'help': 'single or double VLAN tags'}),
+               
+              CLEAR_VLAN: ArgumentPack(['-c'],
+                                      {'action': 'store_true',
+                                       'dest': 'clear_vlan',
+                                       'default': False,
+                                       'help': "clear any VLAN configuration"}),
+              
+
               SCAPY_PKT_CMD: ArgumentGroup(MUTEX, [SCAPY_PKT,
                                                    SHOW_LAYERS],
                                            {'required': True}),
@@ -750,6 +791,11 @@ OPTIONS_DB = {MULTIPLIER: ArgumentPack(['-m', '--multiplier'],
                                                 {'required': False}),
 
 
+              VLAN_CFG: ArgumentGroup(MUTEX, [VLAN_TAGS,
+                                              CLEAR_VLAN],
+                                      {'required': True}),
+
+              
               STREAM_FROM_PATH_OR_FILE: ArgumentGroup(MUTEX, [FILE_PATH,
                                                               FILE_FROM_DB],
                                                       {'required': True}),

@@ -1,0 +1,269 @@
+{# task view template #}
+{% extends "base_print.html" %}
+{% block content %}
+    <div class="container nobreak">
+        <div class="page-header">
+            <h1>{{title}}</h1>
+        </div>
+        {# if data exists#}
+        {% if not no_data %}
+            {# trex and device info #}
+            <h2>Test information</h2>
+            <div class="panel panel-default">
+                <div class="panel-heading">Test details</div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <tr>
+                            <th>Description</th>
+                            <th>Source test</th>
+                        </tr>
+                        {{test_info|safe}}
+                    </table>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">TRex details</div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <tr>
+                            <th>Hostname</th>
+                            <th>Description</th>
+                        </tr>
+                        {{trex_data|safe}}
+                    </table>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">Device details</div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                        </tr>
+                        {{device_data|safe}}
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% for test in full_task_data %}
+            <div class="container break_before nobreak">
+                    <h2>Test: {{test.test_name}}</h2>
+            </div>
+                <div class="container">
+                    <div>
+                        {{ test.content | safe}}
+                    </div>
+                </div>
+                {% if test.test_data %}
+                    <div class="container break_before nobreak">
+                    <h4>Test details</h4>
+                        {# test info #}
+                        <div class="panel panel-default">
+                            <div class="panel-heading">General details</div>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    {{test.test_data|safe}}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                {# charts #}
+                <div class="container break_before nobreak" style="width:800px">
+                    <h4>Test charts</h4>
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Packet per second data</div>
+                        <canvas id="graph_pps_{{test.test_num}}"></canvas>
+                    </div>
+                    <div class="panel panel-default">
+                        <div class="panel-heading">Bit per second data</div>
+                        <canvas id="graph_bps_{{test.test_num}}"></canvas>
+                    </div>
+                </div>  
+                
+        {% endfor %}
+        {% else %}
+            <div class="container">
+                {{content|safe}}
+            </div>
+    {% endif %}
+{% endblock %}
+
+{% block script %}
+{% if not no_data %}
+    {# script generates charts #}
+    <script src="/static/js/Chart.js"></script>
+    {% for test in full_task_data %}
+        {% if test.graph %}
+        <script>
+        // getting pps data
+            var intervals = {{test.graph.intervals|safe}};
+            var tx_pps = {{test.graph.tx_pps|safe}};
+            var rx_pps = {{test.graph.rx_pps|safe}};
+            var expected_pps = {{test.graph.expected_pps|safe}};
+            var queue_drop = {{test.graph.queue_drop|safe}};
+            var queue_full = {{test.graph.queue_full|safe}};
+        // getting bps data
+            var tx_bps = {{test.graph.tx_bps|safe}};
+            var rx_bps = {{test.graph.rx_bps|safe}};
+            var expected_bps = {{test.graph.expected_bps|safe}};
+            var rx_drop_bps = {{test.graph.rx_drop_bps|safe}};
+        // gathering charts data
+            var graph_pps = {
+                labels: intervals,
+                datasets: [
+                    {
+                        label: "TX pps",
+                        fill: false,
+                        strokeColor: "rgba(31, 171, 0, 1)",
+                        pointColor: "rgba(31, 171, 0, 1)",
+                        pointStrokeColor: "rgba(31, 171, 0, 1)",
+                        pointHighlightFill: "rgba(31, 171, 0, 1)",
+                        pointHighlightStroke: "rgba(31, 171, 0, 1)",
+                        backgroundColor: "rgba(7, 250, 80, 1)",
+                        borderColor: "rgba(7, 250, 80, 1)",
+                        pointRadius: 2,
+                        borderWidth: 2,
+                        data: tx_pps
+                    },
+                    {
+                        label: "RX pps",
+                        fill: false,
+                        strokeColor: "rgba(151,187,205,1)",
+                        pointColor: "rgba(151,187,205,1)",
+                        pointStrokeColor: "#fff",
+                        pointHighlightFill: "#fff",
+                        pointHighlightStroke: "rgba(151,187,205,1)",
+                        backgroundColor: "rgba(0, 136, 255, 1)",
+                        borderColor: "rgba(0, 136, 255, 1)",
+                        pointRadius: 2,
+                        borderWidth: 2,
+                        data: rx_pps
+                    },
+                    {
+                        label: "Expected pps",
+                        fill: false,
+                        strokeColor: "rgba(151,187,205,1)",
+                        pointColor: "rgba(151,187,205,1)",
+                        pointStrokeColor: "#fff",
+                        pointHighlightFill: "#fff",
+                        pointHighlightStroke: "rgba(151,187,205,1)",
+                        backgroundColor: "rgba(255, 255, 255, 1)",
+                        borderColor: "rgba(255, 132, 0, 1)",
+                        borderDash: [5, 10],
+                        pointRadius: 2,
+                        borderWidth: 2,
+                        data: expected_pps
+                    },
+                ]
+            };
+
+            var graph_bps = {
+                labels: intervals,
+                datasets: [
+                    {
+                        label: "TX bps",
+                        fill: false,
+                        strokeColor: "rgba(31, 171, 0, 1)",
+                        pointColor: "rgba(31, 171, 0, 1)",
+                        pointStrokeColor: "rgba(31, 171, 0, 1)",
+                        pointHighlightFill: "rgba(31, 171, 0, 1)",
+                        pointHighlightStroke: "rgba(31, 171, 0, 1)",
+                        backgroundColor: "rgba(7, 250, 80, 1)",
+                        borderColor: "rgba(7, 250, 80, 1)",
+                        pointRadius: 2,
+                        borderWidth: 2,
+                        data: tx_bps
+                    },
+                    {
+                        label: "RX bps",
+                        fill: false,
+                        strokeColor: "rgba(151,187,205,1)",
+                        pointColor: "rgba(151,187,205,1)",
+                        pointStrokeColor: "#fff",
+                        pointHighlightFill: "#fff",
+                        pointHighlightStroke: "rgba(151,187,205,1)",
+                        backgroundColor: "rgba(0, 136, 255, 1)",
+                        borderColor: "rgba(0, 136, 255, 1)",
+                        pointRadius: 2,
+                        borderWidth: 2,
+                        data: rx_bps
+                    },
+                    {
+                        label: "Expected bps",
+                        fill: false,
+                        strokeColor: "rgba(151,187,205,1)",
+                        pointColor: "rgba(151,187,205,1)",
+                        pointStrokeColor: "#fff",
+                        pointHighlightFill: "#fff",
+                        pointHighlightStroke: "rgba(151,187,205,1)",
+                        backgroundColor: "rgba(255, 255, 255, 1)",
+                        borderColor: "rgba(255, 132, 0, 1)",
+                        borderDash: [5, 10],
+                        pointRadius: 2,
+                        borderWidth: 2,
+                        data: expected_bps
+                    }
+                ]
+            };
+        // Get the context of the canvas element we want to select
+        // pps chart
+            var chart_pps = document.getElementById("graph_pps_{{test.test_num}}").getContext("2d");
+            var graph_pps = new Chart(chart_pps, {
+                type: 'line',
+                data: graph_pps,
+                options: {
+                    responsive: true,
+                    tooltips: {
+                        callbacks: {
+                            label: function(tooltipItem, data) {
+                                var tx = 'TX: ' + tx_pps[tooltipItem.index] + ' pps';
+                                var rx = 'RX: ' + rx_pps[tooltipItem.index] + ' pps';
+                                var expected = 'Expected rate: ' + expected_pps[tooltipItem.index] + ' pps';
+                                var q_drop = 'TRex queue Drops: ' + queue_drop[tooltipItem.index];
+                                var q_full = 'TRex queue Full: ' + queue_full[tooltipItem.index];
+                                return [tx, rx, expected, q_drop, q_full];
+                            },
+                            title: function(tooltipItem, data) {
+                                interval = tooltipItem[0].xLabel + ' sec';
+                                return interval;
+                            },
+                        }
+                    },
+                    animation: {
+                        onComplete: function () {                
+                            window.JSREPORT_READY_TO_START = true
+                        }
+                    }
+                }
+            });
+        // bps chart
+            var chart_bps = document.getElementById("graph_bps_{{test.test_num}}").getContext("2d");
+                var graph_bps = new Chart(chart_bps, {
+                    type: 'line',
+                    data: graph_bps,
+                    options: {
+                        responsive: true,
+                        tooltips: {
+                            callbacks: {
+                                label: function(tooltipItem, data) {
+                                    var tx = 'TX: ' + tx_bps[tooltipItem.index] + ' bps';
+                                    var rx = 'RX: ' + rx_bps[tooltipItem.index] + ' bps';
+                                    var expected = 'Expected rate: ' + expected_bps[tooltipItem.index] + ' bps';
+                                    var rx_drop = 'TRex RX Drops: ' + rx_drop_bps[tooltipItem.index] + ' bps';
+                                    return [tx, rx, expected, rx_drop];
+                                },
+                                title: function(tooltipItem, data) {
+                                    interval = tooltipItem[0].xLabel + ' sec';
+                                    return interval;
+                                },
+                            }
+                        }
+                    }
+                });
+        </script>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+{% endblock %}

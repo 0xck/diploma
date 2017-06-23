@@ -1,0 +1,9 @@
+.spoiler {
+    display:none;
+}
+.break_before {
+    page-break-before: always;
+}
+.nobreak {
+    page-break-inside: avoid;
+}

@@ -2,244 +2,302 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container">
-<div class="page-header">
-    <h1>
-        {{title}}
-    </h1>
+    <div class="page-header">
+        <h1>
+            {{title}}
+        </h1>
+    </div>
+    {# if data exists#}
+    {% if not no_data %}
+    {# trex and device info #}
+    <div>
+        {% if print_page %}
+            <p class="text-right" >{{ print_page|safe }}</p>
+        {% endif %}
+        <h2>Test information</h2>
+        <div class="panel panel-default">
+            <div class="panel-heading">Test details</div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <tr>
+                        <th>Description</th>
+                        <th>Source test</th>
+                    </tr>
+                    {{test_info|safe}}
+                </table>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading">TRex details</div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <tr>
+                        <th>Hostname</th>
+                        <th>Description</th>
+                    </tr>
+                    {{trex_data|safe}}
+                </table>
+            </div>
+        </div>
+
+        <div class="panel panel-default">
+            <div class="panel-heading">Device details</div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                    </tr>
+                    {{device_data|safe}}
+                </table>
+            </div>
+        </div>
+    </div>
+    <h2>Test content</h2>
+    <hr />
+    {% if not single %}
+    <div class="not_single">
+        <button type="button" class="btn btn-default expand_all">Expand all</button>
+        <button type="button" class="btn btn-default hide_all">Hide all</button>
+    </div>
+    {% endif %}
 </div>
-        {{content | safe}}
-</div>
-{# charts #}
-{% if not no_data %}
+{% for test in full_task_data %}
     <div class="container">
-    <div class="panel panel-default">
-        <div class="panel-heading">Packet per second data</div>
-        <canvas id="graph_pps"></canvas>
-        </div>
+            <h3>Test: {{test.test_name}}
+                {% if not single %}
+                    <button type="button" class="btn btn-link spoiler_title">Show/Hide data</button>
+                {% endif %}
+            </h3>
     </div>
+    {# spoiled data #}
+    <div class="spoiler">
+        <div class="container">
+            <div>
+                {{ test.content | safe}}
+            </div>
+        </div>
+        {# charts #}
+        <div class="container">
+            <h4>Test charts</h4>
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">Packet per second data</div>
+                    <canvas id="graph_pps_{{test.test_num}}"></canvas>
+                </div>
+                <div class="panel panel-default">
+                    <div class="panel-heading">Bit per second data</div>
+                    <canvas id="graph_bps_{{test.test_num}}"></canvas>
+                </div>
+        </div>  
+        {% if test.test_data %}
+            <div class="container">
+                {# test info #}
+                <h4>Test details</h4>
+                <div class="panel panel-default">
+                    <div class="panel-heading">General details</div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            {{test.test_data|safe}}
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}
+{% if not single %}
+<div class="container not_single">
+    <button type="button" class="btn btn-default expand_all">Expand all</button>
+    <button type="button" class="btn btn-default hide_all">Hide all</button>
+    <hr />
+</div>
+{% endif %}
+{% else %}
     <div class="container">
-    <div class="panel panel-default">
-        <div class="panel-heading">Bit per second data</div>
-        <canvas id="graph_bps"></canvas>
-        </div>
+        {{content|safe}}
     </div>
 {% endif %}
-{% if test_data %}
-{# test info #}
-<div class="container">
-<h3>Test detail
-{% if test_hidden %}
-<small>{{test_hidden|safe}}</small>
-{% endif %}
-</h3>
-    <div class="panel panel-default">
-        <div class="panel-heading">General details</div>
-        <div class="table-responsive">
-            <table class="table table-hover">
-            {{test_data|safe}}
-            </table>
-        </div>
-    </div>
-</div>
-{# trex and device info #}
-<div class="container">
-<h3>TRex & Device</h3>
 
-    <div class="panel panel-default">
-        <div class="panel-heading">TRex details</div>
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <tr>
-                    <th>Hostname</th>
-                    <th>Description</th>
-                </tr>
-                {{trex_data|safe}}
-            </table>
-        </div>
-    </div>
-
-    <div class="panel panel-default">
-        <div class="panel-heading">Device details</div>
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <tr>
-                    <th>Name</th>
-                    <th>Description</th>
-                </tr>
-                {{device_data|safe}}
-            </table>
-        </div>
-    </div>
-
-</div>
-{% endif %}
 {% endblock %}
 
 {% block script %}
-{% if graph %}
+{% if not no_data %}
+<script src="/static/js/{{script_file}}"></script>
 {# script generates charts #}
 <script src="/static/js/Chart.js"></script>
-<script>
-// getting pps data
-    var intervals = {{graph.intervals|safe}};
-    var tx_pps = {{graph.tx_pps|safe}};
-    var rx_pps = {{graph.rx_pps|safe}};
-    var expected_pps = {{graph.expected_pps|safe}};
-    var queue_drop = {{graph.queue_drop|safe}};
-    var queue_full = {{graph.queue_full|safe}};
-// getting bps data
-    var tx_bps = {{graph.tx_bps|safe}};
-    var rx_bps = {{graph.rx_bps|safe}};
-    var expected_bps = {{graph.expected_bps|safe}};
-    var rx_drop_bps = {{graph.rx_drop_bps|safe}};
-// gathering charts data
-    var graph_pps = {
-        labels: intervals,
-        datasets: [
-            {
-                label: "TX pps",
-                fill: false,
-                strokeColor: "rgba(31, 171, 0, 1)",
-                pointColor: "rgba(31, 171, 0, 1)",
-                pointStrokeColor: "rgba(31, 171, 0, 1)",
-                pointHighlightFill: "rgba(31, 171, 0, 1)",
-                pointHighlightStroke: "rgba(31, 171, 0, 1)",
-                backgroundColor: "rgba(7, 250, 80, 1)",
-                borderColor: "rgba(7, 250, 80, 1)",
-                pointRadius: 2,
-                borderWidth: 2,
-                data: tx_pps
-            },
-            {
-                label: "RX pps",
-                fill: false,
-                strokeColor: "rgba(151,187,205,1)",
-                pointColor: "rgba(151,187,205,1)",
-                pointStrokeColor: "#fff",
-                pointHighlightFill: "#fff",
-                pointHighlightStroke: "rgba(151,187,205,1)",
-                backgroundColor: "rgba(0, 136, 255, 1)",
-                borderColor: "rgba(0, 136, 255, 1)",
-                pointRadius: 2,
-                borderWidth: 2,
-                data: rx_pps
-            },
-            {
-                label: "Expected pps",
-                fill: false,
-                strokeColor: "rgba(151,187,205,1)",
-                pointColor: "rgba(151,187,205,1)",
-                pointStrokeColor: "#fff",
-                pointHighlightFill: "#fff",
-                pointHighlightStroke: "rgba(151,187,205,1)",
-                backgroundColor: "rgba(255, 255, 255, 1)",
-                borderColor: "rgba(255, 132, 0, 1)",
-                borderDash: [5, 10],
-                pointRadius: 2,
-                borderWidth: 2,
-                data: expected_pps
-            },
-        ]
-    };
+{% for test in full_task_data %}
+    {% if test.graph %}
+    <script>
+    // getting pps data
+        var intervals = {{test.graph.intervals|safe}};
+        var tx_pps = {{test.graph.tx_pps|safe}};
+        var rx_pps = {{test.graph.rx_pps|safe}};
+        var expected_pps = {{test.graph.expected_pps|safe}};
+        var queue_drop = {{test.graph.queue_drop|safe}};
+        var queue_full = {{test.graph.queue_full|safe}};
+    // getting bps data
+        var tx_bps = {{test.graph.tx_bps|safe}};
+        var rx_bps = {{test.graph.rx_bps|safe}};
+        var expected_bps = {{test.graph.expected_bps|safe}};
+        var rx_drop_bps = {{test.graph.rx_drop_bps|safe}};
+    // gathering charts data
+        var graph_pps = {
+            labels: intervals,
+            datasets: [
+                {
+                    label: "TX pps",
+                    fill: false,
+                    strokeColor: "rgba(31, 171, 0, 1)",
+                    pointColor: "rgba(31, 171, 0, 1)",
+                    pointStrokeColor: "rgba(31, 171, 0, 1)",
+                    pointHighlightFill: "rgba(31, 171, 0, 1)",
+                    pointHighlightStroke: "rgba(31, 171, 0, 1)",
+                    backgroundColor: "rgba(7, 250, 80, 1)",
+                    borderColor: "rgba(7, 250, 80, 1)",
+                    pointRadius: 2,
+                    borderWidth: 2,
+                    data: tx_pps
+                },
+                {
+                    label: "RX pps",
+                    fill: false,
+                    strokeColor: "rgba(151,187,205,1)",
+                    pointColor: "rgba(151,187,205,1)",
+                    pointStrokeColor: "#fff",
+                    pointHighlightFill: "#fff",
+                    pointHighlightStroke: "rgba(151,187,205,1)",
+                    backgroundColor: "rgba(0, 136, 255, 1)",
+                    borderColor: "rgba(0, 136, 255, 1)",
+                    pointRadius: 2,
+                    borderWidth: 2,
+                    data: rx_pps
+                },
+                {
+                    label: "Expected pps",
+                    fill: false,
+                    strokeColor: "rgba(151,187,205,1)",
+                    pointColor: "rgba(151,187,205,1)",
+                    pointStrokeColor: "#fff",
+                    pointHighlightFill: "#fff",
+                    pointHighlightStroke: "rgba(151,187,205,1)",
+                    backgroundColor: "rgba(255, 255, 255, 1)",
+                    borderColor: "rgba(255, 132, 0, 1)",
+                    borderDash: [5, 10],
+                    pointRadius: 2,
+                    borderWidth: 2,
+                    data: expected_pps
+                },
+            ]
+        };
 
-    var graph_bps = {
-        labels: intervals,
-        datasets: [
-            {
-                label: "TX bps",
-                fill: false,
-                strokeColor: "rgba(31, 171, 0, 1)",
-                pointColor: "rgba(31, 171, 0, 1)",
-                pointStrokeColor: "rgba(31, 171, 0, 1)",
-                pointHighlightFill: "rgba(31, 171, 0, 1)",
-                pointHighlightStroke: "rgba(31, 171, 0, 1)",
-                backgroundColor: "rgba(7, 250, 80, 1)",
-                borderColor: "rgba(7, 250, 80, 1)",
-                pointRadius: 2,
-                borderWidth: 2,
-                data: tx_bps
-            },
-            {
-                label: "RX bps",
-                fill: false,
-                strokeColor: "rgba(151,187,205,1)",
-                pointColor: "rgba(151,187,205,1)",
-                pointStrokeColor: "#fff",
-                pointHighlightFill: "#fff",
-                pointHighlightStroke: "rgba(151,187,205,1)",
-                backgroundColor: "rgba(0, 136, 255, 1)",
-                borderColor: "rgba(0, 136, 255, 1)",
-                pointRadius: 2,
-                borderWidth: 2,
-                data: rx_bps
-            },
-            {
-                label: "Expected bps",
-                fill: false,
-                strokeColor: "rgba(151,187,205,1)",
-                pointColor: "rgba(151,187,205,1)",
-                pointStrokeColor: "#fff",
-                pointHighlightFill: "#fff",
-                pointHighlightStroke: "rgba(151,187,205,1)",
-                backgroundColor: "rgba(255, 255, 255, 1)",
-                borderColor: "rgba(255, 132, 0, 1)",
-                borderDash: [5, 10],
-                pointRadius: 2,
-                borderWidth: 2,
-                data: expected_bps
-            }
-        ]
-    };
-// Get the context of the canvas element we want to select
-// pps chart
-    var chart_pps = document.getElementById("graph_pps").getContext("2d");
-    var graph_pps = new Chart(chart_pps, {
-        type: 'line',
-        data: graph_pps,
-        options: {
-            responsive: true,
-            tooltips: {
-                callbacks: {
-                    label: function(tooltipItem, data) {
-                        var tx = 'TX: ' + tx_pps[tooltipItem.index] + ' pps';
-                        var rx = 'RX: ' + rx_pps[tooltipItem.index] + ' pps';
-                        var expected = 'Expected rate: ' + expected_pps[tooltipItem.index] + ' pps';
-                        var q_drop = 'TRex queue Drops: ' + queue_drop[tooltipItem.index];
-                        var q_full = 'TRex queue Full: ' + queue_full[tooltipItem.index];
-                        return [tx, rx, expected, q_drop, q_full];
-                    },
-                    title: function(tooltipItem, data) {
-                        interval = tooltipItem[0].xLabel + ' sec';
-                        return interval;
-                    },
+        var graph_bps = {
+            labels: intervals,
+            datasets: [
+                {
+                    label: "TX bps",
+                    fill: false,
+                    strokeColor: "rgba(31, 171, 0, 1)",
+                    pointColor: "rgba(31, 171, 0, 1)",
+                    pointStrokeColor: "rgba(31, 171, 0, 1)",
+                    pointHighlightFill: "rgba(31, 171, 0, 1)",
+                    pointHighlightStroke: "rgba(31, 171, 0, 1)",
+                    backgroundColor: "rgba(7, 250, 80, 1)",
+                    borderColor: "rgba(7, 250, 80, 1)",
+                    pointRadius: 2,
+                    borderWidth: 2,
+                    data: tx_bps
+                },
+                {
+                    label: "RX bps",
+                    fill: false,
+                    strokeColor: "rgba(151,187,205,1)",
+                    pointColor: "rgba(151,187,205,1)",
+                    pointStrokeColor: "#fff",
+                    pointHighlightFill: "#fff",
+                    pointHighlightStroke: "rgba(151,187,205,1)",
+                    backgroundColor: "rgba(0, 136, 255, 1)",
+                    borderColor: "rgba(0, 136, 255, 1)",
+                    pointRadius: 2,
+                    borderWidth: 2,
+                    data: rx_bps
+                },
+                {
+                    label: "Expected bps",
+                    fill: false,
+                    strokeColor: "rgba(151,187,205,1)",
+                    pointColor: "rgba(151,187,205,1)",
+                    pointStrokeColor: "#fff",
+                    pointHighlightFill: "#fff",
+                    pointHighlightStroke: "rgba(151,187,205,1)",
+                    backgroundColor: "rgba(255, 255, 255, 1)",
+                    borderColor: "rgba(255, 132, 0, 1)",
+                    borderDash: [5, 10],
+                    pointRadius: 2,
+                    borderWidth: 2,
+                    data: expected_bps
                 }
-            }
-        }
-    });
-// bps chart
-    var chart_bps = document.getElementById("graph_bps").getContext("2d");
-        var graph_bps = new Chart(chart_bps, {
+            ]
+        };
+    // Get the context of the canvas element we want to select
+    // pps chart
+        var chart_pps = document.getElementById("graph_pps_{{test.test_num}}").getContext("2d");
+        var graph_pps = new Chart(chart_pps, {
             type: 'line',
-            data: graph_bps,
+            data: graph_pps,
             options: {
                 responsive: true,
                 tooltips: {
                     callbacks: {
                         label: function(tooltipItem, data) {
-                            var tx = 'TX: ' + tx_bps[tooltipItem.index] + ' bps';
-                            var rx = 'RX: ' + rx_bps[tooltipItem.index] + ' bps';
-                            var expected = 'Expected rate: ' + expected_bps[tooltipItem.index] + ' bps';
-                            var rx_drop = 'TRex RX Drops: ' + rx_drop_bps[tooltipItem.index] + ' bps';
-                            return [tx, rx, expected, rx_drop];
+                            var tx = 'TX: ' + tx_pps[tooltipItem.index] + ' pps';
+                            var rx = 'RX: ' + rx_pps[tooltipItem.index] + ' pps';
+                            var expected = 'Expected rate: ' + expected_pps[tooltipItem.index] + ' pps';
+                            var q_drop = 'TRex queue Drops: ' + queue_drop[tooltipItem.index];
+                            var q_full = 'TRex queue Full: ' + queue_full[tooltipItem.index];
+                            return [tx, rx, expected, q_drop, q_full];
                         },
                         title: function(tooltipItem, data) {
                             interval = tooltipItem[0].xLabel + ' sec';
                             return interval;
                         },
                     }
+                },
+                animation: {
+                    onComplete: function () {                
+                        window.JSREPORT_READY_TO_START = true
+                    }
                 }
             }
         });
-</script>
+    // bps chart
+        var chart_bps = document.getElementById("graph_bps_{{test.test_num}}").getContext("2d");
+            var graph_bps = new Chart(chart_bps, {
+                type: 'line',
+                data: graph_bps,
+                options: {
+                    responsive: true,
+                    tooltips: {
+                        callbacks: {
+                            label: function(tooltipItem, data) {
+                                var tx = 'TX: ' + tx_bps[tooltipItem.index] + ' bps';
+                                var rx = 'RX: ' + rx_bps[tooltipItem.index] + ' bps';
+                                var expected = 'Expected rate: ' + expected_bps[tooltipItem.index] + ' bps';
+                                var rx_drop = 'TRex RX Drops: ' + rx_drop_bps[tooltipItem.index] + ' bps';
+                                return [tx, rx, expected, rx_drop];
+                            },
+                            title: function(tooltipItem, data) {
+                                interval = tooltipItem[0].xLabel + ' sec';
+                                return interval;
+                            },
+                        }
+                    }
+                }
+            });
+    </script>
+    {% endif %}
+{% endfor %}
 {% endif %}
+
+
 {% endblock %}

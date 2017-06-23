@@ -5,8 +5,6 @@ from .trex_stl_packet_builder_scapy import STLPktBuilder
 from .trex_stl_streams import STLStream
 from .trex_stl_types import *
 
-from .rx_services.trex_stl_rx_service_arp import RXServiceARP
-from .rx_services.trex_stl_rx_service_icmp import RXServiceICMP
 from .rx_services.trex_stl_rx_service_ipv6 import *
 
 from . import trex_stl_stats
@@ -54,16 +52,16 @@ class Port(object):
                   STATE_PCAP_TX : "TRANSMITTING"}
 
 
-    def __init__ (self, port_id, user, comm_link, session_id, info):
+    def __init__ (self, port_id, user, rpc, session_id, info):
         self.port_id = port_id
         
         self.state        = self.STATE_IDLE
         self.service_mode = False
         
         self.handler = None
-        self.comm_link = comm_link
-        self.transmit = comm_link.transmit
-        self.transmit_batch = comm_link.transmit_batch
+        self.rpc = rpc
+        self.transmit = rpc.transmit
+        self.transmit_batch = rpc.transmit_batch
         self.user = user
 
         self.info = dict(info)
@@ -204,6 +202,7 @@ class Port(object):
             self.streams[k] = {'next_id': v['next_stream_id'],
                                'pkt'    : base64.b64decode(v['packet']['binary']),
                                'mode'   : v['mode']['type'],
+                               'dummy'  : bool(v['flags'] & 8),
                                'rate'   : STLStream.get_rate_from_field(v['mode']['rate'])}
         return self.ok()
 
@@ -407,17 +406,18 @@ class Port(object):
 
 
     @writeable
-    def start (self, mul, duration, force, mask):
+    def start (self, mul, duration, force, mask, start_at_ts = 0):
 
         if self.state == self.STATE_IDLE:
             return self.err("unable to start traffic - no streams attached to port")
 
-        params = {"handler":    self.handler,
-                  "port_id":    self.port_id,
-                  "mul":        mul,
-                  "duration":   duration,
-                  "force":      force,
-                  "core_mask":  mask if mask is not None else self.MASK_ALL}
+        params = {"handler":     self.handler,
+                  "port_id":     self.port_id,
+                  "mul":         mul,
+                  "duration":    duration,
+                  "force":       force,
+                  "core_mask":   mask if mask is not None else self.MASK_ALL,
+                  'start_at_ts': start_at_ts}
    
         # must set this before to avoid race with the async response
         last_state = self.state
@@ -532,7 +532,23 @@ class Port(object):
 
         return self.sync()
 
+        
+    @writeable
+    def set_vlan (self, vlan):
+        if not self.is_service_mode_on():
+            return self.err('port service mode must be enabled for configuring VLAN. Please enable service mode')
+        
+        params = {"handler" :       self.handler,
+                  "port_id" :       self.port_id,
+                  "vlan"    :       vlan.get_tags()}
+            
+        rc = self.transmit("set_vlan", params)
+        if rc.bad():
+            return self.err(rc.err())
 
+        return self.sync()
+        
+        
     @owned
     def set_rx_queue (self, size):
 
@@ -850,6 +866,23 @@ class Port(object):
         # speed
         info['speed'] = self.get_speed_gbps()
         
+        # VLAN
+        vlan = attr['vlan']
+        tags = vlan['tags']
+        
+        if len(tags) == 0:
+            # no VLAN
+            info['vlan'] = '-'
+            
+        elif len(tags) == 1:
+            # single VLAN
+            info['vlan']  = tags[0]
+            
+        elif len(tags) == 2:
+            # QinQ
+            info['vlan']  = '{0}/{1} (QinQ)'.format(tags[0], tags[1])
+            
+        
         # RX filter mode
         info['rx_filter_mode'] = 'hardware match' if attr['rx_filter_mode'] == 'hw' else 'fetch all'
 
@@ -903,7 +936,9 @@ class Port(object):
 
     def get_layer_cfg (self):
         return self.__attr['layer_cfg']
-        
+     
+    def get_vlan_cfg (self):
+        return self.__attr['vlan']['tags']
 
     def is_virtual(self):
         return self.info.get('is_virtual')
@@ -919,31 +954,6 @@ class Port(object):
         else:
             return self.get_layer_cfg()['ether']['state'] != 'unconfigured'
             
-    
-    @writeable
-    def arp_resolve(self, retries):
-        
-        # execute the ARP service
-        rc = RXServiceARP(self, retries = retries).execute()
-        if not rc:
-            return rc
-            
-        # fetch the data returned
-        arp_rc = rc.data()
-        
-        # first invalidate current ARP if exists
-        rc = self.invalidate_arp()
-        if not rc:
-            return rc
-
-        # update the port with L3 full configuration
-        rc = self.set_l3_mode(self.get_layer_cfg()['ipv4']['src'], self.get_layer_cfg()['ipv4']['dst'], arp_rc['hwsrc'])
-        if not rc:
-            return rc
-            
-        return self.ok('Port {0} - Recieved ARP reply from: {1}, hw: {2}'.format(self.port_id, arp_rc['psrc'], arp_rc['hwsrc']))
-            
-        
 
     @writeable
     def scan6(self, timeout = None, dst_ip = 'ff02::1'):
@@ -953,11 +963,8 @@ class Port(object):
 
 
     @writeable
-    def ping(self, ping_ip, pkt_size, dst_mac = None):
-        if '.' in ping_ip:
-            return RXServiceICMP(self, ping_ip, pkt_size).execute()
-        else:
-            return RXServiceICMPv6(self, pkt_size, dst_mac, dst_ip = ping_ip).execute()
+    def ping_ipv6(self, ping_ip, pkt_size, dst_mac = None):
+        return RXServiceICMPv6(self, pkt_size, dst_mac, dst_ip = ping_ip).execute()
 
         
     ################# stats handler ######################
@@ -974,12 +981,14 @@ class Port(object):
                 "src IPv4":         info['src_ipv4'],
                 "Destination":      format_text("{0}".format(info['dest']), 'bold', 'red' if info['dest'] == 'unconfigured' else None),
                 "ARP Resolution":   format_text("{0}".format(info['arp']), 'bold', 'red' if info['arp'] == 'unresolved' else None),
+                "VLAN":             format_text("{0}".format(info['vlan']), *('bold', 'magenta') if info['vlan'] != '-' else ''),
                 "PCI Address":      info['pci_addr'],
                 "NUMA Node":        info['numa'],
                 "--": "",
                 "---": "",
                 "----": "",
                 "-----": "",
+                "------": "",
                 "link speed": "%g Gb/s" % info['speed'],
                 "port status": info['status'],
                 "link status": info['link'],
@@ -1017,16 +1026,20 @@ class Port(object):
         for id in sorted(map(int, self.streams.keys())):
             obj = self.streams[str(id)]
 
-            # lazy build scapy repr.
-            if not 'pkt_type' in obj:
+            obj['pkt_len'] = len(obj['pkt']) + 4
+            if obj['dummy']:
+                obj['pkt_type'] = 'Dummy'
+                obj['pkt_len'] = '-'
+            if 'pkt_type' not in obj:
+                # lazy build scapy repr.
                 obj['pkt_type'] = STLPktBuilder.pkt_layers_desc_from_buffer(obj['pkt'])
             
             data[id] = OrderedDict([ ('id',  id),
                                      ('packet_type',  obj['pkt_type']),
-                                     ('L2 len',       len(obj['pkt']) + 4),
+                                     ('L2 len',       obj['pkt_len']),
                                      ('mode',         obj['mode']),
                                      ('rate',         obj['rate']),
-                                     ('next_stream',  obj['next_id'] if not '-1' else 'None')
+                                     ('next_stream',  obj['next_id'] if obj['next_id'] != '-1' else 'None')
                                     ])
     
         return {"streams" : data}

@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 
 TEXT_CODES = {'bold': {'start': '\x1b[1m',
                        'end': '\x1b[22m'},
@@ -137,7 +138,7 @@ def text_attribute(text, attribute):
             start = TEXT_CODES[attribute]['start'],
             txt = line,
             end = TEXT_CODES[attribute]['end'])
-                      if line else '' for line in ('%s' % text).split('\n')])
+                      if line else '' for line in str(text).split('\n')])
 
 
 FUNC_DICT = {'blue': blue,
@@ -150,7 +151,7 @@ FUNC_DICT = {'blue': blue,
              'red': red}
 
 
-def format_text(text, *args):
+def __format_text_tty(text, *args):
     return_string = text
     for i in args:
         func = FUNC_DICT.get(i)
@@ -158,6 +159,14 @@ def format_text(text, *args):
             return_string = func(return_string)
 
     return return_string
+
+
+def __format_text_non_tty (text, *args):
+    return str(text)
+
+
+# choose according to stdout type
+format_text = __format_text_tty if sys.stdout.isatty() else __format_text_non_tty
 
 
 def format_threshold (value, red_zone, green_zone):

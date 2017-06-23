@@ -1,7 +1,7 @@
-# task scheduller for handling pending tasks and makes test with trex client
+# task scheduler for handling pending tasks and makes test with trex client
 # work with DB
 from app import db, models
-# work with t-rex
+# work with TRex
 from trex import test_proc
 # for queueing
 from rq import Queue, get_failed_queue
@@ -17,23 +17,31 @@ import signal
 from sys import exit
 from exceptions import GracefulExit, signal_handler
 from trex.client.stf import trex_kill
-# task scheduller config
+# task scheduler config
 from config import task_sched_interval, task_sched_safe
+from socket import timeout as sock_timeout
 
 
 def task_finder():
     # searches appropriate tasks
     # dict of appropriate tasks
     appr_tasks = {}
-    result = {'status': True, 'values': ''}
+    result = {'status': True}
     # getting pending tasks
     tasks = models.Task.query.filter(models.Task.status == 'pending').order_by(models.Task.id).all()
     for task in tasks:
-        # search for idle t-rexes and devices
-        if task.trexes.status.lower() == 'idle' and task.devices.status.lower() == 'idle':
-            # gathering dict appropriate tasks only one for t-rex and device pair ordered by creation time (lower task id)
-            if not appr_tasks.get((task.trexes.id, task.devices.id), False):
-                appr_tasks[(task.trexes.id, task.devices.id)] = task
+        # search for idle TRexes and devices
+        # if devise is not empty
+        if task.devices:
+            if task.trexes.status.lower() == 'idle' and task.devices.status.lower() == 'idle':
+                # gathering dict appropriate tasks only one for TRex and device pair ordered by creation time (lower task id)
+                if not appr_tasks.get((task.trexes.id, task.devices.id), False):
+                    appr_tasks[(task.trexes.id, task.devices.id)] = task
+        else:
+            if task.trexes.status.lower() == 'idle':
+                # gathering dict appropriate tasks only one for TRex ordered by creation time (lower task id)
+                if not appr_tasks.get((task.trexes.id, None), False):
+                    appr_tasks[(task.trexes.id, None)] = task
     # making list of tasks in case of they exist
     if len(appr_tasks) > 0:
         result['values'] = [appr_tasks[task] for task in appr_tasks]
@@ -63,10 +71,20 @@ def task_queuer(interval=300, safe_int=600):
         tasks = task_finder()
         if tasks['status']:
             for task in tasks['values']:
+                test_data = loads(task.test_data)[0]
                 # adding task to queue
                 try:
                     # getting timeout; in case selection timeout is summ of max attempt * duration + safe value
-                    timeout = (int(loads(task.tests.parameters)['trex']['duration']) * int(1 if task.tests.test_type != 'selection' else loads(task.tests.parameters)['rate']['max_test_count'])) + int(safe_int)
+                    if test_data['mode'] != 'bundle':
+                        timeout = (test_data['parameters']['trex']['duration'] * 1 if test_data['test_type'] != 'selection' else test_data['parameters']['rate']['max_test_count']) + safe_int
+                    else:
+                        timeout = safe_int
+                        # making timeout as summ of all tests timeouts
+                        test_params = test_data['parameters']['bundle']
+                        for test_entr in test_params:
+                            # getting test params
+                            test = [test_data_item for test_data_item in test_data if test_data_item['id'] == test_entr['test_id']][0]
+                            timeout += (test['parameters']['trex']['duration'] * 1 if test['test_type'] != 'selection' else test['parameters']['rate']['max_test_count']) * test_entr['iter']
                     # adding task to queue
                     tasks_queue.enqueue_call(func=test_proc.test, kwargs={'task_id': task.id}, job_id=str(task.id), result_ttl=0, timeout=timeout)
                     # updating task status
@@ -86,6 +104,24 @@ def task_queuer(interval=300, safe_int=600):
 tasks_queue = Queue('tasks', connection=redis_connect, default_timeout=90)
 
 
+def task_status_changer(task, status=None, trex=None, device=None):
+    # changes statuses of task, trex, device; takes "task" as db item
+    result = {'status': True, 'state': 'Done'}
+    # for task changing status of task, trex, device
+    if task:
+        if status:
+            task.status = status
+        if trex:
+            task.trexes.status = trex
+        if device and task.devices:
+            task.devices.status = device
+        db.session.commit()
+    else:
+        result['status'] = False
+        result['state'] = 'No task'
+    return result
+
+
 def task_killer(task):
     # kills task and executing trex task; getting db item as task
     job = Job.fetch(str(task.id), connection=redis_connect)
@@ -94,22 +130,33 @@ def task_killer(task):
         cancel_job(str(job.get_id()), connection=redis_connect)
     # kills executing trex task
     result = {'status': False, 'state': ''}
+    # sets management entr
+    if task.trexes.ip4:
+        mng = task.trexes.ip4
+    elif task.trexes.ip6:
+        mng = task.trexes.ip6
+    elif task.trexes.fqdn:
+        mng = task.trexes.fqdn
     # trying soft kill
-    soft_kill = trex_kill.soft(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+    soft_kill = {'status': False}
     force_kill = {'status': False}
-    # trying force kill
-    if not soft_kill['status']:
-        force_kill = trex_kill.force(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+    no_trex = {'status': False}
+    try:
+        soft_kill = trex_kill.soft(trex_mng=mng, daemon_port=task.trexes.port)
+        force_kill = {'status': False}
+        # trying force kill
+        if not soft_kill['status']:
+            force_kill = trex_kill.force(trex_mng=mng, daemon_port=task.trexes.port)
+    except (ConnectionRefusedError, sock_timeout):
+        no_trex['status'] = True
+        no_trex['state'] = 'TRex is not running'
     # if kill was succesful makes DB changes
     if soft_kill['status'] or force_kill['status']:
-        result['status'] = True
         # making DB changes
-        task.status = 'canceled'
-        if task.trexes.status.lower() != 'idle':
-            task.trexes.status = 'idle'
-        if task.devices.status.lower() != 'idle':
-            task.devices.status = 'idle'
-        db.session.commit()
+        result = task_status_changer(task, status='canceled', trex='idle', device='idle')
+    elif no_trex['status']:
+        # making DB changes
+        result = task_status_changer(task, status='canceled', trex='unavailable', device='idle')
     # if kill was not succesful returns error msg
     else:
         result['state'] = 'soft kill: {}, force kill: {}'.format(soft_kill['state'], force_kill['state'])
@@ -133,14 +180,21 @@ if __name__ == '__main__':
                 if job.is_started or job.is_queued:
                     cancel_job(str(job.get_id()), connection=redis_connect)
                 # kills executing trex task
-                if not trex_kill.soft(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)['status']:
-                    trex_kill.force(trex_mng=task.trexes.ip4, daemon_port=task.trexes.port)
+                # sets management entr
+                if task.trexes.ip4:
+                    mng = task.trexes.ip4
+                elif task.trexes.ip6:
+                    mng = task.trexes.ip6
+                elif task.trexes.fqdn:
+                    mng = task.trexes.fqdn
+                try:
+                    if not trex_kill.soft(trex_mng=mng, daemon_port=task.trexes.port)['status']:
+                        trex_kill.force(trex_mng=mng, daemon_port=task.trexes.port)
+                # in case trex is not running
+                except (ConnectionRefusedError, sock_timeout):
+                    pass
                 # making DB changes
-                task.status = 'pending'
-                if task.trexes.status.lower() != 'idle':
-                    task.trexes.status = 'idle'
-                if task.devices.status.lower() != 'idle':
-                    task.devices.status = 'idle'
+                task_status_changer(task, status='pending', trex='idle', device='idle')
         # clear failed queues
         failed_task = get_failed_queue(connection=redis_connect)
         if failed_task.count > 0:
