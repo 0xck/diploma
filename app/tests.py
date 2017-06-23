@@ -209,7 +209,7 @@ def test_create_stf():
     form = TestForm()
     # variables
     page_title = 'New stateful test'
-    script_file = 'tests.js'
+    script_file = 'test_action.js'
     name = None
     test_type = types[0]
     duration = None
@@ -497,7 +497,7 @@ def test_edit_stf(test_id):
     form = TestForm()
     # variables
     page_title = 'Edit stateful test {}'.format(test_entr.name)
-    script_file = 'tests.js'
+    script_file = 'test_action.js'
     name = None
     test_type = types[0]
     duration = None
@@ -713,7 +713,7 @@ def test_create_stl():
     form = TestForm()
     # variables
     page_title = 'New stateless test'
-    script_file = 'tests.js'
+    script_file = 'test_action.js'
     name = None
     test_type = types[0]
     rate_type = rate_types[0]
@@ -962,7 +962,7 @@ def test_edit_stl(test_id):
     form = TestForm()
     # variables
     page_title = 'Edit stateless test {}'.format(test_entr.name)
-    script_file = 'tests.js'
+    script_file = 'test_action.js'
     name = None
     test_type = types[0]
     rate_type = rate_types[0]
