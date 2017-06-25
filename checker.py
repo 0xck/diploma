@@ -10,6 +10,9 @@ from socket import gethostbyname
 from socket import error as socket_error
 from shutil import which
 from os import X_OK
+# for mng
+from operator import itemgetter
+from json import loads
 
 
 def ping_checker(ip, num=3, timeout=0.5):
@@ -39,14 +42,30 @@ def trex_check(trex, timeout=5):
     @timeout_decorator.timeout(timeout, use_signals=False)
     def trex_checker(trex):
         # checks status with timeout
+        result = False
         # sets management entr
-        if trex.ip4:
-            mng = trex.ip4
-        elif trex.ip6:
-            mng = trex.ip6
-        elif trex.fqdn:
-            mng = trex.fqdn
-        result = trex_status.check(trex_mng=mng, daemon_port=trex.port)
+        if trex.mng:
+            mng = sorted(loads(trex.mng), key=itemgetter('priority'))
+        # no mng info in DB
+        else:
+            result = dict(status=False, state='No management data')
+            return result
+        # trying to connect to trex using all mng items
+        for mng_item in mng:
+            # checking status in case items is not None
+            if mng_item['mng']:
+                try:
+                    result = trex_status.check(trex_mng=mng_item['mng'], daemon_port=trex.port)
+                    # in case first success
+                    if result['status']:
+                        result['mng'] = mng_item['mng']
+                        break
+                # in case unabling to resolve dns name
+                except socket_error:
+                    result = dict(status=False, state='unavailable')
+        # all entries have None sa mng, that is wrong
+        if not result:
+            result = dict(status=False, state='No management data')
         return result
 
     # getting result
@@ -60,24 +79,35 @@ def trex_check(trex, timeout=5):
 
 def device_check(device):
     # checks device condition; takes device db entry as parameter
+    result = False
     # sets management entr
-    if device.ip4:
-        mng = device.ip4
-        ping_check = ping_checker(mng)
-    elif device.ip6:
-        mng = device.ip6
-        ping_check = ping_checker(mng)
-    elif device.fqdn:
-        mng = device.fqdn
-        try:
-            ping_check = ping_checker(gethostbyname(mng))
-        except socket_error:
-            ping_check = 'DNS resolve error'
-    # if ping is successful provides "idle"
-    if ping_check == 0:
-        result = dict(status=True, state='idle')
-    elif ping_check in {'ip error', 'ping util permission denied', 'DNS resolve error'}:
-        result = dict(status=False, state=ping_check)
+    if device.mng:
+        mng = sorted(loads(device.mng), key=itemgetter('priority'))
+    # no mng info in DB
     else:
-        result = dict(status=False, state='unavailable')
+        result = dict(status=False, state='No management data')
+        return result
+    # trying to connect to trex using all mng items
+    for mng_item in mng:
+        # checking status in case items is not None
+        if mng_item['mng']:
+            if mng_item['type'] != 'fqdn':
+                ping_check = ping_checker(mng_item['mng'])
+            else:
+                try:
+                    ping_check = ping_checker(gethostbyname(mng_item['mng']))
+                # in case unabling to resolve dns name
+                except socket_error:
+                    ping_check = 'DNS resolve error'
+            # in case first success return "idle status"
+            if ping_check == 0:
+                result = dict(status=True, state='idle')
+                return result
+            elif ping_check in {'ip error', 'ping util permission denied', 'DNS resolve error'}:
+                result = dict(status=False, state=ping_check)
+            else:
+                result = dict(status=False, state='unavailable')
+    # all entries have None sa mng, that is wrong
+    if not result:
+        result = dict(status=False, state='No management data')
     return result

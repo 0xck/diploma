@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 # exception
 from json import JSONDecodeError
+from checker import trex_check
 
 
 def test(task_id=0, **kwargs):
@@ -91,13 +92,14 @@ def test(task_id=0, **kwargs):
         return result
 
     # adds trex address and port
-    # sets management entr
-    if task.trexes.ip4:
-        mng = task.trexes.ip4
-    elif task.trexes.ip6:
-        mng = task.trexes.ip6
-    elif task.trexes.fqdn:
-        mng = task.trexes.fqdn
+    # sets management entr from current DB mng entries by checking trex availability status
+    try:
+        mng = trex_check(task.trexes)['mng']
+    # trex is not available for all mng entries
+    except KeyError:
+        task_err(mng)
+        return result
+
     # for single test writing trex mng and port into trex test params
     if test_attr['mode'] != 'bundle':
         test_attr['params']['trex']['trex_mng'] = mng

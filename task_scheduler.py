@@ -20,6 +20,7 @@ from trex.client.stf import trex_kill
 # task scheduler config
 from config import task_sched_interval, task_sched_safe
 from socket import timeout as sock_timeout
+from checker import trex_check
 
 
 def task_finder():
@@ -130,36 +131,26 @@ def task_killer(task):
         cancel_job(str(job.get_id()), connection=redis_connect)
     # kills executing trex task
     result = {'status': False, 'state': ''}
-    # sets management entr
-    if task.trexes.ip4:
-        mng = task.trexes.ip4
-    elif task.trexes.ip6:
-        mng = task.trexes.ip6
-    elif task.trexes.fqdn:
-        mng = task.trexes.fqdn
-    # trying soft kill
-    soft_kill = {'status': False}
-    force_kill = {'status': False}
-    no_trex = {'status': False}
     try:
+        # sets management entry by ckecking all mng entries
+        mng = trex_check(task.trexes)['mng']
+        # trying soft kill
         soft_kill = trex_kill.soft(trex_mng=mng, daemon_port=task.trexes.port)
         force_kill = {'status': False}
         # trying force kill
         if not soft_kill['status']:
             force_kill = trex_kill.force(trex_mng=mng, daemon_port=task.trexes.port)
-    except (ConnectionRefusedError, sock_timeout):
-        no_trex['status'] = True
-        no_trex['state'] = 'TRex is not running'
-    # if kill was succesful makes DB changes
-    if soft_kill['status'] or force_kill['status']:
-        # making DB changes
-        result = task_status_changer(task, status='canceled', trex='idle', device='idle')
-    elif no_trex['status']:
+        # if kill was succesful makes DB changes
+        if soft_kill['status'] or force_kill['status']:
+            # making DB changes
+            result = task_status_changer(task, status='canceled', trex='idle', device='idle')
+        # if kill was not succesful returns error msg
+        else:
+            result['state'] = 'soft kill: {}, force kill: {}'.format(soft_kill['state'], force_kill['state'])
+    # trex is not available for all mng entries
+    except (KeyError, ConnectionRefusedError, sock_timeout):
         # making DB changes
         result = task_status_changer(task, status='canceled', trex='unavailable', device='idle')
-    # if kill was not succesful returns error msg
-    else:
-        result['state'] = 'soft kill: {}, force kill: {}'.format(soft_kill['state'], force_kill['state'])
     return result
 
 
@@ -180,21 +171,16 @@ if __name__ == '__main__':
                 if job.is_started or job.is_queued:
                     cancel_job(str(job.get_id()), connection=redis_connect)
                 # kills executing trex task
-                # sets management entr
-                if task.trexes.ip4:
-                    mng = task.trexes.ip4
-                elif task.trexes.ip6:
-                    mng = task.trexes.ip6
-                elif task.trexes.fqdn:
-                    mng = task.trexes.fqdn
+                # sets management entry by ckecking all mng entries
                 try:
+                    mng = trex_check(task.trexes)['mng']
                     if not trex_kill.soft(trex_mng=mng, daemon_port=task.trexes.port)['status']:
                         trex_kill.force(trex_mng=mng, daemon_port=task.trexes.port)
-                # in case trex is not running
-                except (ConnectionRefusedError, sock_timeout):
-                    pass
-                # making DB changes
-                task_status_changer(task, status='pending', trex='idle', device='idle')
+                    # making DB changes
+                    task_status_changer(task, status='pending', trex='idle', device='idle')
+                # trex is not available for all mng entries
+                except (KeyError, ConnectionRefusedError, sock_timeout):
+                    task_status_changer(task, status='pending', trex='unavailable', device='idle')
         # clear failed queues
         failed_task = get_failed_queue(connection=redis_connect)
         if failed_task.count > 0:
