@@ -161,10 +161,6 @@ def test(task_id=0, **kwargs):
     task.end_time = datetime.now().replace(microsecond=0)
     # change statuses
     task.trexes.status = 'idle'
-    # cheking kill status after stateless test
-    if test_attr['mode'] == 'stateless':
-        if not result['kill_status']:
-            task.trexes.status = 'error'
     # in case device is not empty
     if task.devices:
         task.devices.status = 'idle'
