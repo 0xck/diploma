@@ -1,5 +1,5 @@
 'use strict';
-// hide/show data
+// hide/show spoiled data
 $(document).ready(function() {
     // hide all
     $('.spoiler').hide();

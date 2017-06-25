@@ -1,3 +1,4 @@
+# killer for trex tasks
 from .trex_stf_lib.trex_client import CTRexClient
 # exceptions
 from .trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexIncompleteRunError

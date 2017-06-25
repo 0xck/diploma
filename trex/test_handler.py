@@ -5,8 +5,6 @@ from trex.client.stf import test_selection as stf_selection
 # statless tests
 from trex.client.stl import test_common as stl_common
 from trex.client.stl import test_selection as stl_selection
-# for killing statefull
-from trex.client.stf import trex_kill
 
 
 def stf_test_common(**kwargs):
@@ -29,11 +27,6 @@ def stl_test_common(**kwargs):
     # starts stateless common test with args for trex as kwargs
     # getting results
     result = stl_common.testing(**kwargs)
-    # killing stateless mode
-    #if trex_kill.soft(**kwargs):
-    result['kill_status'] = True
-    #else:
-    #    result['kill_status'] = False
     return result
 
 
@@ -43,11 +36,6 @@ def stl_test_selection(**kwargs):
     task = stl_selection.Criterion(**kwargs['rate'])
     # getting results
     result = stl_selection.testing(task, **kwargs['trex'])
-    # killing stateless mode
-    #if trex_kill.soft(**kwargs):
-    result['kill_status'] = True
-    #else:
-    #    result['kill_status'] = False
     return result
 
 
@@ -113,5 +101,4 @@ def test_handler(test):
         result['status'] = True
         result['state'] = 'success'
         result['values'] = test_result
-
     return result

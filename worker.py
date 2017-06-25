@@ -10,6 +10,7 @@ listen = ['tasks']  # 'statuses' if future
 redis_connect = redis.from_url(redis_url)
 
 
+# running forker for queues in listen
 if __name__ == '__main__':
     with Connection(redis_connect):
         worker = Worker(list(map(Queue, listen)))

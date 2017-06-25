@@ -1,3 +1,5 @@
+
+# trex test initiator; checking status, reserves trex for task
 # stateful trex test init cause it has all necessary for init
 from .. stf import trex_test_init
 # stateful client

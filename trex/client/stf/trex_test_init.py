@@ -1,3 +1,4 @@
+# trex test initiator; checking status, reserves trex for task
 from . import trex_status, trex_reservation, trex_kill
 
 

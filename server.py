@@ -7,6 +7,8 @@ import signal
 from sys import exit
 from exceptions import GracefulExit, signal_handler
 
+
+# running web server on app_port
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
     try:

@@ -1,5 +1,5 @@
 'use strict';
-// dynamic test list
+// dynamic test list maker
 $(document).ready(function() {
     // index for making new test form
     // in case test edit

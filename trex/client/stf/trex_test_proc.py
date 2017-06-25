@@ -1,3 +1,4 @@
+# main stateful test processing
 from .trex_stf_lib.trex_client import CTRexClient
 # exceptions
 from .trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseError, TRexError
@@ -68,15 +69,15 @@ def test(
         # list for sampled data
         sampler_output = []
         # gathering info from samples
-        for i in range(1, (len(test_result.get_value_list('.')) - 1)):
+        for item in range(1, (len(test_result.get_value_list('.')) - 1)):
             data = {
-                'tx_pps': test_result.get_value_list('trex-global.data.m_tx_pps')[i],
-                'rx_pps': test_result.get_value_list('trex-global.data.m_rx_pps')[i],
-                'tx_bps': test_result.get_value_list('trex-global.data.m_tx_bps')[i],
-                'rx_bps': test_result.get_value_list('trex-global.data.m_rx_bps')[i],
-                'rx_drop_bps': test_result.get_value_list('trex-global.data.m_rx_drop_bps')[i],
-                'queue_full': test_result.get_value_list('trex-global.data.m_total_queue_full')[i],
-                'queue_drop': test_result.get_value_list('trex-global.data.m_total_queue_drop')[i]}
+                'tx_pps': test_result.get_value_list('trex-global.data.m_tx_pps')[item],
+                'rx_pps': test_result.get_value_list('trex-global.data.m_rx_pps')[item],
+                'tx_bps': test_result.get_value_list('trex-global.data.m_tx_bps')[item],
+                'rx_bps': test_result.get_value_list('trex-global.data.m_rx_bps')[item],
+                'rx_drop_bps': test_result.get_value_list('trex-global.data.m_rx_drop_bps')[item],
+                'queue_full': test_result.get_value_list('trex-global.data.m_total_queue_full')[item],
+                'queue_drop': test_result.get_value_list('trex-global.data.m_total_queue_drop')[item]}
             sampler_output.append(data)
         # making results
         result['values'] = {
@@ -117,9 +118,3 @@ def test(
         result['status'] = False
         result['state'] = 'error_rpc'
     return result
-
-
-
-if __name__ == '__main__':
-    a = test(trex_mng='172.16.150.23', duration=65, warm=5, multiplier=100, sampler=10)
-    print(a)

@@ -1,10 +1,10 @@
+# DB
 from app import db, models
 # test processing
 from . test_handler import test_handler
 from datetime import datetime
-import json
-# exception
-from json import JSONDecodeError
+from json import JSONDecodeError, dumps, loads
+from checker import trex_check
 
 
 def test(task_id=0, **kwargs):
@@ -20,7 +20,7 @@ def test(task_id=0, **kwargs):
         # defines test result
         task.result = 'error'
         # defines test data as error content
-        task.data = json.dumps({"error": '{0}'.format(result['state'])})
+        task.data = dumps({"error": '{0}'.format(result['state'])})
         # defines task status
         task.status = 'done'
         # defines result
@@ -32,7 +32,7 @@ def test(task_id=0, **kwargs):
     test_attr = {}
     # trying to get test data parametrs from JSON
     try:
-        test_attr['test_data'] = json.loads(task.test_data)
+        test_attr['test_data'] = loads(task.test_data)
     except JSONDecodeError:
         result['state'] = 'import test data parameters error'
         task_err(result)
@@ -84,20 +84,21 @@ def test(task_id=0, **kwargs):
         return result
     # trying to get test parametrs from JSON
     try:
-        test_attr['params'] = json.loads(task.test_data)[0]['parameters']
+        test_attr['params'] = loads(task.test_data)[0]['parameters']
     except JSONDecodeError:
         result['state'] = 'import test parameters error'
         task_err(result)
         return result
 
     # adds trex address and port
-    # sets management entr
-    if task.trexes.ip4:
-        mng = task.trexes.ip4
-    elif task.trexes.ip6:
-        mng = task.trexes.ip6
-    elif task.trexes.fqdn:
-        mng = task.trexes.fqdn
+    # sets management entr from current DB mng entries by checking trex availability status
+    try:
+        mng = trex_check(task.trexes)['mng']
+    # trex is not available for all mng entries
+    except KeyError:
+        task_err(mng)
+        return result
+
     # for single test writing trex mng and port into trex test params
     if test_attr['mode'] != 'bundle':
         test_attr['params']['trex']['trex_mng'] = mng
@@ -159,10 +160,6 @@ def test(task_id=0, **kwargs):
     task.end_time = datetime.now().replace(microsecond=0)
     # change statuses
     task.trexes.status = 'idle'
-    # cheking kill status after stateless test
-    if test_attr['mode'] == 'stateless':
-        if not result['kill_status']:
-            task.trexes.status = 'error'
     # in case device is not empty
     if task.devices:
         task.devices.status = 'idle'
@@ -170,12 +167,12 @@ def test(task_id=0, **kwargs):
     task.status = 'done'
     # type of result data depends on test type
     if test_attr['type'] == 'common':
-        task.data = json.dumps({'trex': result['values']})
+        task.data = dumps({'trex': result['values']})
     elif test_attr['type'] == 'selection':
-        task.data = json.dumps({'trex': result['values'], 'rate': result['rate']})
+        task.data = dumps({'trex': result['values'], 'rate': result['rate']})
     else:
-        task.data = json.dumps({'trex': result['values']})
+        task.data = dumps({'trex': result['values']})
     db.session.commit()
-    # will add later
-    # result.pop('values')
+    # deletes test value from output
+    result.pop('values', 'no values')
     return result
