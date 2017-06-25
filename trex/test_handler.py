@@ -101,5 +101,4 @@ def test_handler(test):
         result['status'] = True
         result['state'] = 'success'
         result['values'] = test_result
-
     return result

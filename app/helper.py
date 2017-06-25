@@ -1,4 +1,4 @@
-# different repeating values on pages, notes, etc
+# different functions, repeating values on pages, notes, etc
 # for mng
 from operator import itemgetter
 
@@ -73,7 +73,7 @@ def mng_dict_maker(mng):
     mng_dict['ip4'] = tuple(item['mng'] for item in mng_sorted if item['type'] == 'ip4')
     mng_dict['ip6'] = tuple(item['mng'] for item in mng_sorted if item['type'] == 'ip6')
     mng_dict['fqdn'] = tuple(item['mng'] for item in mng_sorted if item['type'] == 'fqdn')
-    # deletes tuple form alone item
+    # deletes tuple for alone item
     for item in mng_dict:
         if len(mng_dict[item]) == 1:
             mng_dict[item] = mng_dict[item][0]

@@ -19,7 +19,7 @@ from exceptions import GracefulExit, signal_handler
 from trex.client.stf import trex_kill
 # task scheduler config
 from config import task_sched_interval, task_sched_safe
-from socket import timeout as sock_timeout
+from socket import timeout as socket_timeout
 from checker import trex_check
 
 
@@ -148,12 +148,13 @@ def task_killer(task):
         else:
             result['state'] = 'soft kill: {}, force kill: {}'.format(soft_kill['state'], force_kill['state'])
     # trex is not available for all mng entries
-    except (KeyError, ConnectionRefusedError, sock_timeout):
+    except (KeyError, ConnectionRefusedError, socket_timeout):
         # making DB changes
         result = task_status_changer(task, status='canceled', trex='unavailable', device='idle')
     return result
 
 
+# running task scheduler
 if __name__ == '__main__':
     # for correct stopping
     signal.signal(signal.SIGTERM, signal_handler)
@@ -179,7 +180,7 @@ if __name__ == '__main__':
                     # making DB changes
                     task_status_changer(task, status='pending', trex='idle', device='idle')
                 # trex is not available for all mng entries
-                except (KeyError, ConnectionRefusedError, sock_timeout):
+                except (KeyError, ConnectionRefusedError, socket_timeout):
                     task_status_changer(task, status='pending', trex='unavailable', device='idle')
         # clear failed queues
         failed_task = get_failed_queue(connection=redis_connect)

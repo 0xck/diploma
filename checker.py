@@ -4,7 +4,7 @@ from trex.client.stf import trex_status
 from subprocess import call, DEVNULL
 # timeout
 import timeout_decorator
-# IPv6 support
+# network support
 from ipaddress import ip_address
 from socket import gethostbyname
 from socket import error as socket_error
