@@ -26,10 +26,6 @@ def main_cfg_gen():
     # DB
     db_addr = 'db.sqlite'
     db_type = 'sqlite'
-    db_name = 'wrex'
-    db_user = 'wrex'
-    db_pass = 'wrex'
-    db_port = ''
     # redis
     redis_addr = 'localhost'
     redis_port = 6379
@@ -69,7 +65,7 @@ task_sched_safe = {}
         # checking if DB exists and rewrites one
         if os.access(full_db_addr, mode=os.F_OK):
             print('''
-SQLite DB file {bold}{}{end} already exists, should {red}replace{end} it?
+SQLite DB file {bold}{}{end} already exists, should script {red}replace{end} it?
 '''.format(full_db_addr, **term))
             rewrite = input('Replace y/n ')
             while rewrite.strip().lower() not in {'y', 'n'}:
@@ -135,82 +131,22 @@ Main config was generated as {bold}{}{end}
         '''.format(**term))
     # DB type
     print('''Choose application DB type:
-    1. SQLite {grey}(default){end}
-    {grey}2. MySQL is NOT yet supported{end}
-    {grey}3. PostgreSQL is NOT yet supported{end}
+    1. SQLite (default)
 '''.format(**term))
     user_val = input('{grey}Defaul is{end} {bold}SQLite{end} '.format(**term))
-    while user_val.strip().lower() not in {'1', '2', '3'}:
+    while user_val.strip().lower() not in {'1'}:
         if user_val.strip().lower() == '':
             break
         user_val = input('Please use only {bold}"1"{end} or {bold}"Enter"{end} '.format(**term))
-    if user_val.strip().lower() == '2':
-        db_type = 'mysql'
-    elif user_val.strip().lower() == '3':
-        db_type = 'postgresql'
-    else:
-        db_type = 'sqlite'
-    # DB params in case no sqlite
-    if db_type != 'sqlite':
-        # DB address
-        print('''
-Select DB address:
-{grey}Note. Please, do not specify DB port or credentials here{end}'''.format(**term))
-        user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format('localhost', **term))
-        if user_val.strip().lower() != '':
-            db_addr = user_val
-        else:
-            db_addr = 'localhost'
-            # DB name
-            print('''
-Select DB name''')
-            user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(db_name, **term))
-            if user_val.strip().lower() != '':
-                db_name = user_val
-            # DB port
-            print('''
-Select DB port''')
-            sw = True
-            while sw is True:
-                user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format('3306' if db_type == 'mysql' else '5432', **term))
-                if user_val.strip().lower() != '':
-                    try:
-                        if 0 < int(user_val.strip()) < 65536:
-                            db_port = int(user_val)
-                            sw = False
-                        else:
-                            print('Wrong port, try again.')
-                    except ValueError:
-                        print('Wrong port, try again.')
-                        continue
-                else:
-                    db_port = 3306 if db_type == 'mysql' else 5432
-                    sw = False
-            # DB username
-            print('''
-Specify DB username''')
-            user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(db_name, **term))
-            if user_val.strip().lower() != '':
-                db_user = user_val
-            # DB password
-            print('''
-Specify DB password''')
-            user_val = input('{grey}Defaul is{end} {bold}{}{end} '.format(db_pass, **term))
-            if user_val.strip().lower() != '':
-                db_pass = user_val
-            # making changes in defaults
-            db_part_conf = '''SQLALCHEMY_DATABASE_URI = "{}://{}:{}@{}:{}/{}"
-SQLALCHEMY_TRACK_MODIFICATIONS = False
-'''.format(db_type, db_user, db_pass, db_addr, db_port, db_name)
+    db_type = 'sqlite'
     # if DB is sqlite
-    else:
-        # DB location
-        print('''
+    # DB location
+    print('''
 Select SQLite DB file name with full path''')
-        user_val = input('{grey}Defaul DB is in "app" directory:{end} {bold}{}{end} '.format(os.path.join(curr_dir, 'app', db_addr), **term))
-        if user_val.strip().lower() != '':
-            db_addr = user_val
-            db_part_conf = '''SQLALCHEMY_DATABASE_URI = "{}:///{}"
+    user_val = input('{grey}Defaul DB is in "app" directory:{end} {bold}{}{end} '.format(os.path.join(curr_dir, 'app', db_addr), **term))
+    if user_val.strip().lower() != '':
+        db_addr = user_val
+        db_part_conf = '''SQLALCHEMY_DATABASE_URI = "{}:///{}"
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 '''.format(db_type, db_addr)
     # app params
@@ -249,7 +185,7 @@ Select time interval which will be used by task scheduler for checking new tasks
 '{grey}Note. Do not set too low interval, task sheduller uses DB for checking new tasks, if interval is small it may affect DB performance.{end}'''.format(**term))
     sw = True
     while sw is True:
-        user_val = input('{grey}Defaul is{end} {bold}{}{end}{grey} seconds. And must be{end} {bold}{}{end} {grey}or more.{end} '.format(task_sched_interval, 1, **term))
+        user_val = input('{grey}Defaul is{end} {bold}{}{end}{grey} seconds. And has to be more than{end} {bold}{}{end}{grey}.{end} '.format(task_sched_interval, 1, **term))
         if user_val.strip().lower() != '':
             try:
                 if int(user_val.strip()) >= 1:
