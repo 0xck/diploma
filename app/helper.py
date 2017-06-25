@@ -1,4 +1,6 @@
 # different repeating values on pages, notes, etc
+# for mng
+from operator import itemgetter
 
 
 def humanize(data, units='si', end=''):
@@ -60,6 +62,22 @@ def no_db_item(item, item_type):
         # returns error msg for no item
         content = '<p class="lead">There was not any {0}. You should create {0} first.</p>'.format(item_type)
     return content
+
+
+def mng_dict_maker(mng):
+    # making dict of mng items sorted by priority, in caase multiply item of one type tuple will be used
+    mng_dict = {}
+    # sorting mng dict by priority
+    mng_sorted = sorted(mng, key=itemgetter('type', 'priority'))
+    # filling new mng dict
+    mng_dict['ip4'] = tuple(item['mng'] for item in mng_sorted if item['type'] == 'ip4')
+    mng_dict['ip6'] = tuple(item['mng'] for item in mng_sorted if item['type'] == 'ip6')
+    mng_dict['fqdn'] = tuple(item['mng'] for item in mng_sorted if item['type'] == 'fqdn')
+    # deletes tuple form alone item
+    for item in mng_dict:
+        if len(mng_dict[item]) == 1:
+            mng_dict[item] = mng_dict[item][0]
+    return mng_dict
 
 
 general_notes = {

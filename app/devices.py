@@ -8,9 +8,10 @@ from flask_wtf import FlaskForm
 from wtforms import SubmitField, SelectField, TextAreaField, StringField, BooleanField
 from wtforms.validators import Required, Length, AnyOf, Regexp, IPAddress, NoneOf, Optional
 # notes, statuses, etc
-from app.helper import general_notes, validator_err, messages, devices_statuses, devices_buttons, device_check_error
+from app.helper import general_notes, validator_err, messages, devices_statuses, devices_buttons, device_check_error, mng_dict_maker
 # autoset status
 from checker import device_check
+from json import loads, dumps
 
 
 @app.route('/devices/')
@@ -53,7 +54,9 @@ def devices_table(device_info=False, filter_nav=True):
         # gathering information for filling table
         table_items = {}
         # adding device db base info
-        table_items.update(entr['ALL_DICT'])
+        table_items.update(entr['ALL_DICT_NO_JSON'])
+        # adding mng dict
+        table_items.update(mng_dict_maker(table_items['mng']))
         table_items['status_row'] = status_row
         # action button
         table_items['act_button'] = act_button.format(entr.id)
@@ -175,9 +178,10 @@ def device_create():
         # creates new DB entr
         new_device = models.Device(
             name=name,
-            ip4=ip4 if ip4 != '' else None,
-            ip6=ip6 if ip6 != '' else None,
-            fqdn=fqdn if fqdn != '' else None,
+            mng=dumps([
+                {'type': 'ip4', 'mng': ip4 if ip4 != '' else None, 'priority': 10},
+                {'type': 'ip6', 'mng': ip6 if ip6 != '' else None, 'priority': 20},
+                {'type': 'fqdn', 'mng': fqdn if fqdn != '' else None, 'priority': 30}]),
             vendor=vendor,
             model=model,
             firmware=firmware,
@@ -246,6 +250,7 @@ def device_edit(device_id):
         curr_names = [curr.name for curr in curr_devices]
     else:
         curr_names = []
+    curr_mng = mng_dict_maker(loads(device_entr.mng))
 
     class DeviceForm(FlaskForm):
         # making form
@@ -255,15 +260,15 @@ def device_edit(device_id):
         ip4 = StringField(
             'Management IPv4 address',
             validators=[Optional(), Length(min=7, max=15), IPAddress(message='Invalid IPv4 address')],
-            default=device_entr.ip4)
+            default=curr_mng['ip4'])
         ip6 = StringField(
             'Management IPv6 address',
             validators=[Optional(), Length(min=3, max=39), IPAddress(ipv6=True, message='Invalid IPv6 address')],
-            default=device_entr.ip6)
+            default=curr_mng['ip6'])
         fqdn = StringField(
             'Management DNS name',
             validators=[Optional(), Length(min=1, max=256), Regexp('^[A-Za-z0-9_.-]+$', message='DNS name must contain only letters numbers, underscore, dot or dash')],
-            default=device_entr.fqdn)
+            default=curr_mng['fqdn'])
         vendor = StringField(
             'Device vendor',
             validators=[Length(max=128)],
@@ -325,9 +330,10 @@ def device_edit(device_id):
         description = form.description.data
         # changing DB entr
         device_entr.name = name
-        device_entr.ip4 = ip4 if ip4 != '' else None
-        device_entr.ip6 = ip6 if ip6 != '' else None
-        device_entr.fqdn = fqdn if fqdn != '' else None
+        device_entr.mng = dumps([
+            {'type': 'ip4', 'mng': ip4 if ip4 != '' else None, 'priority': 10},
+            {'type': 'ip6', 'mng': ip6 if ip6 != '' else None, 'priority': 20},
+            {'type': 'fqdn', 'mng': fqdn if fqdn != '' else None, 'priority': 30}])
         device_entr.vendor = vendor
         device_entr.model = model
         device_entr.firmware = firmware

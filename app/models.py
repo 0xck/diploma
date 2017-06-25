@@ -12,12 +12,8 @@ class Trex(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     # t-rex instance hostname
     hostname = db.Column(db.String(64), unique=True)
-    # IPv4 mng address
-    ip4 = db.Column(db.String(15), nullable=True)
-    # IPv6 mng address
-    ip6 = db.Column(db.String(39), nullable=True)
-    # FQDN mng address
-    fqdn = db.Column(db.String(256), nullable=True)
+    # management
+    mng = db.Column(db.Text)
     # t-rex instance port
     port = db.Column(db.Integer)
     # VM id
@@ -37,20 +33,16 @@ class Trex(db.Model):
         return '''
         id: {0},
         hostname: {1},
-        ip4: {2}
-        ip6: {3},
-        fqdn: {4},
-        port: {5},
-        vm_id: {6},
-        host: {7},
-        status: {8},
-        version: {9},
-        description: {10}'''.format(
+        mng: {2}
+        port: {3},
+        vm_id: {4},
+        host: {5},
+        status: {6},
+        version: {7},
+        description: {8}'''.format(
             self.id,
             self.hostname,
-            self.ip4,
-            self.ip6,
-            self.fqdn,
+            self.mng,
             self.port,
             self.vm_id,
             self.host,
@@ -65,9 +57,7 @@ class Trex(db.Model):
             return [
                 self.id,
                 self.hostname,
-                self.ip4,
-                self.ip6,
-                self.fqdn,
+                self.mng,
                 self.port,
                 self.vm_id,
                 self.host,
@@ -79,9 +69,19 @@ class Trex(db.Model):
             return dict(
                 id=self.id,
                 hostname=self.hostname,
-                ip4=self.ip4,
-                ip6=self.ip6,
-                fqdn=self.fqdn,
+                mng=self.mng,
+                port=self.port,
+                vm_id=self.vm_id,
+                host=self.host,
+                status=self.status,
+                version=self.version,
+                description=self.description)
+        # return dict of args dumping all json
+        elif index == 'ALL_DICT_NO_JSON':
+            return dict(
+                id=self.id,
+                hostname=self.hostname,
+                mng=loads(self.mng),
                 port=self.port,
                 vm_id=self.vm_id,
                 host=self.host,
@@ -93,9 +93,7 @@ class Trex(db.Model):
             return [
                 self.id,
                 self.hostname,
-                self.ip4,
-                self.ip6,
-                self.fqdn,
+                self.mng,
                 self.port,
                 self.vm_id,
                 self.host,
@@ -111,12 +109,8 @@ class Device(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     # device name
     name = db.Column(db.String(64))
-    # IPv4 mng address
-    ip4 = db.Column(db.String(15), nullable=True)
-    # IPv6 mng address
-    ip6 = db.Column(db.String(39), nullable=True)
-    # FQDN mng address
-    fqdn = db.Column(db.String(256), nullable=True)
+    # management
+    mng = db.Column(db.Text)
     # device vendor
     vendor = db.Column(db.String(128))
     # device model
@@ -134,19 +128,15 @@ class Device(db.Model):
         return '''
         id: {0},
         name: {1}
-        ip4: {2},
-        ip6: {3},
-        fqdn: {4},
-        vendor: {5}
-        model: {6},
-        status: {7},
-        firmware: {8},
-        description: {9}'''.format(
+        mng: {2},
+        vendor: {3}
+        model: {4},
+        status: {5},
+        firmware: {6},
+        description: {7}'''.format(
             self.id,
             self.name,
-            self.ip4,
-            self.ip6,
-            self.fqdn,
+            self.mng,
             self.vendor,
             self.model,
             self.status,
@@ -160,9 +150,7 @@ class Device(db.Model):
             return [
                 self.id,
                 self.name,
-                self.ip4,
-                self.ip6,
-                self.fqdn,
+                self.mng,
                 self.vendor,
                 self.model,
                 self.status,
@@ -173,9 +161,18 @@ class Device(db.Model):
             return dict(
                 id=self.id,
                 name=self.name,
-                ip4=self.ip4,
-                ip6=self.ip6,
-                fqdn=self.fqdn,
+                mng=self.mng,
+                vendor=self.vendor,
+                model=self.model,
+                status=self.status,
+                firmware=self.firmware,
+                description=self.description)
+        # return dict of args dumping all json
+        elif index == 'ALL_DICT_NO_JSON':
+            return dict(
+                id=self.id,
+                name=self.name,
+                mng=loads(self.mng),
                 vendor=self.vendor,
                 model=self.model,
                 status=self.status,
@@ -186,9 +183,7 @@ class Device(db.Model):
             return [
                 self.id,
                 self.name,
-                self.ip4,
-                self.ip6,
-                self.fqdn,
+                self.mng,
                 self.vendor,
                 self.model,
                 self.status,
@@ -233,7 +228,8 @@ class Task(db.Model):
         trex: {},
         device: {},
         test: {},
-        data: {}
+        data: {},
+        test data: {},
         '''.format(
             self.id,
             self.description,
@@ -244,7 +240,8 @@ class Task(db.Model):
             self.trex,
             self.device,
             self.test,
-            self.data)
+            self.data,
+            self.test_data)
 
     def __getitem__(self, index):
         # different returns
@@ -260,7 +257,8 @@ class Task(db.Model):
                 self.trex,
                 self.device,
                 self.test,
-                self.data]
+                self.data,
+                self.test_data]
         # return dict of args
         elif index == 'ALL_DICT':
             return dict(
@@ -273,7 +271,8 @@ class Task(db.Model):
                 trex=self.trex,
                 device=self.device,
                 test=self.test,
-                data=self.data)
+                data=self.data,
+                test_data=self.test_data)
         # return index of list of args
         else:
             return [
@@ -286,7 +285,8 @@ class Task(db.Model):
                 self.trex,
                 self.device,
                 self.test,
-                self.data][index]
+                self.data,
+                self.test_data][index]
 
 
 class Test(db.Model):
