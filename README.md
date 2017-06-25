@@ -4,6 +4,7 @@ Small app for network testing with [Cisco TRex](https://trex-tgn.cisco.com)
 
 ## Table of Contents
 [Requirements](#requirements)
+
 [Install](#install)
 - [Python](#python)
     - [Python modules](#python-modules)
@@ -14,9 +15,11 @@ Small app for network testing with [Cisco TRex](https://trex-tgn.cisco.com)
 - [Cisco TRex](#cisco-trex)
     - [Setup and configuration](#setup-and-configuration)
     - [Daemon operations](#daemon-operations)
+
 [App configuration](#app-configuration)
 - [first_start.py](#first_startpy)
 - [ext_conf/config_generator.py](#config_generatorpy)
+
 [Usage](#usage)
 - [App components](#app-components)
     - [Web app (server.py)](#web-app-_serverpy)
@@ -30,6 +33,7 @@ Small app for network testing with [Cisco TRex](https://trex-tgn.cisco.com)
         - [Restart app](#restart-app)
         - [Work with components](#work-with-components)
 - [Web interface](#web-interface)
+
 [Limits](#limits)
 - [Operation system limits](#operation-system-limits)
 - [TRex limits](#trex-limits)
