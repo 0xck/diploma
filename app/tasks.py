@@ -937,7 +937,7 @@ def kill_trex_tasks(task_id):
     task_entr = models.Task.query.get(task_id)
     # checking task and status
     if task_entr:
-        if task_entr.status == 'testing':
+        if task_entr.status in {'testing', 'queued'}:
             # trying to kill status as queue in redis and active trex task
             result = task_killer(task_entr)
             if result['status']:
@@ -951,7 +951,7 @@ def kill_trex_tasks(task_id):
         # if task has not got "testing" status returns message
 
         else:
-            msg = messages['warning'].format('Tasks ID {} was not killed. The task is not in testing state now'.format(task_id))
+            msg = messages['warning'].format('Tasks ID {} was not killed. The task is not in testing/queued state now'.format(task_id))
     else:
         # if not task id returns 404
         abort(404)
