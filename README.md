@@ -2,6 +2,49 @@
 Small app for network testing with [Cisco TRex](https://trex-tgn.cisco.com)
 > App is still in active development state now and some features might not work or work improperly
 
+## Table of Contents
+[Requirements](#requirements)
+
+[Install](#install)
+- [Python](#python)
+    - [Python modules](#python-modules)
+- [Redis server](#redis-server)
+- [Supervisord](#supervisord)
+    - [Installation](#installation)
+    - [Configuration](#configuration)
+- [Cisco TRex](#cisco-trex)
+    - [Setup and configuration](#setup-and-configuration)
+    - [Daemon operations](#daemon-operations)
+
+[App configuration](#app-configuration)
+- [first_start.py](#first_startpy)
+- [ext_conf/config_generator.py](#config_generatorpy)
+
+[Usage](#usage)
+- [App components](#app-components)
+    - [Web app (server.py)](#web-app-_serverpy)
+    - [Task scheduler (task_scheduler.py)](#task-scheduler_task_schedulerpy)
+    - [Worker (worker.py)](#worker_workerpy))
+    - [Redis](#redis)
+- [Manage app](#manage-app)
+    - [Statrup/Shutdown](#shutdown)
+        - [Start app](#start-app)
+        - [Stop app](#stop-app)
+        - [Restart app](#restart-app)
+        - [Work with components](#work-with-components)
+- [Web interface](#web-interface)
+
+[Limits](#limits)
+- [Operation system limits](#operation-system-limits)
+- [TRex limits](#trex-limits)
+    - [Open issues](#open-issues)
+- [App limits](#app-limits)
+    - [General](#general)
+    - [TRex](#trex)
+    - [Device](#device)
+    - [Redis](#redis)
+
+
 ## Requirements
 App is written on _python_ and needs **python 3** _(3.5 and above would be better)_. And you should install several **python modules** from requirements.txt _(see [Install](#install) notes below)._
 
@@ -281,7 +324,7 @@ In whole app is not web interface for TRex, it uses TRex for making tests, gathe
 
 ###### Device
 Are not supported:
-- determination realy device status _(only ICMP availability)_
+- determination really device status _(only ICMP availability)_
 
 ###### Redis
 Are not supported:
