@@ -21,4 +21,4 @@ if not app.debug:
     app.logger.info('app startup')
 
 # app pages
-from app import index, tasks, tests, trexes, devices
+from app import index,  tests, trexes, devices, tasks
