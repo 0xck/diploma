@@ -48,7 +48,7 @@ Small app for network testing with [Cisco TRex](https://trex-tgn.cisco.com)
 ## Requirements
 App is written on _python_ and needs **python 3** _(3.5 and above would be better)_. And you should install several **python modules** from requirements.txt _(see [Install](#install) notes below)._
 
-App _works on **NIX_ systems _(due some Windows limitations, see [limits](#operation-system-limits) below)._
+App _works on **NIX_ 64bit systems _(due limitations, see [limits](#operation-system-limits) below)._ Ubuntu and derivatives are preferable.
 
 **Redis** server is required, because some elements using queue feature. You may _install new_ or _use existing_ redis server.
 
@@ -264,6 +264,7 @@ After task was created task scheduler track one and start test process. After te
 App works only on *NIX systems:
 - some app components _(RQ workers)_ use `fork()` that is not implemented on Windows
 - app contains TRex client which works with certain libraries that are able to work only on *NIX
+- app works on 64bit systems only _(looks like something wrong with TRex client pyzmq python module from "external lib")_
 
 #### TRex limits
 Current TRex releases have some limits _(got from [here](https://communities.cisco.com/community/developer/trex/blog/2017/03/29/how-trex-is-used-by-mellanox))_:
