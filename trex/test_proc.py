@@ -92,12 +92,19 @@ def test(task_id=0, **kwargs):
 
     # adds trex address and port
     # sets management entr from current DB mng entries by checking trex availability status
+    trex_mng = trex_check(task.trexes)
     try:
-        mng = trex_check(task.trexes)['mng']
+        mng = trex_mng['mng']
     # trex is not available for all mng entries
     except KeyError:
-        task_err(mng)
-        return result
+        if trex_mng['state'] == 'unavailable':
+            trex_mng['state'] = 'TRex is unavailable'
+            task.trexes.status = 'down'
+        elif trex_mng['state'] == 'No management data':
+            trex_mng['state'] = 'No/Wrong TRex management data'
+            task.trexes.status = 'error: "No/Wrong TRex management data"'
+        task_err(trex_mng)
+        return trex_mng
 
     # for single test writing trex mng and port into trex test params
     if test_attr['mode'] != 'bundle':
