@@ -86,23 +86,10 @@ ENV/
 
 # Rope project settings
 .ropeproject
-<<<<<<< HEAD
-app/web_app.py
 db.sqlite
-=======
-db.sqlite
-<<<<<<< HEAD
-web_app.py
->>>>>>> ck
-=======
 penv/
 _unuse/
 
 trex/conf/
 just_test.py
-<<<<<<< HEAD
->>>>>>> ck
-=======
-config.py
 wrex.conf
->>>>>>> ck
