@@ -150,7 +150,7 @@ def task_killer(task):
     # trex is not available for all mng entries
     except (KeyError, ConnectionRefusedError, socket_timeout):
         # making DB changes
-        result = task_status_changer(task, status='canceled', trex='unavailable', device='idle')
+        result = task_status_changer(task, status='canceled', trex='down', device='idle')
     return result
 
 
@@ -181,7 +181,7 @@ if __name__ == '__main__':
                     task_status_changer(task, status='pending', trex='idle', device='idle')
                 # trex is not available for all mng entries
                 except (KeyError, ConnectionRefusedError, socket_timeout):
-                    task_status_changer(task, status='pending', trex='unavailable', device='idle')
+                    task_status_changer(task, status='pending', trex='down', device='idle')
         # clear failed queues
         failed_task = get_failed_queue(connection=redis_connect)
         if failed_task.count > 0:
