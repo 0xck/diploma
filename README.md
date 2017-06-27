@@ -44,7 +44,6 @@ Small app for network testing with [Cisco TRex](https://trex-tgn.cisco.com)
     - [Device](#device)
     - [Redis](#redis)
 
-
 ## Requirements
 App is written on _python_ and needs **python 3** _(3.5 and above would be better)_. And you should install several **python modules** from requirements.txt _(see [Install](#install) notes below)._
 
@@ -57,7 +56,7 @@ App _works on **NIX_ 64bit systems _(due limitations, see [limits](#operation-sy
 **Cisco TRex** installed locally or separately
 
 ## Install
-Download last [app release](https://github.com/0xck/diploma/releases) and unarchive into directory you plan to use for app.
+Download last [app release](https://github.com/0xck/wrex/releases) and unarchive into directory you plan to use for app.
 
 ### Python
 Make sure you have got installed _python 3_, otherwise just use system software manager _(e.g. apt, yum, pkg)_ or download one from [official site](https://www.python.org/downloads/) and install. App tested on 3.5 version and should work on other python 3 releases as well.
@@ -297,7 +296,7 @@ Are not supported:
 - items restoring
 - online statistic during test
 - any management for TRexes or devices
-- notification
+- notifications
 - SSL/TSL
 - changing priority of management elements of TRexes and devices, now it is:
     - 1st IPv4
