@@ -296,7 +296,7 @@ Are not supported:
 - items restoring
 - online statistic during test
 - any management for TRexes or devices
-- notification
+- notifications
 - SSL/TSL
 - changing priority of management elements of TRexes and devices, now it is:
     - 1st IPv4
