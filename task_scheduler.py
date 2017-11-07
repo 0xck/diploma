@@ -6,6 +6,7 @@ from trex import test_proc
 # for queueing
 from rq import Queue, get_failed_queue
 from rq.job import Job, cancel_job
+from rq.exceptions import NoSuchJobError
 from worker import redis_connect
 # other
 from datetime import datetime
@@ -112,6 +113,8 @@ def task_status_changer(task, status=None, trex=None, device=None):
     if task:
         if status:
             task.status = status
+            task.start_time = None
+            task.end_time = None
         if trex:
             task.trexes.status = trex
         if device and task.devices:
@@ -125,10 +128,13 @@ def task_status_changer(task, status=None, trex=None, device=None):
 
 def task_killer(task):
     # kills task and executing trex task; getting db item as task
-    job = Job.fetch(str(task.id), connection=redis_connect)
-    # deleting current task from queue
-    if job.is_started or job.is_queued:
-        cancel_job(str(job.get_id()), connection=redis_connect)
+    try:
+        job = Job.fetch(str(task.id), connection=redis_connect)
+        # deleting current task from queue
+        if job.is_started or job.is_queued:
+            cancel_job(str(job.get_id()), connection=redis_connect)
+    except NoSuchJobError:
+        pass
     # kills executing trex task
     result = {'status': False, 'state': ''}
     try:
@@ -167,10 +173,13 @@ if __name__ == '__main__':
         # if tasks were found delete them from queue and kill executing trex
         if len(working_task) > 0:
             for task in working_task:
-                job = Job.fetch(str(task.id), connection=redis_connect)
-                # deleting current queued task
-                if job.is_started or job.is_queued:
-                    cancel_job(str(job.get_id()), connection=redis_connect)
+                try:
+                    job = Job.fetch(str(task.id), connection=redis_connect)
+                    # deleting current queued task
+                    if job.is_started or job.is_queued:
+                        cancel_job(str(job.get_id()), connection=redis_connect)
+                except NoSuchJobError:
+                    pass
                 # kills executing trex task
                 # sets management entry by ckecking all mng entries
                 try:
