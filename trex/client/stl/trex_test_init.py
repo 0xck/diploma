@@ -1,6 +1,10 @@
+"""
+trex test initiator; checking status, reserves trex for task
+stateful trex test init cause it has all necessary for init
+* inits TRex server with _../stf/trex_test_init.py_
+* starts TRex server in stateless mode
+"""
 
-# trex test initiator; checking status, reserves trex for task
-# stateful trex test init cause it has all necessary for init
 from .. stf import trex_test_init
 # stateful client
 from .. stf.trex_stf_lib.trex_client import CTRexClient

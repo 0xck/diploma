@@ -1,4 +1,10 @@
-# selection trex test processing
+"""
+selection trex test processing
+* runs test series with given settings using _trex_test_proc.py_
+* cancels server reservation with _trex_reservation.py_
+* gathers and returns test result if one passes criterion which was defined in test settings
+"""
+
 from . import trex_test_proc, trex_test_init, trex_reservation
 
 

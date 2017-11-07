@@ -1,4 +1,10 @@
-# main stateless test processing
+"""
+main stateless test processing
+* connects to TRex server with TRex client
+* runs given test
+* gathers and returns test result
+"""
+
 from .trex_stl_lib.trex_stl_client import STLClient
 from .trex_stl_lib.trex_stl_streams import STLProfile
 import time

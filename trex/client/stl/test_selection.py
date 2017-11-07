@@ -1,4 +1,11 @@
-# trex stateless selection test
+"""
+trex stateless selection test
+* inits TRex server with _trex_test_init.py_
+* runs test series with given settings using _trex_test_proc.py_
+* cancels server reservation with _../stf/trex_reservation.py_
+* gathers and returns test result if one passes criterion which was defined in test settings
+"""
+
 from . import trex_test_proc, trex_test_init
 from .. stf import trex_reservation
 

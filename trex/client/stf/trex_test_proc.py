@@ -1,4 +1,10 @@
-# main stateful test processing
+"""
+main stateful test processing
+* connects to TRex server with TRex client
+* runs given test
+* gathers and returns test result
+"""
+
 from .trex_stf_lib.trex_client import CTRexClient
 # exceptions
 from .trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexInUseError, TRexError

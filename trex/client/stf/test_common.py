@@ -1,4 +1,11 @@
-# common trex test processing
+"""
+common trex test processing
+* inits TRex server with _trex_test_init.py_
+* starts test with _trex_test_proc.py_
+* cancels server reservation with _trex_reservation.py_
+* returns result of test
+"""
+
 from . import trex_test_proc, trex_test_init, trex_reservation
 
 

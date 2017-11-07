@@ -1,4 +1,11 @@
-# trex test initiator; checking status, reserves trex for task
+"""
+trex test initiator; checking status, reserves trex for task
+* checks TRex server status with _trex_status.py_
+    - tries to release in case not _idle_ state with _trex_kill.py_
+* checks TRex server reservation with _trex_reservation.py_
+    - tries to release reservation in case server is reserved
+    - tries to reserve server for given user
+"""
 from . import trex_status, trex_reservation, trex_kill
 
 

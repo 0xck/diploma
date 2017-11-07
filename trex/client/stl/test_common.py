@@ -1,4 +1,11 @@
-# trex stateless common test
+"""
+trex stateless common test
+* inits TRex server with _trex_test_init.py_
+* starts test with _trex_test_proc.py_
+* cancels server reservation with _../stf/trex_reservation.py_
+* returns result of test
+"""
+
 from . import trex_test_proc, trex_test_init
 from .. stf import trex_reservation
 
