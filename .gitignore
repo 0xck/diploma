@@ -90,6 +90,5 @@ db.sqlite
 penv/
 _unuse/
 
-trex/conf/
 just_test.py
 wrex.conf
