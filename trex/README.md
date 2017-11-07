@@ -9,12 +9,12 @@ Contains examples of TRex server config
 #### test
 Contains data for tests that are used by TRex (traffic profiles, etc)
 
-##### *test_handler.py*
+##### test_handler.py
 
 * sends given data to TRex using appropriate test type
 * returns test data result
 
-##### *test_proc.py*
+##### test_proc.py
 
 * takes given task
 * gathers test settings from DB
