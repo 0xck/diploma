@@ -1,4 +1,8 @@
-# takes tests, makes tests and returns result
+"""
+* sends given data to TRex using appropriate test type
+* returns test data result
+"""
+
 # stateful tests
 from trex.client.stf import test_common as stf_common
 from trex.client.stf import test_selection as stf_selection

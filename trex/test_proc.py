@@ -1,3 +1,12 @@
+"""
+* takes given task
+* gather test settings from DB
+* sets statuses of TRex and device
+* sends one to [test_handler](#test_handler)
+* receives data and writes one to DB
+* restores statuses of TRex and device
+"""
+
 # DB
 from app import db, models
 # test processing
