@@ -55,9 +55,7 @@ class TRexClientWrapper():
     def __init__(self, **kwargs):
         """creating trex client
 
-        kwargs:
-            stl_config (): stl config
-            kwargs: has to contain trex server settings
+        kwargs: has to contain trex server settings
         """
         # gettig client
         self.trex = self._get_client(**kwargs)
