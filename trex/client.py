@@ -106,7 +106,7 @@ class TRexClientWrapper():
                 result.set_err(template('TRex server fault'))
             # General trex issue, something is wrong with API code; very serios
             except TRexException as err:
-                # TRexException is common exception for other subexceptions
+                # TRexException is common exception for subexceptions
                 # code checks if one is TRexException else subexceptions
                 # checking it is TRexException itself not its heir
                 if err.__class__ not in TRexException.__mro__:
