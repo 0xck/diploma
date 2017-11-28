@@ -64,7 +64,7 @@ class TRexClientWrapper():
         # trex mode started by client
         self.mode = None
 
-    def trex_exception_handler(func):
+    def _trex_exception_handler(func):
         """decorator for handling common trex server error
 
         catches certain exceptons returns formated error
@@ -117,7 +117,7 @@ class TRexClientWrapper():
                     raise err
             # JSON-RPC erros, something is wrong with code or server
             except ProtocolError:
-                logging.critical('{} for {}'.format(template('TRex RPC'), self.trex.trex_host))
+                logging.error('{} for {}'.format(template('TRex RPC'), self.trex.trex_host))
                 result.set_err(template('TRex RPC'))
 
             return result
@@ -129,21 +129,21 @@ class TRexClientWrapper():
     def last_known_mode(self):
         return self.mode
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def kill_force(self):
         # force kills all trex tasks
 
         result = Result()
         return result.set_val('killed') if self.trex.force_kill(confirm=False) else result.set_err('Unsuccessfull force kill')
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def kill_soft(self):
         # soft kills all trex tasks
 
         result = Result()
         return result.set_val('killed') if self.trex.stop_trex() else result.set_err('Unsucessfull force kill')
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def check_status(self):
         """returns information about trex server status and availability
 
@@ -169,28 +169,28 @@ class TRexClientWrapper():
 
         return result
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def take_reservation(self):
         # takes reservation
 
         result = Result()
         return result.set_val('Reserved') if self.trex.reserve_trex(user=None) else result.set_err('Can not take reservation')
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def check_reservation(self):
         # checks if trex is reserved
 
         result = Result()
         return result.set_val('reserved') if self.trex.is_reserved() else result.set_val('free')
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def cancel_reservation(self):
         # cancels reservation
 
         result = Result()
         return result.set_val('Reservation canceled') if self.trex.cancel_reservation(user=None) else result.set_err('Can not cancel reservation')
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def start_stf(self, **kwargs):
         """starts stf test
 
@@ -215,7 +215,7 @@ class TRexClientWrapper():
 
         return result
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def start_stl(self, **kwargs):
         """starts stl mode
 
@@ -237,7 +237,7 @@ class TRexClientWrapper():
 
         return result
 
-    @trex_exception_handler
+    @_trex_exception_handler
     def gather_stf(self, sampler=1, processor=stf_processor, pargs=[], pkwargs={}, **kwargs):
         """returns stf test result with given sampling as CTRexResult obj
 
@@ -376,7 +376,7 @@ class TRexSTLClientWrapper():
         # getting client
         self.client = self._get_client(**kwargs)
 
-    def stl_exception_handler(func):
+    def _stl_exception_handler(func):
         """decorator for handling common trex server error
 
         catches certain exceptons returns formated error
@@ -411,21 +411,21 @@ class TRexSTLClientWrapper():
             return result
         return wrapper
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _get_streams(self):
         # getting streams from local file
 
         result = Result()
         return result.set_val(STLProfile.load(self.config.pattern))
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _connect(self):
 
         result = Result()
         self.client.connect()
         return result.set_val('Connected')
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _disconnect(self):
         # diconnect with stoping traffic and releasing ports
 
@@ -433,7 +433,7 @@ class TRexSTLClientWrapper():
         self.client.disconnect()
         return result.set_val('Disconnected')
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _acquire(self):
         # acquires given ports
 
@@ -441,7 +441,7 @@ class TRexSTLClientWrapper():
         self.client.acquire(ports=self.config.ifaces)
         return result.set_val('Acquired')
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _reset(self):
         # Force acquire ports, stop the traffic, remove all streams and clear stats
 
@@ -449,21 +449,21 @@ class TRexSTLClientWrapper():
         self.client.reset(ports=self.config.ifaces)
         return result.set_val('Statistic was reseted')
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _set_service_mode(self):
 
         result = Result()
         self.client.set_service_mode(ports=self.config.act_iface, enabled=True)
         return result.set_val('Port {} is in service mode'.format(self.config.act_iface))
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _cancel_service_mode(self):
 
         result = Result()
         self.client.set_service_mode(ports=self.config.act_iface, enabled=False)
         return result.set_val('Port {} is out of service mode'.format(self.config.act_iface))
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _arp_resolve(self):
         # makes ARP resolution in service mode
 
@@ -474,14 +474,14 @@ class TRexSTLClientWrapper():
 
         return result.set_val('ARP resolved')
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _add_streams(self):
 
         result = Result()
         self.client.add_streams(ports=self.config.act_iface)
         return result.set_val('Streams were added')
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _start(self):
         # starts test
 
@@ -493,7 +493,7 @@ class TRexSTLClientWrapper():
 
         return result.set_val('Started')
 
-    @stl_exception_handler
+    @_stl_exception_handler
     def _get_data(self):
 
         result = Result()
