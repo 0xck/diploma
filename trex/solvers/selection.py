@@ -2,7 +2,7 @@
 solver tries to find suit test rate for given parameters
 
 used simple logical model:
-R is rate hase to be set
+R is rate has to be set
 RS is rate step for in-/decrease rate
 CR is current rate
 PR is previos rate
