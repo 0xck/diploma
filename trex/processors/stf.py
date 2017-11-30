@@ -1,9 +1,8 @@
 """
 returns dict of some trex data vaues
 """
-from itertools import starmap
 from statistics import median_high
-from ..exeptions import ProcessorError
+from ..exceptions import ProcessorError
 
 
 def processor(data):
@@ -45,9 +44,7 @@ def processor(data):
         'tx_ptks': ('trex-global.data', 'opackets-*'),
         'rx_ptks': ('trex-global.data', 'ipackets-*'),
         'tx_bytes': ('trex-global.data', 'obytes-*'),
-        'rx_bytes': ('trex-global.data', 'ibytes-*'),
-        'expected_pps': ('trex-global.data.m_tx_expected_pps'),
-        'expected_bps': ('trex-global.data.m_tx_expected_bps')}
+        'rx_bytes': ('trex-global.data', 'ibytes-*')}
 
     """
     list of sampled data
@@ -62,10 +59,13 @@ def processor(data):
 
     """
     sampler_output = [{dk: dv[i] for dk, dv in zip(sample_keys.keys(), map(data.get_value_list, sample_keys.values()))} for i in range(1, (len(data.get_value_list('.')) - 1))]
+    # general data
+    global_data = {dk: data.get_last_value(*dv) for dk, dv in global_keys.items()}
+    global_data['expected_pps'] = data.get_last_value('trex-global.data.m_tx_expected_pps')
+    global_data['expected_bps'] = data.get_last_value('trex-global.data.m_tx_expected_bps')
     # making results
     return {
-        # general data
-        'global': {dk: dv for dk, dv in zip(global_keys.keys(), starmap(data.get_value_list, global_keys.values()))},
+        'global': global_data,
         'sampler': sampler_output,
         # typical data from samples, its median
         'typical': sampler_output[median_high(range(1, (len(sampler_output))))]}

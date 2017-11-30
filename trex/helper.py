@@ -97,6 +97,22 @@ class TypeValueProperty(TypeProperty, ValueProperty):
         super().__set__(obj, value)
 
 
+class FuncProperty(BaseProperty):
+
+    template = 'Attribut <{}> of class <{}> item does not satisfy defined condition'.format
+
+    def __init__(self, attr, func):
+        super().__init__(attr, prop={'function': func})
+
+    def __set__(self, obj, value):
+        try:
+            if not self.function(value):
+                raise ValueError(self.template(self.attr[1:], obj.__class__.__name__))
+        except TypeError as err:
+            raise ValueError(self.template(self.attr[1:], obj.__class__.__name__))
+        super().__set__(obj, value)
+
+
 class Result():
     """common result obj"""
 
@@ -133,3 +149,36 @@ class Result():
 
     def __bool__(self):
         return self.status
+
+    def __str__(self):
+        return '<{}> status: {}, value: {}, error: {}'.format(self.__class__.__name__, self.status, self.value, self.error)
+
+
+def firstfilter(cond, data, default=None):
+    try:
+        return next(filter(cond, data))
+    except StopIteration:
+        return default
+
+
+def firstncondition(cond, data, default=None):
+    try:
+        return next((i for i in data if i == cond))
+    except StopIteration:
+        return default
+
+
+'''def get_config_from_file(cfg_file):
+
+    try:
+        with open(cfg_file, mode='r', encoding='utf-8') as cfg:
+            return load(cfg)
+
+    except FileNotFoundError:
+        logging.error('TRex server config file {} not found'.format(cfg_file))
+    except PermissionError:
+        logging.error('Can not read TRex server config file {} due permissions'.format(cfg_file))
+    except JSONDecodeError:
+        logging.error('Can not parse TRex server config file {}'.format(cfg_file))
+
+    raise TesterError('Can not parse external config', lvl=SEVERITY.WARNING)'''

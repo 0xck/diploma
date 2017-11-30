@@ -6,16 +6,15 @@ from functools import partial, wraps
 from socket import gaierror as ResolvingError
 from socket import timeout as TimeOut
 from time import sleep
-from trex_stf_lib.trex_client import CTRexClient
-from trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexIncompleteRunError, TRexInUseError, TRexError, TRexException
-from trex_stl_lib.trex_stl_client import STLClient
-from trex_stl_lib.trex_stl_streams import STLProfile
-from trex_stl_lib.trex_stl_exceptions import STLError, STLTimeoutError
-from external.libs.jsonrpclib import ProtocolError
-from helper import TypeProperty, ValueProperty, Result, TREXMODE, TREXSTATUS, SEVERITY
-from exceptons import TRexClientWrapperError, ProcessorError, TRexSTLClientWrapperError
-from processors.stf import processor as stf_processor
-from processors.stl import processor as stl_processor
+from collections import namedtuple
+from .trex_client.stf.trex_stf_lib.trex_client import CTRexClient
+from .trex_client.stf.trex_stf_lib.trex_exceptions import TRexRequestDenied, TRexIncompleteRunError, TRexInUseError, TRexError, TRexException
+from .trex_client.stl.trex_stl_lib.trex_stl_client import STLClient
+from .trex_client.stl.trex_stl_lib.trex_stl_streams import STLProfile
+from .trex_client.stl.trex_stl_lib.trex_stl_exceptions import STLError, STLTimeoutError
+from .trex_client.external_libs.jsonrpclib.jsonrpc import ProtocolError
+from .helper import TypeProperty, ValueProperty, Result, TREXMODE, TREXSTATUS, SEVERITY, FuncProperty
+from .exceptions import TRexClientWrapperError, TRexSTLClientWrapperError
 
 
 class TRexClientWrapper():
@@ -31,13 +30,14 @@ class TRexClientWrapper():
     trex = TypeProperty('trex', CTRexClient)
     # status tacken from actions and status checking
     # this is not real server status, useful for fast checking
-    status = ValueProperty('status', [*TREXSTATUS, None])
+    status = ValueProperty('status', (*TREXSTATUS, None))
     # trex mode started by client
     # useful for fast checking
-    mode = ValueProperty('mode', [*TREXMODE, None])
+    mode = ValueProperty('mode', (*TREXMODE, None))
+    sampler = FuncProperty('sampler', lambda x: x > 0)
 
     @staticmethod
-    def _get_client(**kwargs):
+    def _get_client(config):
         """returns trex client obj of CTRexClient from trex API
 
         returns (CTRexClient): trex client API obj which is created with given settings
@@ -46,23 +46,27 @@ class TRexClientWrapper():
 
         # trying to create trex client
         try:
-            return CTRexClient(**kwargs)
+            return CTRexClient(**config)
 
         except ResolvingError:
-            logging.warning('Can not resolve TRex server name {}'.format(kwargs.get('trex', 'unknown')))
+            logging.warning('Can not resolve TRex server name {}'.format(config.get('trex_host', 'unknown')))
             TRexClientWrapperError('Resolving error', lvl=SEVERITY.WARNING)
 
-    def __init__(self, **kwargs):
+    def __init__(self, server, test, sampler):
         """creating trex client
 
-        kwargs: has to contain trex server settings
+        args:
+            server (dict): has to contain trex server settings
+            test (dict): has to contain trex test settings
         """
         # gettig client
-        self.trex = self._get_client(**kwargs)
+        self.trex = self._get_client(server)
+        self.test = test
         # status taken from actions and status checking
         self.status = None
         # trex mode started by client
         self.mode = None
+        self.sampler = int(sampler)
 
     def _trex_exception_handler(func):
         """decorator for handling common trex server error
@@ -124,10 +128,20 @@ class TRexClientWrapper():
         return wrapper
 
     def last_known_status(self):
-        return self.status
+
+        result = Result()
+        return result.set_val(self.status)
 
     def last_known_mode(self):
-        return self.mode
+
+        result = Result()
+        return result.set_val(self.mode)
+
+    def set_cfg(self, config):
+        self.test = config
+
+    def get_cfg(self):
+        return self.test
 
     @_trex_exception_handler
     def kill_force(self):
@@ -191,15 +205,33 @@ class TRexClientWrapper():
         return result.set_val('Reservation canceled') if self.trex.cancel_reservation(user=None) else result.set_err('Can not cancel reservation')
 
     @_trex_exception_handler
-    def start_stf(self, **kwargs):
-        """starts stf test
-
-        kwargs: has to contain test settings
+    def start_stl(self):
+        """starts stl mode
         """
 
         result = Result()
         try:
-            if self.trex.start_trex(**kwargs):
+            if self.trex.start_stateless(**self.test):
+                result.set_val('TRex stl started')
+                self.status = TREXSTATUS.running
+                self.mode = TREXMODE.stl
+            else:
+                result.set_err('TRex stl starting failed')
+
+        # the wrong trex server option raised the exception
+        except TRexError as err:
+            result.set_err(err.msg)
+
+        return result
+
+    @_trex_exception_handler
+    def start_stf(self):
+        """starts stf test
+        """
+
+        result = Result()
+        try:
+            if self.trex.start_trex(**self.test):
                 result.set_val('TRex stf started')
                 self.status = TREXSTATUS.running
                 self.mode = TREXMODE.stf
@@ -216,47 +248,15 @@ class TRexClientWrapper():
         return result
 
     @_trex_exception_handler
-    def start_stl(self, **kwargs):
-        """starts stl mode
-
-        kwargs: has to contain test settings
-        """
-
-        result = Result()
-        try:
-            if self.trex.start_stateless(**kwargs):
-                result.set_val('TRex stl started')
-                self.status = TREXSTATUS.running
-                self.mode = TREXMODE.stl
-            else:
-                result.set_err('TRex stl starting failed')
-
-        # the wrong trex server option raised the exception
-        except TRexError as err:
-            result.set_err(err.msg)
-
-        return result
-
-    @_trex_exception_handler
-    def gather_stf(self, sampler=1, processor=stf_processor, pargs=[], pkwargs={}, **kwargs):
+    def _get_data(self):
         """returns stf test result with given sampling as CTRexResult obj
-
-        raw data may be processed with given processor function
-        ! method does not intercept processor exceptions, besides trex exceptions
-        ! method knows nothing about data type, this is task of processor
 
         kwargs:
             sampler (int): determines the time (in seconds) between each sample of the server, default is 1
-            processor (function): traffic handler function,
-                if not None then raw data will be procesed with processor,
-                default is stf_processor
-            pargs (list): processor args list, default is empty
-            pkwargs (dict): processor args dict, default is empty
 
         return (Result):
             success:
-                result.value (`seq`) if processor was defined
-                result.value (TRexResult): TRexResult obj with sampled result (raw data) if prosessor is None
+                result.value (TRexResult): TRexResult obj with sampled result (raw data)
             fail:
                 result.error (str): error string
         """
@@ -264,74 +264,35 @@ class TRexClientWrapper():
         result = Result()
         try:
             # getting data from trex server
-            data = self.trex.sample_until_finish(time_between_samples=sampler)
+            result.set_val(self.trex.sample_until_finish(time_between_samples=self.sampler))
 
         # something went wrong and trex client can not processed returned from server json
         except TypeError:
-            return result.set_err('JSON stream decoding error')
-        # something went wrong during processing data
-        except ProcessorError as err:
-            logging.error(err.message)
-            return result.set_err(err.message)
+            logging.error('JSON stream decoding error during getting data on {}'.format(self.trex.trex_host))
+            result.set_err('JSON stream decoding error', lvl=SEVERITY.ERROR)
 
-        # processes data with external processor if one is defined
-        processed = (processor(data, *pargs, **pkwargs)) if processor else data
         self.status = TREXSTATUS.idle
         self.mode = None
 
         # returns data/error in case success/no success
-        return result.set_val(processed) if processed else result.set_err('No data')
-
-    def _get_stl_client(self, **kwargs):
-
-        result = Result()
-        try:
-            result.add_val(TRexSTLClientWrapper(self.trex.trex_host, **kwargs))
-        except TRexSTLClientWrapperError as err:
-            result.set_err(err.message)
-
         return result
 
-    def gather_stl(self, processor=stl_processor, pargs=[], pkwargs={}, **kwargs):
-
-        client = self._get_stl_client(**kwargs)
-
-        if not client:
-            return client
-
-        result = Result()
-        # waiting for getting data
-        data = client.run()
-        # processes data with external processor if one is defined
-        processed = (processor(data, *pargs, **pkwargs)) if processor else data
-
-        self.status = TREXSTATUS.idle
-        self.mode = None
-
-        # returns data/error in case success/no success
-        return result.set_val(processed) if processed else result.set_err('No data')
-
-    def run_stf(self, **kwargs):
-        started = self.start_stf(**kwargs)
+    def run(self):
+        started = self.start_stf()
         if not started:
             return started
 
-        return self.gather_stf(**kwargs)
-
-    def run_stl(self, **kwargs):
-        started = self.start_stl(**kwargs)
-        if not started:
-            return started
-
-        return self.gather_stl(**kwargs)
+        return self._get_data()
 
 
 class TRexSTLClientWrapper():
 
-    client = TypeProperty('client', STLClient)
+    trex = TypeProperty('trex', TRexClientWrapper)
+    test = TypeProperty('test', STLClient)
+    sampler = FuncProperty('sampler', lambda x: x > 0)
 
     @staticmethod
-    def _get_client(**kwargs):
+    def _get_client(config):
         """returns trex client obj of CTRexClient from trex API
 
         returns (CTRexClient): trex client API obj which is created with given settings
@@ -340,41 +301,40 @@ class TRexSTLClientWrapper():
 
         # trying to create trex client
         try:
-            return STLClient(**kwargs)
-
-        except (ConnectionRefusedError, TimeOut, STLTimeoutError):
-            logging.warning('TRex {} is unavailable'.format(kwargs.get('server', 'unknown')))
-            raise TRexSTLClientWrapperError('TRex is unavailable', lvl=SEVERITY.WARNING)
-
-        except ResolvingError:
-            logging.warning('Can not resolve TRex server name {}'.format(kwargs.get('server', 'unknown')))
-            TRexSTLClientWrapperError('Resolving error', lvl=SEVERITY.WARNING)
+            return STLClient(**config)
 
         except STLError as err:
             raise TRexSTLClientWrapperError(err.msg)
 
-    def __init__(self, trex, stl_config=None, **kwargs):
+    @staticmethod
+    def as_ntuple(config):
+        # returns namedtuple from dict
+
+        sconfig = sorted(config)
+        try:
+            ntuple = namedtuple('ntuple', sconfig)
+            return ntuple(*(config[i] for i in sconfig))
+        except ValueError as err:
+            raise TRexSTLClientWrapperError('Wrong value in given settings', content=[type(err), err.args])
+
+    def __init__(self, trex, test, sampler):
         """creating stl client
 
         arsg:
-            trex (str): mng for trex server
-
-        kwargs:
-            stl_config (): has to contain stl test settings
-            kwargs: additional trex settings
+            trex (TRexClientWrapper): mng for trex server
+            test (dict): has to contain stl test settings
         """
 
         # default trex server config
         self.trex = trex
-
-        if not stl_config:
-            raise TRexSTLClientWrapperError('Empty config for stl')
-        self.config = stl_config
-
-        # change trex host for ruled by current trex client
-        kwargs.update({'server': self.trex})
+        self.test_raw = test
+        cfg = self.as_ntuple(self.test_raw)
+        if not len(cfg):
+            raise TRexSTLClientWrapperError('Empty config', content=self.test_raw)
+        self.test = cfg
         # getting client
-        self.client = self._get_client(**kwargs)
+        self.client = self._get_client(test)
+        self.sampler = int(sampler)
 
     def _stl_exception_handler(func):
         """decorator for handling common trex server error
@@ -408,15 +368,30 @@ class TRexSTLClientWrapper():
             except STLError as err:
                 result.set_err(template(err.msg))
 
+            except AttributeError as err:
+                raise TRexSTLClientWrapperError('Wrong or not implemented attribute', content=err.args)
+
             return result
         return wrapper
+
+    def set_cfg(self, config):
+
+        self.test_raw = config
+        cfg = self.as_ntuple(config)
+        if not len(cfg):
+            raise TRexSTLClientWrapperError('Empty config', content=config)
+        self.test = cfg
+
+    def get_cfg(self, config):
+
+        return self.test_raw
 
     @_stl_exception_handler
     def _get_streams(self):
         # getting streams from local file
 
         result = Result()
-        return result.set_val(STLProfile.load(self.config.pattern))
+        return result.set_val(STLProfile.load(self.test.pattern))
 
     @_stl_exception_handler
     def _connect(self):
@@ -438,7 +413,7 @@ class TRexSTLClientWrapper():
         # acquires given ports
 
         result = Result()
-        self.client.acquire(ports=self.config.ifaces)
+        self.client.acquire(ports=self.test.ifaces)
         return result.set_val('Acquired')
 
     @_stl_exception_handler
@@ -446,22 +421,22 @@ class TRexSTLClientWrapper():
         # Force acquire ports, stop the traffic, remove all streams and clear stats
 
         result = Result()
-        self.client.reset(ports=self.config.ifaces)
+        self.client.reset(ports=self.test.ifaces)
         return result.set_val('Statistic was reseted')
 
     @_stl_exception_handler
     def _set_service_mode(self):
 
         result = Result()
-        self.client.set_service_mode(ports=self.config.act_iface, enabled=True)
-        return result.set_val('Port {} is in service mode'.format(self.config.act_iface))
+        self.client.set_service_mode(ports=self.test.act_iface, enabled=True)
+        return result.set_val('Port {} is in service mode'.format(self.test.act_iface))
 
     @_stl_exception_handler
     def _cancel_service_mode(self):
 
         result = Result()
-        self.client.set_service_mode(ports=self.config.act_iface, enabled=False)
-        return result.set_val('Port {} is out of service mode'.format(self.config.act_iface))
+        self.client.set_service_mode(ports=self.test.act_iface, enabled=False)
+        return result.set_val('Port {} is out of service mode'.format(self.test.act_iface))
 
     @_stl_exception_handler
     def _arp_resolve(self):
@@ -469,7 +444,7 @@ class TRexSTLClientWrapper():
 
         result = Result()
         self._set_service_mode()
-        self.client.arp(ports=self.config.act_iface, retries=self.config.arp_retries)
+        self.client.arp(ports=self.test.act_iface, retries=self.test.arp_retries)
         self._cancel_service_mode()
 
         return result.set_val('ARP resolved')
@@ -478,7 +453,7 @@ class TRexSTLClientWrapper():
     def _add_streams(self):
 
         result = Result()
-        self.client.add_streams(ports=self.config.act_iface)
+        self.client.add_streams(ports=self.test.act_iface)
         return result.set_val('Streams were added')
 
     @_stl_exception_handler
@@ -487,9 +462,9 @@ class TRexSTLClientWrapper():
 
         result = Result()
         self.client.start(
-            ports=self.config.act_iface,
-            mult='{}{}'.format(self.config.rate, self.config.rate_type),
-            duration=(self.config.duration + self.config.warm))
+            ports=self.test.act_iface,
+            mult='{}{}'.format(self.test.rate, self.test.rate_type),
+            duration=(self.test.duration + self.test.warm))
 
         return result.set_val('Started')
 
@@ -500,28 +475,36 @@ class TRexSTLClientWrapper():
         # pseudo sampler for getting stats
         pseudo_sampler = []
         count = 0
-        wait_for = round(self.config.duration / self.config.sampler)
+        wait_for = round(self.test.duration / self.sampler)
         # getting stats for pseudo sampler exclude first and last
         # waiting for warming end
-        sleep(self.config.warm)
+        sleep(self.test.warm)
         # getting data
         while count < wait_for:
-            data = self.client.get_stats(ports=self.config.ifaces, sync_now=True)
+            data = self.client.get_stats(ports=self.test.ifaces, sync_now=True)
             # for compatibility with stateful
             data['queue_drop'] = 0
             pseudo_sampler.append(data)
             count += 1
-            sleep(self.config.sampler)
+            sleep(self.sampler)
 
         # waiting for end and getting final data
-        self.client.wait_on_traffic(ports=self.config.ifaces)
-        pseudo_sampler.append(self.client.get_stats(ports=self.config.ifaces, sync_now=True))
+        self.client.wait_on_traffic(ports=self.test.ifaces)
+        pseudo_sampler.append(self.client.get_stats(ports=self.test.ifaces, sync_now=True))
 
         return result.add_val(pseudo_sampler)
 
-    def run(self):
+    def run(self, kill_force=False):
 
-        for mtd in [self._connect, self._reset, self._arp, self._add_streams, self._start]:
+        start_seq = [
+            self._connect,
+            self._reset,
+            self._arp,
+            self._add_streams,
+            self._start,
+            self.trex.start_stl]
+
+        for mtd in start_seq:
             result = mtd()
             if not result:
                 return result
@@ -531,5 +514,39 @@ class TRexSTLClientWrapper():
 
         # disconnecting
         finish = self._disconnect()
+        # stop trex task
+        killed = self.trex.kill_soft()
+        if not killed and kill_force:
+            killed = self.trex.kill_force()
 
-        return data if finish else finish
+        # returns error or data
+        return (not killed or not finish) or data
+
+
+'''
+    def gather_stl(self, processor=stl_processor, pargs=[], pkwargs={}, **kwargs):
+
+        client = self._get_stl_client(**kwargs)
+
+        if not client:
+            return client
+
+        result = Result()
+        # waiting for getting data
+        data = client.run()
+        # processes data with external processor if one is defined
+        processed = (processor(data, *pargs, **pkwargs)) if processor else data
+
+        self.status = TREXSTATUS.idle
+        self.mode = None
+
+        # returns data/error in case success/no success
+        return result.set_val(processed) if processed else result.set_err('No data')
+
+
+    def run_stl(self, **kwargs):
+        started = self.start_stl(**kwargs)
+        if not started:
+            return started
+
+        return self.gather_stl(**kwargs)'''

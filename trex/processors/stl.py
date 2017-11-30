@@ -2,7 +2,7 @@
 returns dict of some trex data vaues
 """
 from statistics import median_high
-from ..exeptions import ProcessorError
+from ..exceptions import ProcessorError
 
 
 def processor(data, ifaces=[0, 1]):

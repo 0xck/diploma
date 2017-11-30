@@ -1,7 +1,7 @@
 """
 some ecxeptions for trex wrapper client
 """
-from helper import SEVERITY, TypeProperty
+from .helper import SEVERITY, TypeProperty
 
 
 class TRexWrapperBaseError(Exception):
@@ -20,30 +20,30 @@ class TRexWrapperBaseError(Exception):
         self.content = content
         self.level = lvl
 
+    def get_kwargs(self):
+        return {'content': self.content, 'lvl': self.level}
+
 
 class TRexClientWrapperError(TRexWrapperBaseError):
     """common TRexClientWrapper exception"""
-
-    def __init__(self, message, **kwargs):
-        super().__init__(message, **kwargs)
+    pass
 
 
 class TRexSTLClientWrapperError(TRexClientWrapperError):
     """common TRexSTLClientWrapper exception"""
+    pass
 
-    def __init__(self, message, **kwargs):
-        super().__init__(message, **kwargs)
+
+class TesterError(TRexWrapperBaseError):
+    """common tester exception"""
+    pass
 
 
 class ProcessorError(TRexWrapperBaseError):
     """common processor function exception"""
-
-    def __init__(self, message, **kwargs):
-        super().__init__(message, **kwargs)
+    pass
 
 
 class SolverError(TRexWrapperBaseError):
     """common solver function exception"""
-
-    def __init__(self, message, **kwargs):
-        super().__init__(message, **kwargs)
+    pass
