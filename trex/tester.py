@@ -292,13 +292,15 @@ class Tester():
 
     def run_loop(self, solver=solver, sargs=[], loop_count=100, check_mode=None, skwargs={}):
 
+        template = 'Test loop ended. {}'.format
+
         mtd_params = {k: v for k, v in zip(['solver', 'sargs', 'skwargs', 'loop_count', 'check_mode'], [str(solver), sargs, skwargs, loop_count, check_mode])}
         logging.info('Test loop started with parameters: {}'.format(mtd_params))
 
         # initializes trex
         result = self.initialize()
         if not result:
-            logging.error('Test loop ended. Init failed')
+            logging.error(template('Init failed'))
             return result
 
         # get 1st test data
@@ -306,7 +308,7 @@ class Tester():
         # if error ocurred then exit
 
         if not data:
-            logging.error('Test loop ended. No data')
+            logging.error(template('No data'))
             return data
 
         # data hub, contains results of tests
@@ -334,7 +336,7 @@ class Tester():
             hub.append(data.value)
             loop_count -= 1
         else:
-            logging.info('Test loop exceeded. Loop was performed {} times. Test was ran {} times'.format(mtd_params['loop_count'], (mtd_params['loop_count'] + 1)))
+            logging.info('Test loop counter exceeded. Loop was performed {} times. Test was ran {} times'.format(mtd_params['loop_count'], (mtd_params['loop_count'] + 1)))
             return result.set_err('Test loop count exceeded')
 
         # ending test
@@ -343,7 +345,7 @@ class Tester():
             logging.warning('An error occured during finishing test: "{}"'.format(end.error))
 
         launched = (mtd_params['loop_count'] - loop_count)
-        logging.info('Test loop ended. Loop was performed {} times. Test was ran {} times'.format(launched, (launched + 1)))
+        logging.info(template('Loop was performed {} times. Test was ran {} times'.format(launched, (launched + 1))))
 
         # return data or error
         return result.set_val(hub) if result else result
