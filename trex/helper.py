@@ -29,6 +29,12 @@ class TREXSTATUS(Enum):
     unknown = 'unknown'
 
 
+@unique
+class TREXRESERV(Enum):
+    reserved = 'reserved'
+    free = 'free'
+
+
 class BaseProperty():
     """common class for descriptors
 

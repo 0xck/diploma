@@ -13,7 +13,7 @@ from .trex_client.stl.trex_stl_lib.trex_stl_client import STLClient
 from .trex_client.stl.trex_stl_lib.trex_stl_streams import STLProfile
 from .trex_client.stl.trex_stl_lib.trex_stl_exceptions import STLError, STLTimeoutError
 from .trex_client.external_libs.jsonrpclib.jsonrpc import ProtocolError
-from .helper import TypeProperty, ValueProperty, Result, TREXMODE, TREXSTATUS, SEVERITY, FuncProperty
+from .helper import TypeProperty, ValueProperty, Result, TREXMODE, TREXSTATUS, SEVERITY, FuncProperty, TREXRESERV
 from .exceptions import TRexClientWrapperError, TRexSTLClientWrapperError
 
 
@@ -81,18 +81,18 @@ class TRexClientWrapper():
 
             result = Result()
             # error template
-            template = partial('{} error occured during attempt {reason}'.format, reason=func.__name__)
+            template = partial('{} error occured during attempt <{func}> of <{cls}>'.format, func=func.__name__, cls=self.__class__.__name__)
 
             try:
                 return func(self, *args, **kwargs)
 
             # connection error
             except (ConnectionRefusedError, TimeOut):
-                logging.warning('TRex {} is unavailable'.format(self.trex.trex_host))
+                logging.warning(template('TRex {} is unavailable'.format(self.trex.trex_host)))
                 result.set_err(template('TRex is unavailable'))
 
             except ResolvingError:
-                logging.warning('Can not resolve TRex server name {}'.format(self.trex.trex_host))
+                logging.warning(template('Can not resolve TRex server name {}'.format(self.trex.trex_host)))
                 result.set_err(template('Resolving error'))
 
             # ordinary trex errors
@@ -158,6 +158,20 @@ class TRexClientWrapper():
         return result.set_val('killed') if self.trex.stop_trex() else result.set_err('Unsucessfull force kill')
 
     @_trex_exception_handler
+    def check_idle(self):
+
+        result = Result()
+        if self.trex.is_idle():
+            # has active test
+            result.set_val(TREXSTATUS.running)
+            self.status = TREXSTATUS.running
+        else:
+            result.set_err(TREXSTATUS.running)
+            self.status = TREXSTATUS.idle
+
+        return result
+
+    @_trex_exception_handler
     def check_status(self):
         """returns information about trex server status and availability
 
@@ -171,15 +185,12 @@ class TRexClientWrapper():
         if not self.trex.check_server_connectivity():
             result.set_val(TREXSTATUS.unavailable)
             self.status = TREXSTATUS.unavailable
-
-        # cheking is trex has active test
-        elif self.trex.is_running():
+        # cheking is trex is running (not idle)
+        elif self.check_idle():
             # has active test
-            result.set_val(TREXSTATUS.running)
-            self.status = TREXSTATUS.running
-        else:
             result.set_val(TREXSTATUS.idle)
-            self.status = TREXSTATUS.idle
+        else:
+            result.set_val(TREXSTATUS.running)
 
         return result
 
@@ -188,30 +199,30 @@ class TRexClientWrapper():
         # takes reservation
 
         result = Result()
-        return result.set_val('Reserved') if self.trex.reserve_trex(user=None) else result.set_err('Can not take reservation')
+        return result.set_val(TREXRESERV.reserved) if self.trex.reserve_trex(user=None) else result.set_err('Can not take reservation')
 
     @_trex_exception_handler
     def check_reservation(self):
         # checks if trex is reserved
 
         result = Result()
-        return result.set_val('reserved') if self.trex.is_reserved() else result.set_val('free')
+        return result.set_val(TREXRESERV.reserved) if self.trex.is_reserved() else result.set_val(TREXRESERV.free)
 
     @_trex_exception_handler
     def cancel_reservation(self):
         # cancels reservation
 
         result = Result()
-        return result.set_val('Reservation canceled') if self.trex.cancel_reservation(user=None) else result.set_err('Can not cancel reservation')
+        return result.set_val(TREXRESERV.free) if self.trex.cancel_reservation(user=None) else result.set_err('Can not cancel reservation')
 
     @_trex_exception_handler
-    def start_stl(self):
+    def start_stl(self, **trex_cmd_options):
         """starts stl mode
         """
 
         result = Result()
         try:
-            if self.trex.start_stateless(**self.test):
+            if self.trex.start_stateless(**trex_cmd_options):
                 result.set_val('TRex stl started')
                 self.status = TREXSTATUS.running
                 self.mode = TREXMODE.stl
@@ -288,7 +299,7 @@ class TRexClientWrapper():
 class TRexSTLClientWrapper():
 
     trex = TypeProperty('trex', TRexClientWrapper)
-    test = TypeProperty('test', STLClient)
+    client = TypeProperty('client', STLClient)
     sampler = FuncProperty('sampler', lambda x: x > 0)
 
     @staticmethod
@@ -317,7 +328,7 @@ class TRexSTLClientWrapper():
         except ValueError as err:
             raise TRexSTLClientWrapperError('Wrong value in given settings', content=[type(err), err.args])
 
-    def __init__(self, trex, test, sampler):
+    def __init__(self, trex, client, test, sampler):
         """creating stl client
 
         arsg:
@@ -333,7 +344,7 @@ class TRexSTLClientWrapper():
             raise TRexSTLClientWrapperError('Empty config', content=self.test_raw)
         self.test = cfg
         # getting client
-        self.client = self._get_client(test)
+        self.client = self._get_client(client)
         self.sampler = int(sampler)
 
     def _stl_exception_handler(func):
@@ -349,18 +360,19 @@ class TRexSTLClientWrapper():
 
             result = Result()
             # error template
-            template = partial('An error occured during attempt {reason}. "{}"'.format, reason=func.__name__)
+            templ_log = partial('{} error occured during attempt <{func}> of <{cls}>'.format, func=func.__name__, cls=self.__class__.__name__)
+            template = partial('An error occured during attempt <{func}> of <{cls}>. "{}"'.format, func=func.__name__, cls=self.__class__.__name__)
 
             try:
                 return func(self, *args, **kwargs)
 
             # connection error
             except (ConnectionRefusedError, TimeOut, STLTimeoutError):
-                logging.warning('TRex {} is unavailable'.format(self.trex))
+                logging.warning(templ_log('TRex {} is unavailable'.format(self.trex)))
                 result.set_err('TRex is unavailable')
 
             except ResolvingError:
-                logging.warning('Can not resolve TRex server name {}'.format(self.trex))
+                logging.warning(templ_log('Can not resolve TRex server name {}'.format(self.trex)))
                 result.set_err('Resolving error')
 
             # ordinary trex errors
@@ -382,7 +394,7 @@ class TRexSTLClientWrapper():
             raise TRexSTLClientWrapperError('Empty config', content=config)
         self.test = cfg
 
-    def get_cfg(self, config):
+    def get_cfg(self):
 
         return self.test_raw
 
@@ -391,7 +403,7 @@ class TRexSTLClientWrapper():
         # getting streams from local file
 
         result = Result()
-        return result.set_val(STLProfile.load(self.test.pattern))
+        return result.set_val(STLProfile.load(self.test.pattern, port_id=self.test.act_iface))
 
     @_stl_exception_handler
     def _connect(self):
@@ -413,8 +425,14 @@ class TRexSTLClientWrapper():
         # acquires given ports
 
         result = Result()
-        self.client.acquire(ports=self.test.ifaces)
-        return result.set_val('Acquired')
+        return result.set_val('Acquired {}'.format(self.client.acquire(ports=self.test.ifaces)))
+
+    @_stl_exception_handler
+    def _release(self):
+        # acquires given ports
+
+        result = Result()
+        return result.set_val('Released {}'.format(self.client.release(ports=self.test.ifaces)))
 
     @_stl_exception_handler
     def _reset(self):
@@ -422,7 +440,7 @@ class TRexSTLClientWrapper():
 
         result = Result()
         self.client.reset(ports=self.test.ifaces)
-        return result.set_val('Statistic was reseted')
+        return result.set_val('Ports were reseted')
 
     @_stl_exception_handler
     def _set_service_mode(self):
@@ -453,8 +471,13 @@ class TRexSTLClientWrapper():
     def _add_streams(self):
 
         result = Result()
-        self.client.add_streams(ports=self.test.act_iface)
-        return result.set_val('Streams were added')
+
+        streams = self._get_streams()
+        if not streams:
+            return streams
+
+        streams = self.client.add_streams(streams.value, ports=self.test.act_iface)
+        return result.set_val('Streams {} were added'.format(streams))
 
     @_stl_exception_handler
     def _start(self):
@@ -467,6 +490,23 @@ class TRexSTLClientWrapper():
             duration=(self.test.duration + self.test.warm))
 
         return result.set_val('Started')
+
+    @_stl_exception_handler
+    def _stop(self):
+
+        result = Result()
+        self.client.stop()
+        return result.set_val('Stopped')
+
+    def _finish(self, kill_force=False):
+
+        self._disconnect()
+        # stop trex task
+        killed = self.trex.kill_soft()
+        if not killed and kill_force:
+            killed = self.trex.kill_force()
+
+        return killed
 
     @_stl_exception_handler
     def _get_data(self):
@@ -492,61 +532,29 @@ class TRexSTLClientWrapper():
         self.client.wait_on_traffic(ports=self.test.ifaces)
         pseudo_sampler.append(self.client.get_stats(ports=self.test.ifaces, sync_now=True))
 
-        return result.add_val(pseudo_sampler)
+        return result.set_val(pseudo_sampler)
 
     def run(self, kill_force=False):
 
         start_seq = [
+            self.trex.start_stl,
             self._connect,
             self._reset,
-            self._arp,
+            self._arp_resolve,
             self._add_streams,
-            self._start,
-            self.trex.start_stl]
+            self._start]
 
         for mtd in start_seq:
             result = mtd()
             if not result:
+                self._finish()
                 return result
 
         # getting data
         data = self._get_data()
 
         # disconnecting
-        finish = self._disconnect()
-        # stop trex task
-        killed = self.trex.kill_soft()
-        if not killed and kill_force:
-            killed = self.trex.kill_force()
+        self._finish()
 
         # returns error or data
-        return (not killed or not finish) or data
-
-
-'''
-    def gather_stl(self, processor=stl_processor, pargs=[], pkwargs={}, **kwargs):
-
-        client = self._get_stl_client(**kwargs)
-
-        if not client:
-            return client
-
-        result = Result()
-        # waiting for getting data
-        data = client.run()
-        # processes data with external processor if one is defined
-        processed = (processor(data, *pargs, **pkwargs)) if processor else data
-
-        self.status = TREXSTATUS.idle
-        self.mode = None
-
-        # returns data/error in case success/no success
-        return result.set_val(processed) if processed else result.set_err('No data')
-
-
-    def run_stl(self, **kwargs):
-        started = self.start_stl(**kwargs)
-        if not started:
-            return started
-
-        return self.gather_stl(**kwargs)'''
+        return data

@@ -8,14 +8,15 @@ CR is current rate
 PR is previos rate
 D is drops/lossed occured in latest test (that is not within norm)
 
-CR > PR and D is True --> R = R + RS
-CR > PR and D is False --> R = PR
-CR <= PR and D is True --> R = PR
-CR <= PR and D is False --> R = R - RS
+CR > PR and D is False --> R = R + RS
+CR > PR and D is True --> R = PR
+CR <= PR and D is False --> R = PR
+CR <= PR and D is True --> R = R - RS
 """
 
 from enum import Enum, unique
 from functools import wraps, partial
+from ..helper import TREXMODE, ValueProperty, FuncProperty, TypeProperty
 from ..exceptions import ProcessorError, SolverError
 
 
@@ -46,7 +47,12 @@ class RATEKEY(Enum):
 class Solver():
     """docstring for Solver"""
 
-    def __init__(self, accuracy=0.001, step=1, max_succ=3, rate_key=RATEKEY.multiplier, check_type=CHECKTYPE.accuracy, processor=None):
+    mode = ValueProperty('mode', TREXMODE)
+    check_type = ValueProperty('check_type', CHECKTYPE)
+    step = TypeProperty('step', (int, float))
+    max_succ = FuncProperty('max_succ', lambda x: x >= 0)
+
+    def __init__(self, accuracy=0.001, step=1, max_succ=3, mode=TREXMODE.stf, check_type=CHECKTYPE.accuracy, processor=None, store=False):
 
         # test accuracy in packets loss which is not more 1/number of %, e.g. 0.001 means 0.1%
         self.accuracy = accuracy
@@ -57,13 +63,21 @@ class Solver():
         # test checking type
         self.check_type = check_type
         # key for rate parameters
-        self.rate_key = rate_key
+        if mode == TREXMODE.stf:
+            self.rate_key = RATEKEY.multiplier
+        else:
+            self.rate_key = RATEKEY.rate
         # number of succ attempts
         self.succ = 0
         # usefull for condition checking
         self.prev_rate = 0
         # data processor
         self.processor = processor
+        # stores data for all tets attempt
+        self.store = store
+
+    def __str__(self):
+        return '<{}> accuracy: {}, step: {}, max_succ: {}, processor: {}, store: {}'.format(self.__class__.__name__, self.accuracy, self.step, self.max_succ, self.processor.__name__, self.store)
 
     def _raise(self, msg):
         raise SolverError(msg)
@@ -77,7 +91,7 @@ class Solver():
         @wraps(func)
         def wrapper(self, *args, **kwargs):
 
-            template = partial('{} error occured during attempt {reason}'.format, reason=func.__name__)
+            template = partial('{} error occured during attempt {func} of {cls}'.format, func=func.__name__, cls=self.__class__.__name__)
 
             try:
                 return func(self, *args, **kwargs)
@@ -189,6 +203,9 @@ class Solver():
         # current rate more than previos and drops/losses are in within norm
         # rate increases
         if curr_rate > self.prev_rate and indicator:
+            # set previos rate from given params
+            self._set_prev_rate(params)
+            # getting new params
             params = self._rate_incr(params)
             self._succ_clean()
         # current rate more than previos and drops/losses are out of norm
@@ -202,17 +219,36 @@ class Solver():
         # rate has to be set to the same
         # this is successful attempt
         elif curr_rate < self.prev_rate and indicator:
-            params = self._set_rate(params, self.prev_rate)
             self._succ_incr()
         # current rate less or equal than previos and drops/losses are out of norm
         # rate decreases
         elif curr_rate <= self.prev_rate and not indicator:
+            # set previos rate from given params
+            self._set_prev_rate(params)
+            # getting new params
             params = self._rate_decr(params)
             self._succ_clean()
         # last test result approves selected rate
         # this is successful attempt
         else:
             self._succ_incr()
+
+        return params
+
+    @_exception_handler
+    def _fit_first(self, data, params):
+
+        # set previos rate from given params
+        self._set_prev_rate(params)
+
+        indicator = self._get_indicator(data)
+
+        # if not losses
+        if indicator:
+            params = self._rate_incr(params)
+        # if losses and drops
+        else:
+            params = self._rate_decr(params)
 
         return params
 
@@ -234,15 +270,16 @@ class Solver():
             (None): if success
             params (dict): if not success
 
-        raise (SolverError): usually in case KeyError, but also in case other
+        raise (SolverError): usually in case KeyError
         """
 
-        # not enough data
+        # 1st test
         if len(hub) < 2:
-            return params
+            return self._fit_first(self._processed(hub[-1]), params)
 
         # no need previos test data only current
-        hub.pop(0)
+        if not self.store:
+            hub.pop(0)
 
         # test is done
         if self.succ >= self.max_succ:

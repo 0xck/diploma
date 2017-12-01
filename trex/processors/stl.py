@@ -5,7 +5,7 @@ from statistics import median_high
 from ..exceptions import ProcessorError
 
 
-def processor(data, ifaces=[0, 1]):
+def processor(data, ifaces=[0, 1], slicer=None):
     """processes trex raw data list of dicts and returns cleaned data
 
     args:
@@ -24,6 +24,12 @@ def processor(data, ifaces=[0, 1]):
     """
 
     # if no data returns error
+    try:
+        data = data[slicer] if slicer else data
+
+    except TypeError as err:
+        raise ProcessorError('Something wrong with slicer: <{}>'.format(slicer), content=err.args)
+
     if not data:
         return None
 
@@ -63,7 +69,7 @@ def processor(data, ifaces=[0, 1]):
             {'a': 3, 'c': 300}  ]
 
         """
-        sampler_output = [{dk: dv for dk, dv in s.items() if dk in sample_keys} for s in (i['global'] for i in data[1:-1])]
+        sampler_output = [{dk: dv for dk, dv in s.items() if dk in sample_keys} for s in (i['global'] for i in data)]
 
         """
         dict of global data

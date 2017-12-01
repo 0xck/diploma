@@ -1,8 +1,9 @@
 """
 tester for making test with trex client
 """
+import logging
 from enum import Enum, unique
-from .helper import Result, TREXMODE, TREXSTATUS, TypeProperty, ValueProperty, firstfilter
+from .helper import Result, TREXMODE, TREXSTATUS, TypeProperty, ValueProperty, firstfilter, TREXRESERV
 from .exceptions import TesterError, SolverError, TRexClientWrapperError, TRexSTLClientWrapperError
 from .client import TRexClientWrapper, TRexSTLClientWrapper
 from .solvers.common import solver
@@ -88,7 +89,7 @@ class Tester():
     client = TypeProperty('client', (TRexClientWrapper, TRexSTLClientWrapper))
 
     @staticmethod
-    def get_config_trex(config):
+    def config_trex_server(config):
 
         cfg = SERVER_DEFAULT
         if config:
@@ -97,7 +98,7 @@ class Tester():
         return cfg
 
     @staticmethod
-    def get_config_stf(config):
+    def test_config_stf(config):
 
         cfg = STF_TEST_DEFAULT
         if config:
@@ -106,35 +107,46 @@ class Tester():
         return cfg
 
     @staticmethod
-    def get_config_stl(config):
+    def config_stl_client(config):
 
-        # server config
+        # stl client config
         cfg = STL_DEFAULT
-        cfg.update(STL_TEST_DEFAULT)
+        if config:
+            cfg.update({k: v for k, v in config.items() if k in cfg})
+
+        return cfg
+
+    @staticmethod
+    def test_config_stl(config):
+
+        # test config
+        cfg = STL_TEST_DEFAULT
         if config:
             cfg.update(config)
 
         return cfg
 
     @staticmethod
-    def get_stf(config, test=None, sampler=1):
+    def get_stf(config, sampler=1, test=None):
 
         return TRexClientWrapper(config, test, sampler)
 
     @staticmethod
-    def get_stl(trex, config, sampler=1):
+    def get_stl(trex, client, test, sampler):
 
-        return TRexSTLClientWrapper(trex, config, sampler=sampler)
+        return TRexSTLClientWrapper(trex, client, test, sampler)
 
     def __init__(self, server=None, mode=None, test=None, sampler=1, **kwargs):
         """
         """
 
+        template = 'An error occured during init test parameters: "{}"'.format
+
         try:
             # getting trex mode
             self.mode = firstfilter(lambda m: m.value == mode, TREXMODE)
             # getting mng client for trex server
-            server_cfg = self.get_config_trex(server)
+            server_cfg = self.config_trex_server(server)
             self.server = self.get_stf(server_cfg)
             """
             getting test client settings:
@@ -144,30 +156,41 @@ class Tester():
                     sampler (int)
                 stl client obj (TRexSTLClientWrapper):
                     trex server client (TRexClientWrapper)
+                    stl client config (dict)
                     test config (dict)
                     sampler (int)
             """
-            self.client = self.get_stf(server_cfg, test=self.get_config_stf(test), sampler=sampler) if self.mode == TREXMODE.stf else self.get_stl(self.server, self.get_config_stl(test), sampler=sampler)
+            if self.mode == TREXMODE.stf:
+                self.client = self.get_stf(server_cfg, sampler=sampler, test=self.test_config_stf(test))
+            else:
+                self.client = self.get_stl(self.server, self.config_stl_client(test), self.test_config_stl(test), sampler)
 
         except (TRexClientWrapperError, TRexSTLClientWrapperError) as err:
+            logging.error(template(err.message))
             raise TesterError(err.message, **err.get_kwargs())
 
         except (TypeError, ValueError) as err:
-            raise TesterError('Wrong value in given settings', content=[type(err), err.args])
+            content = [type(err), err.args]
+            logging.error(template(content))
+            raise TesterError('Wrong value in given settings', content=content)
 
     def _check_idle(self, result):
         # return error if trex is not available
 
-        return result if result.value == TREXSTATUS.idle else result.set_err('TRex is {}'.format(result.value.value))
+        return result if result.value == TREXSTATUS.idle else result.set_err('{}'.format(result.value if result else result.error))
 
     def _check_mode(self, result):
 
-        return result if self.mode == result.value else result.set_err('TRex is {}'.format(result.value.value))
+        return result if self.mode == result.value else result.set_err('{}'.format(result.value if result else result.error))
 
-    def get_status(self):
+    def is_idle(self):
         # return error if trex is not available
 
         return self._check_idle(self.server.check_status())
+
+    def get_status(self):
+
+        return self.server.check_status()
 
     def get_status_fast(self):
         # return error if trex is not available
@@ -196,11 +219,15 @@ class Tester():
 
         return result
 
+    def cancel_reservation(self):
+
+        return self.server.cancel_reservation()
+
     def initialize(self):
         # makes checking and trying to make reservation
 
         # checking trex daemon status
-        result = self.get_status()
+        result = self.is_idle()
         # return error if trex is not available
         if not result:
             return result
@@ -217,24 +244,69 @@ class Tester():
         elif check_mode == CHECKMODE.fast:
             status = firstfilter(lambda x: not x, [self.get_status_fast(), self.get_mode_fast()], default=True)
         elif check_mode == CHECKMODE.full:
-            status = self.get_status()
+            status = self.is_idle()
         else:
             status = result.set_err('Unknown check mode <{}>'.format(check_mode))
 
         if not status:
             data = status
         else:
+
+            logging.info('Test started with parameters: {}'.format(self.show_cfg()))
+
             data = self.client.run()
+
+            logging.info('Test finished')
 
         return data
 
-    def run_loop(self, solver=solver, sargs=[], loop_count=100, check_mode=None, skwargs={}):
+    def end(self, kill_force=False):
+
+        # ending test
 
         result = Result()
+        killed = Result()
+        if self.server.check_reservation().value == TREXRESERV.reserved:
+            cancel = self.cancel_reservation()
+        else:
+            cancel.set_val(TREXRESERV.free)
 
+        # stop trex task
+        if self.get_status().value == TREXSTATUS.running:
+            killed = self.server.kill_soft()
+        else:
+            killed.set_val('killed')
+        if not killed and kill_force:
+            killed = self.server.kill_force()
+
+        # which one contains error
+        result = firstfilter(lambda x: not x, [killed, cancel], default=None)
+
+        return killed if result is None else result
+
+    def show_cfg(self):
+
+        return {
+            'server': {k: getattr(self.server.trex, k, None) for k in SERVER_DEFAULT},
+            'test': self.client.get_cfg()}
+
+    def run_loop(self, solver=solver, sargs=[], loop_count=100, check_mode=None, skwargs={}):
+
+        mtd_params = {k: v for k, v in zip(['solver', 'sargs', 'skwargs', 'loop_count', 'check_mode'], [str(solver), sargs, skwargs, loop_count, check_mode])}
+        logging.info('Test loop started with parameters: {}'.format(mtd_params))
+
+        # initializes trex
+        result = self.initialize()
+        if not result:
+            logging.error('Test loop ended. Init failed')
+            return result
+
+        # get 1st test data
         data = self.get_data(check_mode)
         # if error ocurred then exit
+
         if not data:
+            logging.error('Test loop ended. No data')
             return data
 
         # data hub, contains results of tests
@@ -262,12 +334,16 @@ class Tester():
             hub.append(data.value)
             loop_count -= 1
         else:
+            logging.info('Test loop exceeded. Loop was performed {} times. Test was ran {} times'.format(mtd_params['loop_count'], (mtd_params['loop_count'] + 1)))
             return result.set_err('Test loop count exceeded')
 
-        return result.set_val(hub)
+        # ending test
+        end = self.end(kill_force=True)
+        if not end:
+            logging.warning('An error occured during finishing test: "{}"'.format(end.error))
 
-    def show_cfg(self):
+        launched = (mtd_params['loop_count'] - loop_count)
+        logging.info('Test loop ended. Loop was performed {} times. Test was ran {} times'.format(launched, (launched + 1)))
 
-        return {
-            'server': {k: getattr(self.server.trex, k, None) for k in SERVER_DEFAULT},
-            'test': self.client.get_cfg()}
+        # return data or error
+        return result.set_val(hub) if result else result
