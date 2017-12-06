@@ -20,7 +20,6 @@ TREX_STL = os.path.abspath(os.path.join(CURR_PATH, './trex_stuff/stl'))
 
 class CreateTesterTest(TestCase):
 
-    @skip
     def test_create_default(self):
 
         for i in TREXMODE:
@@ -33,9 +32,6 @@ class CreateTesterTest(TestCase):
                 elif i == TREXMODE.stl:
                     self.assertIsInstance(t.client, TRexSTLClientWrapper)
 
-        print('ID t', id(t))
-
-    @skip
     def test_create_server_from_json(self):
         with open(os.path.join(TREX_STF, 'srv_default.json'), 'r', encoding='utf-8') as f:
             cfg = combination_dicts(json.load(f))
@@ -47,9 +43,6 @@ class CreateTesterTest(TestCase):
                         t = Tester(server=c, mode=i.value)
                         self.assertIsInstance(t.server, TRexClientWrapper)
 
-        print('ID t', id(t))
-
-    @skip
     def test_create_server_from_json_bad_keys(self):
         # only valid keys are updated
         with open(os.path.join(TREX_STF, 'srv_default.json'), 'r', encoding='utf-8') as f:
@@ -62,9 +55,6 @@ class CreateTesterTest(TestCase):
                         t = Tester(server=c, mode=i.value)
                         self.assertIsInstance(t.server, TRexClientWrapper)
 
-        print('ID t', id(t))
-
-    @skip
     def test_create_stf_test_from_json(self):
         with open(os.path.join(TREX_STF, 'test_default.json'), 'r', encoding='utf-8') as f:
             cfg = combination_dicts(json.load(f))
@@ -75,9 +65,6 @@ class CreateTesterTest(TestCase):
                 self.assertIsInstance(t.server, TRexClientWrapper)
                 self.assertIsInstance(t.client, TRexClientWrapper)
 
-        print('ID t', id(t))
-
-    #@skip
     def test_create_stf_test_from_json_bad_keys(self):
         # nothing until start test
         with open(os.path.join(TREX_STF, 'test_default.json'), 'r', encoding='utf-8') as f:
@@ -89,9 +76,6 @@ class CreateTesterTest(TestCase):
                 self.assertIsInstance(t.server, TRexClientWrapper)
                 self.assertIsInstance(t.client, TRexClientWrapper)
 
-        print('ID t', id(t))
-
-    @skip
     def test_create_stl_test_from_json(self):
         with open(os.path.join(TREX_STL, 'client_default.json'), 'r', encoding='utf-8') as f:
             client = json.load(f)
@@ -108,9 +92,6 @@ class CreateTesterTest(TestCase):
                 self.assertIsInstance(t.server, TRexClientWrapper)
                 self.assertIsInstance(t.client, TRexSTLClientWrapper)
 
-        print('ID t', id(t))
-
-    @skip
     def test_create_stl_test_from_json_bad_keys(self):
         with open(os.path.join(TREX_STL, 'client_default.json'), 'r', encoding='utf-8') as f:
             client = {str_cutter(k): v for k, v in json.load(f).items()}
@@ -126,21 +107,3 @@ class CreateTesterTest(TestCase):
                 t = Tester(test=c, mode=TREXMODE.stl.value)
                 self.assertIsInstance(t.server, TRexClientWrapper)
                 self.assertIsInstance(t.client, TRexSTLClientWrapper)
-
-        print('ID t', id(t))
-
-    def test_run_stf_real_from_json(self):
-
-
-        with open(os.path.join(TREX_STF, 'test_default.json'), 'r', encoding='utf-8') as f:
-            cfg = json.load(f)
-
-
-        x = Tester(mode=TREXMODE.stf.value, test=cfg)
-
-        print('ID t', id(x))
-        
-        raise ValueError('\n'.join((str(x.show_cfg()), str(cfg))))
-
-        self.assertTrue(x.run_loop())
-
