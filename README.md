@@ -25,7 +25,7 @@ App is written on _python_ and needs **python 3** _(3.6 and above would be bette
 Download last [app release](https://github.com/0xck/wrex/releases) and unarchive into directory you plan to use for app.
 
 ### Python
-Make sure you have got installed _python 3_, otherwise just use system software manager _(e.g. apt, yum, pkg)_ or download one from [official site](https://www.python.org/downloads/) and install. App tested on 3.5 version and should work on other python 3 releases as well.
+Make sure you have got installed _python 3_, otherwise just use system software manager _(e.g. apt, yum, pkg)_ or download one from [official site](https://www.python.org/downloads/) and install. App tested on 3.6 version and should work on other python 3 releases as well.
 
 ### Cisco TRex
 >Cisco TRex is used as main network testing software.
@@ -76,12 +76,6 @@ After TRex setup was completed, go to TRex directory and start a daemon `trex_da
 
 ## Limits
 >There are some limits for using app in whole. They are described below.
-
-#### Operation system limits
-App works only on *NIX systems:
-- some app components _(RQ workers)_ use `fork()` that is not implemented on Windows
-- app contains TRex client which works with certain libraries that are able to work only on *NIX
-- app works on 64bit systems only _(looks like something wrong with TRex client pyzmq python module from "external lib")_
 
 #### TRex limits
 Current TRex releases have some limits _(got from [here](https://communities.cisco.com/community/developer/trex/blog/2017/03/29/how-trex-is-used-by-mellanox))_:
