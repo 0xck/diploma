@@ -16,7 +16,7 @@ CR <= PR and D is True --> R = R - RS
 
 from enum import Enum, unique
 from functools import wraps, partial
-from ..helper import TREXMODE, ValueProperty, FuncProperty, TypeProperty
+from ..helper import TREXMODE, ValueProperty, FuncProperty, TypeProperty, firstfilter
 from ..exceptions import ProcessorError, SolverError
 
 
@@ -47,12 +47,11 @@ class RATEKEY(Enum):
 class Solver():
     """docstring for Solver"""
 
-    mode = ValueProperty('mode', TREXMODE)
     check_type = ValueProperty('check_type', CHECKTYPE)
     step = TypeProperty('step', (int, float))
     max_succ = FuncProperty('max_succ', lambda x: x >= 0)
 
-    def __init__(self, accuracy=0.001, step=1, max_succ=3, mode=TREXMODE.stf, check_type=CHECKTYPE.accuracy, processor=None, store=False):
+    def __init__(self, accuracy=0.001, step=1, max_succ=3, mode=None, check_type=CHECKTYPE.accuracy, processor=None, store=False):
 
         # test accuracy in packets loss which is not more 1/number of %, e.g. 0.001 means 0.1%
         self.accuracy = accuracy
@@ -63,6 +62,7 @@ class Solver():
         # test checking type
         self.check_type = check_type
         # key for rate parameters
+        mode = firstfilter(lambda m: m.value == mode, TREXMODE)
         if mode == TREXMODE.stf:
             self.rate_key = RATEKEY.multiplier
         else:
