@@ -1,0 +1,1 @@
+{"trex_mng": "localhost", "daemon_port": 8090, "master_daemon_port": 8091, "history_size": 100, "timeout": 5, "trex_zmq_port": 4500}
