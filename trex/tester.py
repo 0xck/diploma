@@ -91,7 +91,7 @@ class Tester():
     @staticmethod
     def config_trex_server(config):
 
-        cfg = SERVER_DEFAULT
+        cfg = SERVER_DEFAULT.copy()
         if config:
             cfg.update({k: v for k, v in config.items() if k in cfg})
 
@@ -100,7 +100,7 @@ class Tester():
     @staticmethod
     def test_config_stf(config):
 
-        cfg = STF_TEST_DEFAULT
+        cfg = STF_TEST_DEFAULT.copy()
         if config:
             cfg.update(config)
 
@@ -110,7 +110,7 @@ class Tester():
     def config_stl_client(config):
 
         # stl client config
-        cfg = STL_DEFAULT
+        cfg = STL_DEFAULT.copy()
         if config:
             cfg.update({k: v for k, v in config.items() if k in cfg})
 
@@ -120,7 +120,7 @@ class Tester():
     def test_config_stl(config):
 
         # test config
-        cfg = STL_TEST_DEFAULT
+        cfg = STL_TEST_DEFAULT.copy()
         if config:
             cfg.update(config)
 

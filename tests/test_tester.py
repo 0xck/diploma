@@ -1,8 +1,7 @@
 import sys
 import os
 import json
-import gc
-from unittest import TestCase, skip
+from unittest import TestCase
 from stuff import combination_dicts, str_cutter
 # adding paths
 CURR_PATH = os.path.abspath(os.path.dirname('__file__'))
@@ -107,3 +106,22 @@ class CreateTesterTest(TestCase):
                 t = Tester(test=c, mode=TREXMODE.stl.value)
                 self.assertIsInstance(t.server, TRexClientWrapper)
                 self.assertIsInstance(t.client, TRexSTLClientWrapper)
+
+    def test_run_stf_real_from_json(self):
+        with open(os.path.join(TREX_STF, 'test_default.json'), 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+
+        t = Tester(mode=TREXMODE.stf.value, test=cfg)
+        self.assertTrue(t.run_loop())
+
+    def test_run_stl_real_from_json(self):
+        with open(os.path.join(TREX_STL, 'client_default.json'), 'r', encoding='utf-8') as f:
+            client = json.load(f)
+        with open(os.path.join(TREX_STL, 'test_default.json'), 'r', encoding='utf-8') as f:
+            test = json.load(f)
+
+        test.update({'pattern': os.path.abspath(os.path.join(PARENT_PATH, 'trex/trex_test/stl/udp_64b.yaml'))})
+        client.update(test)
+
+        t = Tester(mode=TREXMODE.stl.value, test=client)
+        self.assertTrue(t.run_loop())
