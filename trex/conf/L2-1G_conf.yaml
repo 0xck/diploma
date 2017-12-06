@@ -1,0 +1,11 @@
+- port_limit      : 2
+  version         : 2
+# List of interfaces. Change to suit your setup. Use ./dpdk_setup_ports.py -s to see available options
+  interfaces      : ["03:00.0","0b:00.0"]
+# 1Gbps ports
+  port_bandwidth_gb : 1
+  port_info       :
+          - dest_mac        :   [0x0,0x0,0x0,0x2,0x0,0x0]
+            src_mac         :   [0x0,0x0,0x0,0x1,0x0,0x0]
+          - dest_mac        :   [0x0,0x0,0x0,0x4,0x0,0x0]
+            src_mac         :   [0x0,0x0,0x0,0x3,0x0,0x0]

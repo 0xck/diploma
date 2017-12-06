@@ -1,0 +1,12 @@
+{"cfg": "/etc/trex_cfg.yaml",
+ "checksum_offload_disable": false,
+ "d": 60,
+ "f": "./cap2/dns.yaml",
+ "ipv6": false,
+ "k": 30,
+ "l": 0,
+ "lo": false,
+ "m": 1,
+ "software": true,
+ "tso_disable": false,
+ "w": 1}

@@ -1,0 +1,8 @@
+{"act_iface": 0,
+ "arp_retries": 0,
+ "duration": 60,
+ "ifaces": [0, 1],
+ "pattern": "",
+ "rate": 1000,
+ "rate_type": "pps",
+ "warm": 10}
