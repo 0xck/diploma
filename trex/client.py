@@ -249,9 +249,9 @@ class TRexClientWrapper():
             else:
                 result.set_err('TRex stf starting failed')
 
-        # "d" parameter inserted with wrong value one must be at least 30 seconds long
-        except ValueError:
-            result.set_err('duration is wrong')
+        # some params may be wrong
+        except (TypeError, ValueError) as err:
+            result.set_err(err.args)
         # the wrong trex server option raised the exception
         except TRexError as err:
             result.set_err(err.msg)
