@@ -81,7 +81,7 @@ class TRexClientWrapper():
 
             result = Result()
             # error template
-            template = partial('{} error occured during attempt <{func}> of <{cls}>'.format, func=func.__name__, cls=self.__class__.__name__)
+            template = partial('<{}> error occured during attempt <{func}> of <{cls}>'.format, func=func.__name__, cls=self.__class__.__name__)
 
             try:
                 return func(self, *args, **kwargs)
@@ -360,7 +360,7 @@ class TRexSTLClientWrapper():
 
             result = Result()
             # error template
-            templ_log = partial('{} error occured during attempt <{func}> of <{cls}>'.format, func=func.__name__, cls=self.__class__.__name__)
+            templ_log = partial('<{}> error occured during attempt <{func}> of <{cls}>'.format, func=func.__name__, cls=self.__class__.__name__)
             template = partial('An error occured during attempt <{func}> of <{cls}>. "{}"'.format, func=func.__name__, cls=self.__class__.__name__)
 
             try:

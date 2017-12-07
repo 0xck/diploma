@@ -91,7 +91,7 @@ class Solver():
         @wraps(func)
         def wrapper(self, *args, **kwargs):
 
-            template = partial('{} error occured during attempt {func} of {cls}'.format, func=func.__name__, cls=self.__class__.__name__)
+            template = partial('<{}> error occured during attempt {func} of {cls}'.format, func=func.__name__, cls=self.__class__.__name__)
 
             try:
                 return func(self, *args, **kwargs)
