@@ -27,7 +27,7 @@ def processor(data):
     try:
         if not len(data.get_value_list('.')):
             return None
-    except AttributeError as err:
+    except (KeyError, AttributeError) as err:
         raise ProcessorError('Something wrong with data obj perhaps one is not CTRexResult or TRex API was changed', content=err.args)
 
     # keys for data samples
