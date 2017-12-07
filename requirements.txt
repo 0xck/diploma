@@ -1,6 +1,0 @@
-Flask
-Flask-SQLAlchemy
-Flask-Script
-Flask-WTF
-rq
-timeout-decorator
