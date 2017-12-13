@@ -76,6 +76,7 @@ class Solver():
         self.processor = processor
         # stores data for all tets attempt
         self.store = store
+        self._first = True
 
     def __str__(self):
         return '<{}> accuracy: {}, step: {}, max_succ: {}, processor: {}, store: {}'.format(self.__class__.__name__, self.accuracy, self.step, self.max_succ, self.processor.__name__, self.store)
@@ -132,6 +133,16 @@ class Solver():
 
         params[self.rate_key.value] = rate
         return params
+
+    def _extract_data(self, hub):
+        # False and pop data from hub if no need in previous test data
+        # otherwise stores data in hub
+
+        try:
+            return hub[-1] if self.store else hub.pop(0)
+
+        except (IndexError, TypeError, SyntaxError) as err:
+            raise SolverError('Something wrong with data hub', content=err.args)
 
     def _processed(self, data):
         # processes data with given processor
@@ -253,7 +264,6 @@ class Solver():
 
         return params
 
-    @_exception_handler
     def __call__(self, hub, params, *args, **kwargs):
         """general solver function
 
@@ -271,21 +281,15 @@ class Solver():
             (None): if success
             params (dict): if not success
         """
-
-        try:
-            # 1st test
-            if len(hub) < 2:
-                return self._fit_first(self._processed(hub[-1]), params)
-
-            # no need previos test data only current
-            if not self.store:
-                hub.pop(0)
-        except (SyntaxError, IndexError) as err:
-            self._raise(err.args)
+        # 1st test
+        if self._first:
+            self._first = False
+            # set initial settings and return fitting parameters
+            return self._fit_first(self._processed(self._extract_data(hub)), params)
 
         # test is done
         if self.succ >= self.max_succ:
             return None
 
         # return fitting parameters
-        return self._fit_params(self._processed(hub[-1]), params)
+        return self._fit_params(self._processed(self._extract_data(hub)), params)
