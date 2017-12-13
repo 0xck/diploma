@@ -49,7 +49,8 @@ class Solver():
 
     check_type = ValueProperty('check_type', CHECKTYPE)
     step = TypeProperty('step', (int, float))
-    max_succ = FuncProperty('max_succ', lambda x: x >= 0)
+    max_succ = FuncProperty('max_succ', lambda x: int(x) >= 0)
+    store = TypeProperty('store', bool)
 
     def __init__(self, accuracy=0.001, step=1, max_succ=3, mode=None, check_type=CHECKTYPE.accuracy, processor=None, store=False):
 
@@ -269,17 +270,18 @@ class Solver():
         return:
             (None): if success
             params (dict): if not success
-
-        raise (SolverError): usually in case KeyError
         """
 
-        # 1st test
-        if len(hub) < 2:
-            return self._fit_first(self._processed(hub[-1]), params)
+        try:
+            # 1st test
+            if len(hub) < 2:
+                return self._fit_first(self._processed(hub[-1]), params)
 
-        # no need previos test data only current
-        if not self.store:
-            hub.pop(0)
+            # no need previos test data only current
+            if not self.store:
+                hub.pop(0)
+        except (SyntaxError, IndexError) as err:
+            self._raise(err.args)
 
         # test is done
         if self.succ >= self.max_succ:
