@@ -6,6 +6,7 @@ from trex import test_proc
 # for queueing
 from rq import Queue, get_failed_queue
 from rq.job import Job, cancel_job
+from rq.exceptions import NoSuchJobError
 from worker import redis_connect
 # other
 from datetime import datetime
@@ -70,9 +71,11 @@ def task_queuer(interval=300, safe_int=600):
     while True:
         sleep(interval)
         tasks = task_finder()
+
         if tasks['status']:
             for task in tasks['values']:
                 test_data = loads(task.test_data)[0]
+                test_bundle_data = loads(task.test_data)[1:]
                 # adding task to queue
                 try:
                     # getting timeout; in case selection timeout is summ of max attempt * duration + safe value
@@ -82,9 +85,10 @@ def task_queuer(interval=300, safe_int=600):
                         timeout = safe_int
                         # making timeout as summ of all tests timeouts
                         test_params = test_data['parameters']['bundle']
+
                         for test_entr in test_params:
                             # getting test params
-                            test = [test_data_item for test_data_item in test_data if test_data_item['id'] == test_entr['test_id']][0]
+                            test = [test_data_item for test_data_item in test_bundle_data if test_data_item['id'] == test_entr['test_id']][0]
                             timeout += (test['parameters']['trex']['duration'] * 1 if test['test_type'] != 'selection' else test['parameters']['rate']['max_test_count']) * test_entr['iter']
                     # adding task to queue
                     tasks_queue.enqueue_call(func=test_proc.test, kwargs={'task_id': task.id}, job_id=str(task.id), result_ttl=0, timeout=timeout)
@@ -112,6 +116,8 @@ def task_status_changer(task, status=None, trex=None, device=None):
     if task:
         if status:
             task.status = status
+            task.start_time = None
+            task.end_time = None
         if trex:
             task.trexes.status = trex
         if device and task.devices:
@@ -125,10 +131,13 @@ def task_status_changer(task, status=None, trex=None, device=None):
 
 def task_killer(task):
     # kills task and executing trex task; getting db item as task
-    job = Job.fetch(str(task.id), connection=redis_connect)
-    # deleting current task from queue
-    if job.is_started or job.is_queued:
-        cancel_job(str(job.get_id()), connection=redis_connect)
+    try:
+        job = Job.fetch(str(task.id), connection=redis_connect)
+        # deleting current task from queue
+        if job.is_started or job.is_queued:
+            cancel_job(str(job.get_id()), connection=redis_connect)
+    except NoSuchJobError:
+        pass
     # kills executing trex task
     result = {'status': False, 'state': ''}
     try:
@@ -167,10 +176,13 @@ if __name__ == '__main__':
         # if tasks were found delete them from queue and kill executing trex
         if len(working_task) > 0:
             for task in working_task:
-                job = Job.fetch(str(task.id), connection=redis_connect)
-                # deleting current queued task
-                if job.is_started or job.is_queued:
-                    cancel_job(str(job.get_id()), connection=redis_connect)
+                try:
+                    job = Job.fetch(str(task.id), connection=redis_connect)
+                    # deleting current queued task
+                    if job.is_started or job.is_queued:
+                        cancel_job(str(job.get_id()), connection=redis_connect)
+                except NoSuchJobError:
+                    pass
                 # kills executing trex task
                 # sets management entry by ckecking all mng entries
                 try:
