@@ -1,6 +1,7 @@
 # trex stateless selection test
 from . import trex_test_proc, trex_test_init
 from .. stf import trex_reservation
+from .. stf import trex_kill
 
 
 class Criterion():
@@ -64,6 +65,14 @@ def testing(task, **kwargs):
         result = trex_test_proc.test(**kwargs)
         return result
 
+    def stop_stateless(**kwargs):
+        trex_soft_kill = trex_kill.soft(**kwargs)
+        if not trex_soft_kill['status']:
+            # trying to force kill
+            return trex_kill.force(**kwargs)
+
+        return trex_soft_kill
+
     # result template
     result = {'status': True, 'state': ''}
     # making initial checking
@@ -84,7 +93,7 @@ def testing(task, **kwargs):
                 drop = False
                 # cheking for queue overload which suggests traffic drop
                 for drop_count in test['values']['sampler']:
-                    if int(drop_count['queue_full']) > 0:
+                    if int(drop_count['queue_drop']) > 0:
                         drop = True
                         break
                 if not drop:
@@ -120,6 +129,10 @@ def testing(task, **kwargs):
                     else:
                         result['status'] = False
                         result['state'] = 'error test type'
+                        
+                        # stop stateless
+                        stop_stateless(**kwargs)
+
                         return result
 
                 # cheking condition
@@ -191,5 +204,8 @@ def testing(task, **kwargs):
     # something wrong with trex daemon
     else:
         result = trex_init
+
+    # stop stateless
+    stop_stateless(**kwargs)
 
     return result
