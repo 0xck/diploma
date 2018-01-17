@@ -5,6 +5,7 @@ from trex.client.stf import test_selection as stf_selection
 # statless tests
 from trex.client.stl import test_common as stl_common
 from trex.client.stl import test_selection as stl_selection
+from .helper import empty_values
 
 
 def stf_test_common(**kwargs):
@@ -57,7 +58,7 @@ def test_maker(test):
     return result
 
 
-def test_handler(test):
+def test_handler(test, cont_if_fall=True):
     # checking test type and prepares proper result form
     result = {'status': False, 'state': 'unknown test type'}
     # for single tests
@@ -94,9 +95,15 @@ def test_handler(test):
                 test_entr_result = test_maker(test_params)
                 # handling errors
                 if not test_entr_result['status']:
-                    result['status'] = False
-                    result['state'] = test_entr_result['state']
-                    return result
+                    # in case one of test filed continue bundle anyway
+                    if cont_if_fall:
+                        # adding empty test values just for compability with web interace
+                        test_entr_result['values'] = empty_values
+                    # stop bundle if any test failed
+                    else:
+                        result['status'] = False
+                        result['state'] = test_entr_result['state']
+                        return result
                 test_result.append(test_entr_result['values'])
         result['status'] = True
         result['state'] = 'success'
