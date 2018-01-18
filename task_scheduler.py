@@ -89,7 +89,7 @@ def task_queuer(interval=300, safe_int=600):
                         for test_entr in test_params:
                             # getting test params
                             test = [test_data_item for test_data_item in test_bundle_data if test_data_item['id'] == test_entr['test_id']][0]
-                            timeout += (test['parameters']['trex']['duration'] * 1 if test['test_type'] != 'selection' else test['parameters']['rate']['max_test_count']) * test_entr['iter']
+                            timeout += (test['parameters']['trex']['duration'] * (1 if test['test_type'] != 'selection' else test['parameters']['rate']['max_test_count']) * test_entr['iter'])
                     # adding task to queue
                     tasks_queue.enqueue_call(func=test_proc.test, kwargs={'task_id': task.id}, job_id=str(task.id), result_ttl=0, timeout=timeout)
                     # updating task status
