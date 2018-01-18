@@ -90,20 +90,24 @@ def test_handler(test, cont_if_fall=True):
             # adding trex and port
             test_params['params']['trex']['trex_mng'] = test['params']['trex_mng']
             test_params['params']['trex']['daemon_port'] = test['params']['daemon_port']
+
             # making tests per one for iteration
             for test_trying in range(test_entr['iter']):
                 test_entr_result = test_maker(test_params)
+
                 # handling errors
+                # in case one of test failed continue bundle anyway
+                if test_entr_result['state'] == 'max count was exceeded' and cont_if_fail:
+                    # adding empty test values just for compability with web interace
+                    test_result.append(empty_values)
+                    continue
+
+                # stop bundle if any test failed
                 if not test_entr_result['status']:
-                    # in case one of test filed continue bundle anyway
-                    if cont_if_fall:
-                        # adding empty test values just for compability with web interace
-                        test_entr_result['values'] = empty_values
-                    # stop bundle if any test failed
-                    else:
-                        result['status'] = False
-                        result['state'] = test_entr_result['state']
-                        return result
+                    result['status'] = False
+                    result['state'] = test_entr_result['state']
+                    return result
+
                 test_result.append(test_entr_result['values'])
         result['status'] = True
         result['state'] = 'success'
