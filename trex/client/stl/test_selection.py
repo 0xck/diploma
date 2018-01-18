@@ -66,7 +66,9 @@ def testing(task, **kwargs):
         return result
 
     def stop_stateless(**kwargs):
+
         trex_soft_kill = trex_kill.soft(**kwargs)
+
         if not trex_soft_kill['status']:
             # trying to force kill
             return trex_kill.force(**kwargs)
@@ -129,7 +131,7 @@ def testing(task, **kwargs):
                     else:
                         result['status'] = False
                         result['state'] = 'error test type'
-                        
+
                         # stop stateless
                         stop_stateless(**kwargs)
 
