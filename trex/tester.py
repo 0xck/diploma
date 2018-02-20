@@ -167,12 +167,12 @@ class Tester():
 
         except (TRexClientWrapperError, TRexSTLClientWrapperError) as err:
             logging.error(template(err.message))
-            raise TesterError(err.message, **err.get_kwargs())
+            raise TesterError(err.message, **err.get_kwargs()) from err
 
         except (TypeError, ValueError) as err:
             content = [type(err), err.args]
             logging.error(template(content))
-            raise TesterError('Wrong value in given settings', content=content)
+            raise TesterError('Wrong value in given settings', content=content) from err
 
     def _check_idle(self, result):
         # return error if trex is not available

@@ -48,9 +48,9 @@ class TRexClientWrapper():
         try:
             return CTRexClient(**config)
 
-        except ResolvingError:
+        except ResolvingError as err:
             logging.warning('Can not resolve TRex server name {}'.format(config.get('trex_host', 'unknown')))
-            TRexClientWrapperError('Resolving error', lvl=SEVERITY.WARNING)
+            raise TRexClientWrapperError('Resolving error', lvl=SEVERITY.WARNING) from err
 
     def __init__(self, server, test, sampler):
         """creating trex client
@@ -118,7 +118,7 @@ class TRexClientWrapper():
                     result.set_err(template('TRex API'))
                 else:
                     logging.error('{} "{}"'.format(template('Unknown TRex ' + err.__class__.__name__), err.msg))
-                    raise err
+                    raise TRexClientWrapperError('{} "{}"'.format(template('Unknown TRex ' + err.__class__.__name__)), content=err) from err
             # JSON-RPC erros, something is wrong with code or server
             except ProtocolError:
                 logging.error('{} for {}'.format(template('TRex RPC'), self.trex.trex_host))
