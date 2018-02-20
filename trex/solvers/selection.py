@@ -92,11 +92,11 @@ class Solver():
     def __str__(self):
         return '<{}> accuracy: {}, step: {}, max_succ: {}, processor: {}, store: {}'.format(self.__class__.__name__, self.accuracy, self.step, self.max_succ, self.processor.__name__, self.store)
 
-    def _raise(self, msg):
-        raise SolverError(msg)
+    def _raise(self, msg, err=None):
+        raise SolverError(msg) from err
 
-    def _raise_key_nf(self, key):
-        self._raise('Wrong data format, key <{}> not found'.format(key))
+    def _raise_key_nf(self, key, err=None):
+        self._raise('Wrong data format, key <{}> not found'.format(key), err=err)
 
     def _exception_handler(func):
         """decorator for handling common exceptions"""
@@ -110,7 +110,7 @@ class Solver():
                 return func(self, *args, **kwargs)
 
             except KeyError as err:
-                self._raise(template('Key'))
+                self._raise(template('Key'), err=err)
 
         return wrapper
 

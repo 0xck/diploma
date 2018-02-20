@@ -57,6 +57,6 @@ class Solver():
             if not self.store:
                 hub.pop(0)
         except (SyntaxError, IndexError) as err:
-            raise SolverError(err.args)
+            raise SolverError(err.args) from err
 
         return params

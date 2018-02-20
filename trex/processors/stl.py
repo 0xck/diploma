@@ -39,7 +39,7 @@ def processor(data, ifaces=[0, 1], slicer=None):
         data = data[slicer] if slicer else data
 
     except TypeError as err:
-        raise ProcessorError('Something wrong with slicer: <{}>'.format(slicer), content=err.args)
+        raise ProcessorError('Something wrong with slicer: <{}>'.format(slicer), content=err.args) from err
 
     if not data:
         return None
