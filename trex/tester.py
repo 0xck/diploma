@@ -1,3 +1,14 @@
+# Copyright 2017-2018 by Constantine Kormashev. All Rights Reserved.
+# Licensed under Mozilla Public License Version 2.0 (the "License");
+# You may obtain a copy of the License at
+# https://www.mozilla.org/en-US/MPL/2.0/
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 tester for making test with trex client
 """
@@ -167,12 +178,12 @@ class Tester():
 
         except (TRexClientWrapperError, TRexSTLClientWrapperError) as err:
             logging.error(template(err.message))
-            raise TesterError(err.message, **err.get_kwargs())
+            raise TesterError(err.message, **err.get_kwargs()) from err
 
         except (TypeError, ValueError) as err:
             content = [type(err), err.args]
             logging.error(template(content))
-            raise TesterError('Wrong value in given settings', content=content)
+            raise TesterError('Wrong value in given settings', content=content) from err
 
     def _check_idle(self, result):
         # return error if trex is not available
