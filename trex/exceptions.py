@@ -58,3 +58,8 @@ class ProcessorError(TRexWrapperBaseError):
 class SolverError(TRexWrapperBaseError):
     """common solver function exception"""
     pass
+
+
+class ExecutorError(TRexWrapperBaseError):
+    """common executor function exception"""
+    pass
